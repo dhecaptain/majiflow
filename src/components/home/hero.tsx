@@ -16,6 +16,9 @@ import { Button } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/section-label";
 import { CITIES, easeOut } from "@/lib/constants";
 import { ParallaxBackdrop } from "@/components/ui/parallax-backdrop";
+import { RotatingWord } from "@/components/home/rotating-word";
+
+const HERO_WORDS = ["delivered", "refilled", "tracked", "at your door"] as const;
 
 export function Hero() {
   const reduce = useReducedMotion();
@@ -64,7 +67,8 @@ export function Hero() {
             className="mt-5 font-display text-[2.75rem] leading-[1.06] tracking-tight text-foreground sm:text-6xl lg:text-[4.25rem]"
           >
             Clean water,{" "}
-            <span className="text-gradient">delivered</span> simply — from refill stations near you.
+            <RotatingWord words={HERO_WORDS} className="text-gradient" /> from refill
+            stations near you.
           </motion.h1>
 
           <motion.p
@@ -107,12 +111,6 @@ export function Hero() {
                 </Button>
               </Link>
             </div>
-            <Link href="/business/register" className="sm:w-auto">
-              <Button size="lg" variant="secondary" className="group w-full sm:w-auto">
-                Register your business
-                <ArrowRight className="size-4" aria-hidden />
-              </Button>
-            </Link>
           </motion.div>
 
           <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">

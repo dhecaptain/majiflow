@@ -1,11 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, BadgeCheck, MapPin, Star, Truck } from "lucide-react";
+import { ArrowRight, MapPin, Star, Truck } from "lucide-react";
 import type { Business } from "@/lib/types";
 import { formatKES } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { VerifiedBadge } from "@/components/shared/verified-badge";
 
 interface BusinessCardProps {
   business: Business;
@@ -37,11 +37,11 @@ export function BusinessCard({ business, className, layout = "vertical" }: Busin
             sizes={layout === "horizontal" ? "13rem" : "(min-width: 1024px) 19rem, (min-width: 640px) 45vw, 92vw"}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
-          {business.verified && (
-            <Badge variant="softAccent" className="absolute left-3 top-3">
-              <BadgeCheck className="size-3.5" aria-hidden /> Verified
-            </Badge>
-          )}
+          <VerifiedBadge
+            verified={business.verified}
+            paid={business.paid}
+            className="absolute left-3 top-3"
+          />
         </div>
 
         <div className={cn("flex flex-1 flex-col p-5", layout === "horizontal" && "sm:p-6")}>

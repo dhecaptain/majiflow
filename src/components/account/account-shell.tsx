@@ -16,9 +16,9 @@ import {
   Package,
   Search,
   ShoppingCart,
-  X,
 } from "lucide-react";
 import { BrandMark } from "@/components/layout/brand-mark";
+import { WaterDrawer } from "@/components/ui/water-drawer";
 import { Button } from "@/components/ui/button";
 import waterLiquid from "@/assets/images/backdrops/water-liquid.webp";
 import { useCart } from "@/components/order/cart-provider";
@@ -206,29 +206,9 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile drawer */}
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-            aria-hidden
-          />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl">
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-5">
-              <BrandMark className="scale-90" />
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                aria-label="Close dashboard menu"
-              >
-                <X className="size-5" aria-hidden />
-              </button>
-            </div>
-            {nav}
-          </aside>
-        </div>
-      )}
+      <WaterDrawer open={open} onClose={() => setOpen(false)}>
+        {nav}
+      </WaterDrawer>
 
       {/* Content column */}
       <div className="relative lg:pl-64">

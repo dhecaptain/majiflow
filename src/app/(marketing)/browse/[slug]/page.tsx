@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  BadgeCheck,
   Clock,
   MapPin,
   ShieldCheck,
@@ -14,6 +13,7 @@ import {
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/shared/product-card";
+import { VerifiedBadge } from "@/components/shared/verified-badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { getBusiness } from "@/lib/data/businesses";
 import { businesses } from "@/lib/data/businesses";
@@ -67,11 +67,7 @@ export default async function BusinessProfile({ params }: PageProps) {
                 <h1 className="font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl">
                   {business.name}
                 </h1>
-                {business.verified && (
-                  <Badge variant="softAccent" className="gap-1">
-                    <BadgeCheck className="size-3.5" aria-hidden /> Verified
-                  </Badge>
-                )}
+                <VerifiedBadge verified={business.verified} paid={business.paid} />
                 <Badge variant="mono">{business.subscription} plan</Badge>
               </div>
               <p className="mt-3 text-lg leading-relaxed text-muted-foreground">{business.tagline}</p>

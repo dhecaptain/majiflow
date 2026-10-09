@@ -19,6 +19,9 @@ export const NAV_LINKS = [
   { href: "/for-business", label: "For businesses" },
 ] as const;
 
+/** Routes where the cart belongs — the ordering flow only. */
+const ORDER_FLOW = ["/browse", "/cart", "/checkout", "/order"] as const;
+
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -27,6 +30,9 @@ export function SiteHeader() {
   const { profile } = useCustomer();
   const isLoggedIn = Boolean(profile.name);
   const { reduce, transition } = useMotionSafe();
+  const inOrderFlow = ORDER_FLOW.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -80,18 +86,20 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/cart"
-            aria-label={`Cart, ${count} items`}
-            className="relative flex size-11 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ShoppingCart className="size-5" aria-hidden />
-            {count > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-brand-gradient text-[11px] font-bold text-white shadow-accent">
-                {count}
-              </span>
-            )}
-          </Link>
+          {inOrderFlow && (
+            <Link
+              href="/cart"
+              aria-label={`Cart, ${count} items`}
+              className="relative flex size-11 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ShoppingCart className="size-5" aria-hidden />
+              {count > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-brand-gradient text-[11px] font-bold text-white shadow-accent">
+                  {count}
+                </span>
+              )}
+            </Link>
+          )}
 
           {isLoggedIn ? (
             <Link href="/account" className="hidden sm:inline-flex">

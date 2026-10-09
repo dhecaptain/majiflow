@@ -105,6 +105,8 @@ export interface Business {
   freeDeliveryAbove: number;
   avgDeliveryMinutes: number;
   verified: boolean;
+  /** True once the business has approved status AND an active paid subscription. */
+  paid: boolean;
   acceptsMpesa: boolean;
   acceptsCard: boolean;
   subscription: PlanName;

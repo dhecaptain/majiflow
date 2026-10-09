@@ -18,9 +18,9 @@ import {
   Search,
   Settings,
   Users,
-  X,
 } from "lucide-react";
 import { BrandMark } from "@/components/layout/brand-mark";
+import { WaterDrawer } from "@/components/ui/water-drawer";
 import { BusinessProvider, useBusiness } from "@/components/business/business-provider";
 import { Badge } from "@/components/ui/badge";
 import { businesses } from "@/lib/data/businesses";
@@ -174,25 +174,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile drawer */}
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl">
-            <div className="flex h-16 items-center justify-between border-b border-border px-5">
-              <BrandMark className="scale-90" />
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                aria-label="Close dashboard menu"
-              >
-                <X className="size-5" aria-hidden />
-              </button>
-            </div>
-            {nav}
-          </aside>
-        </div>
-      )}
+      <WaterDrawer open={open} onClose={() => setOpen(false)}>
+        {nav}
+      </WaterDrawer>
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-white/80 px-4 backdrop-blur-md sm:px-6">
