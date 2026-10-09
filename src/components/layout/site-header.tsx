@@ -22,6 +22,8 @@ export const NAV_LINKS = [
 /** Routes where the cart belongs — the ordering flow only. */
 const ORDER_FLOW = ["/browse", "/cart", "/checkout", "/order"] as const;
 
+const MENU_EASE = [0.16, 1, 0.3, 1] as const;
+
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,7 +53,6 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   const navTransition: Transition = transition ?? { duration: 0.32, ease: [0.16, 1, 0.3, 1] };
-  const itemTransition: Transition = reduce ? { duration: 0 } : { delay: 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] };
 
   return (
     <header
@@ -145,23 +146,33 @@ export function SiteHeader() {
             animate={{ opacity: 1, height: "auto" }}
             exit={reduce ? { opacity: 0, height: 0 } : { opacity: 0, height: 0 }}
             transition={navTransition}
-            className="overflow-hidden border-b border-border bg-background lg:hidden"
+            className="overflow-hidden rounded-b-2xl border-b border-border bg-background shadow-layered lg:hidden"
           >
-            <div className="flex flex-col gap-1 px-5 pb-6 pt-2">
-              {NAV_LINKS.map((link, i) => (
-                <motion.div
+            {/* Ripple rings */}
+            <motion.span
+              aria-hidden
+              className="pointer-events-none absolute left-6 top-16 size-20 rounded-full border-2 border-[#0052FF]/40"
+              initial={{ scale: 0.3, opacity: 0.8 }}
+              animate={{ scale: 2.6, opacity: 0 }}
+              transition={{ duration: reduce ? 0 : 1, ease: MENU_EASE, delay: reduce ? 0 : 0.18 }}
+            />
+            <motion.span
+              aria-hidden
+              className="pointer-events-none absolute left-12 top-24 size-12 rounded-full border-2 border-[#0052FF]/30"
+              initial={{ scale: 0.3, opacity: 0.8 }}
+              animate={{ scale: 3.4, opacity: 0 }}
+              transition={{ duration: reduce ? 0 : 1.3, ease: MENU_EASE, delay: reduce ? 0 : 0.34 }}
+            />
+
+            <div className="drawer-stagger flex flex-col gap-1 px-5 pb-6 pt-2">
+              {NAV_LINKS.map((link) => (
+                <Link
                   key={link.href}
-                  initial={reduce ? { opacity: 1, x: 0 } : { opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ ...itemTransition, delay: 0.04 * i }}
+                  href={link.href}
+                  className="flex min-h-11 items-center rounded-lg px-3 text-[15px] font-medium text-foreground hover:bg-muted"
                 >
-                  <Link
-                    href={link.href}
-                    className="flex min-h-11 items-center rounded-lg px-3 text-[15px] font-medium text-foreground hover:bg-muted"
-                  >
-                    {link.label}
-                  </Link>
-                </motion.div>
+                  {link.label}
+                </Link>
               ))}
               <div className="mt-4 flex flex-col gap-2.5">
                 {isLoggedIn ? (
@@ -186,6 +197,17 @@ export function SiteHeader() {
                 )}
               </div>
             </div>
+
+            {/* Tide sheet: covers the menu then sweeps off to reveal it */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-brand-gradient"
+              initial={reduce ? { x: "-104%" } : { x: 0 }}
+              animate={{ x: "-104%" }}
+              transition={{ duration: reduce ? 0 : 0.55, ease: MENU_EASE, delay: reduce ? 0 : 0.12 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/30 via-white/10 to-transparent" />
+            </motion.div>
           </motion.nav>
         )}
       </AnimatePresence>
