@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Order, OrderLocation, OrderStatus } from "@/lib/types";
 import { getBusinessOrderBlockReason } from "@/lib/business-hours";
+import { computeCartTotals } from "@/lib/pricing";
 import { businesses } from "@/lib/data/businesses";
 
 /**
@@ -29,15 +30,6 @@ function ordersFile(): string {
 }
 
 const LOCATION_HISTORY_CAP = 300;
-
-const VALID_STATUS: OrderStatus[] = [
-  "pending",
-  "accepted",
-  "out_for_delivery",
-  "delivered",
-  "rejected",
-  "cancelled",
-];
 
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -87,10 +79,6 @@ function clone(order: Order): Order {
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
-}
-
-function isStatus(v: unknown): v is OrderStatus {
-  return typeof v === "string" && (VALID_STATUS as string[]).includes(v);
 }
 
 export function generateOrderNumber() {
@@ -156,18 +144,21 @@ export function validateOrder(input: unknown): ValidationResult {
 
   if (o.payment !== "mpesa" && o.payment !== "card")
     errors.payment = "Choose M-Pesa or card.";
-  if (o.paymentState !== "pending" && o.paymentState !== "success" && o.paymentState !== "failed")
-    errors.paymentState = "Invalid payment state.";
-  if (!isStatus(o.status)) errors.status = "Invalid order status.";
+  // Payment is verified server-side through /api/payments. An order is always
+  // born `pending`; clients must never declare it paid.
+  if (o.paymentState !== "pending")
+    errors.paymentState = "Payment is confirmed server-side after checkout - please pay to complete this order.";
+  // Orders always start life pending; later states move through PATCH/vendor flow.
+  if (o.status !== "pending") errors.status = "New orders must start as pending.";
   if (typeof o.placedAt !== "string" || Number.isNaN(Date.parse(o.placedAt)))
     errors.placedAt = "Invalid order time.";
 
-  // Items
+  // Items - verified against the authoritative station catalog, never trusted.
   if (!Array.isArray(o.items) || o.items.length === 0) {
     errors.items = "Add at least one item to your order.";
   }
   const items: Order["items"] = [];
-  let subtotal = 0;
+  const catalogById = new Map((business?.products ?? []).map((p) => [p.id, p]));
   if (Array.isArray(o.items) && o.items.length > 0) {
     for (const raw of o.items) {
       if (typeof raw !== "object" || raw === null) {
@@ -179,31 +170,49 @@ export function validateOrder(input: unknown): ValidationResult {
         errors.items = "Each item needs a product id.";
         break;
       }
-      if (typeof item.name !== "string" || !item.name.trim()) {
-        errors.items = "Each item needs a name.";
+      const catalog = catalogById.get(item.productId);
+      if (!business || !catalog) {
+        errors.items = "An item is no longer available from this station - refresh your cart.";
         break;
       }
       if (!isFiniteNumber(item.quantity) || item.quantity <= 0 || item.quantity > 1000) {
         errors.items = "Quantities must be between 1 and 1000.";
         break;
       }
-      if (!isFiniteNumber(item.unitPrice) || item.unitPrice < 0) {
-        errors.items = "Item price is invalid.";
+      const quantity = Math.round(item.quantity);
+      if (quantity > catalog.stock) {
+        errors.items =
+          catalog.stock <= 0
+            ? `${catalog.name} is out of stock right now.`
+            : `Only ${catalog.stock} × ${catalog.name} left - lower the quantity.`;
         break;
       }
-      const quantity = Math.round(item.quantity);
-      const unitPrice = item.unitPrice;
-      subtotal += quantity * unitPrice;
-      items.push({ productId: item.productId, name: item.name, quantity, unitPrice });
+      // The client echoes a price for display, but the catalog decides.
+      if (!isFiniteNumber(item.unitPrice) || Math.abs(item.unitPrice - catalog.price) > 0.001) {
+        errors.items = `The price of ${catalog.name} changed - refresh your cart to continue.`;
+        break;
+      }
+      items.push({ productId: catalog.id, name: catalog.name, quantity, unitPrice: catalog.price });
     }
   }
 
-  // Financial integrity - never trust client totals.
-  if (!isFiniteNumber(o.subtotal) || Math.abs(o.subtotal - subtotal) > 0.001)
-    errors.subtotal = "Subtotal doesn't match the items - refresh and retry.";
-  if (!isFiniteNumber(o.deliveryFee) || o.deliveryFee < 0) errors.deliveryFee = "Delivery fee is invalid.";
-  const fee = isFiniteNumber(o.deliveryFee) && o.deliveryFee >= 0 ? o.deliveryFee : 0;
-  if (!isFiniteNumber(o.total) || Math.abs(o.total - (subtotal + fee)) > 0.001)
+  // Financial integrity - totals are recomputed from catalog prices and the
+  // station's own fee rule, then the client echo must match. This keeps stale
+  // carts, fee tampering, and cross-station mixing out.
+  const authoritative = business
+    ? computeCartTotals(
+        items.map((line) => ({ businessId: business.id, quantity: line.quantity, unitPrice: line.unitPrice })),
+        [{ id: business.id, deliveryFee: business.deliveryFee, freeDeliveryAbove: business.freeDeliveryAbove }]
+      )
+    : null;
+  const subtotal = authoritative?.subtotal ?? 0;
+  const fee = authoritative?.deliveryFee ?? 0;
+  const total = authoritative?.total ?? 0;
+  if (!authoritative || !isFiniteNumber(o.subtotal) || Math.abs(o.subtotal - subtotal) > 0.001)
+    errors.subtotal = "Subtotal doesn't match the current catalog - refresh and retry.";
+  if (!isFiniteNumber(o.deliveryFee) || Math.abs((o.deliveryFee as number) - fee) > 0.001)
+    errors.deliveryFee = "Delivery fee is set by the station - refresh and retry.";
+  if (!isFiniteNumber(o.total) || Math.abs(o.total - total) > 0.001)
     errors.total = "Total doesn't match - refresh and retry.";
 
   // Address
@@ -253,6 +262,7 @@ export function validateOrder(input: unknown): ValidationResult {
 
   if (Object.keys(errors).length > 0) return { errors };
 
+  const verifiedAt = new Date().toISOString();
   const order: Order = {
     id: typeof o.id === "string" && o.id.trim() ? o.id.slice(0, 80) : `order-${Date.now()}`,
     orderNumber:
@@ -260,16 +270,23 @@ export function validateOrder(input: unknown): ValidationResult {
         ? o.orderNumber
         : generateOrderNumber(),
     businessId: o.businessId as string,
-    businessName: o.businessName as string,
+    businessName: business!.name,
     customerName: customerName!,
     customerPhone: customerPhone!,
     items,
     subtotal,
     deliveryFee: fee,
-    total: subtotal + fee,
+    total,
+    pricingSnapshot: {
+      verifiedAt,
+      items: items.map((line) => ({ ...line })),
+      subtotal,
+      deliveryFee: fee,
+      total,
+    },
     payment: o.payment as Order["payment"],
-    paymentState: o.paymentState as Order["paymentState"],
-    status: o.status as OrderStatus,
+    paymentState: "pending",
+    status: "pending",
     address: address!,
     placedAt: o.placedAt as string,
     eta: typeof o.eta === "string" ? o.eta : undefined,

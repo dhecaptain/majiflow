@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Droplets, Minus, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { Droplets, AlertCircle, Minus, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/feedback";
 import { productImage } from "@/lib/product-images";
 import { useCart } from "@/components/order/cart-provider";
 import { businesses } from "@/lib/data/businesses";
+import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 import { formatKES } from "@/lib/format";
 import { computeCartTotals } from "@/lib/pricing";
 
@@ -62,6 +63,14 @@ export function CartPage() {
     (group) => group.subtotal > 0 && group.deliveryFee === 0
   );
   const stationNames = new Map(businesses.map((b) => [b.id, b.name]));
+  const stationById = new Map(businesses.map((b) => [b.id, b]));
+  const stationBlockers = totals.groups
+    .map((group) => {
+      const business = stationById.get(group.businessId);
+      const reason = business ? getBusinessOrderBlockReason(business) : "This station is no longer available.";
+      return reason ? { businessId: group.businessId, name: business?.name ?? group.businessId, reason } : null;
+    })
+    .filter((b): b is { businessId: string; name: string; reason: string } => b !== null);
 
   return (
     <Container className="py-14 lg:py-20">
@@ -185,6 +194,22 @@ export function CartPage() {
             <Droplets className="size-4 shrink-0" aria-hidden />
             Payment is collected with M-Pesa before dispatch.
           </p>
+
+          {stationBlockers.length > 0 && (
+            <div className="mt-4 rounded-xl border border-danger/30 bg-danger/5 p-3" role="alert">
+              {stationBlockers.map((b) => (
+                <p key={b.businessId} className="flex items-start gap-2 text-xs leading-relaxed text-foreground">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                  <span>
+                    <strong>{b.name}:</strong> {b.reason}
+                  </span>
+                </p>
+              ))}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Remove these items or wait for opening hours - checkout will not accept them.
+              </p>
+            </div>
+          )}
 
           <Link href="/checkout" className="mt-5 block">
             <Button size="lg" className="group w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]">

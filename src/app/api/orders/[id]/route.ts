@@ -15,7 +15,9 @@ export async function GET(_request: Request, ctx: Context) {
   return Response.json({ order });
 }
 
-const PATCHABLE = new Set(["status", "eta", "paymentState"]);
+// Payment state is written server-side only (verified provider callbacks in
+// /api/payments). Clients - including vendor screens - cannot set it here.
+const PATCHABLE = new Set(["status", "eta"]);
 
 export async function PATCH(request: Request, ctx: Context) {
   const { id } = await ctx.params;
@@ -31,12 +33,15 @@ export async function PATCH(request: Request, ctx: Context) {
 
   const patch: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+    if (key === "paymentState") {
+      return Response.json(
+        { error: "Payment state is confirmed server-side after checkout - it cannot be set here." },
+        { status: 400 }
+      );
+    }
     if (!PATCHABLE.has(key)) continue;
     if (key === "status" && !isOrderStatus(value)) {
       return Response.json({ error: "Unknown status" }, { status: 400 });
-    }
-    if (key === "paymentState" && value !== "pending" && value !== "success" && value !== "failed") {
-      return Response.json({ error: "Unknown payment state" }, { status: 400 });
     }
     if (key === "eta" && typeof value !== "string") {
       return Response.json({ error: "ETA must be a string" }, { status: 400 });
@@ -59,14 +64,6 @@ export async function PATCH(request: Request, ctx: Context) {
     return Response.json({ error: "We could not update the order. Please try again." }, { status: 500 });
   }
   if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-
-  if (patch.paymentState === "failed" && before?.paymentState !== "failed") {
-    await reportFailure("payment", "A payment failed.", {
-      orderId: id,
-      businessId: order.businessId,
-      paymentState: String(patch.paymentState),
-    });
-  }
 
   if (typeof patch.status === "string" && patch.status !== before?.status) {
     // Failures inside the notification seam are reported there, so this cannot

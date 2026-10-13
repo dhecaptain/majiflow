@@ -142,6 +142,15 @@ export function getBusinessAvailability(
   return { state: "closed", hoursLabel: `Today ${windowLabel(today)}` };
 }
 
+/**
+ * After-hours ordering policy (interim, product to confirm): REJECT.
+ * Orders outside a station's published schedule - including stations whose
+ * hours are unknown - are refused with 422 and a human-readable reason, both
+ * from this server-side gate and the pre-payment UI guards. No queue-for-later
+ * path exists yet; adding one means changing this function plus the checkout
+ * blockers, not inventing a parallel check. Overnight windows and the
+ * Africa/Nairobi boundary handling above apply unchanged.
+ */
 export function getBusinessOrderBlockReason(business: Pick<Business, "openingHours">, now = new Date()): string | null {
   const availability = getBusinessAvailability(business.openingHours, now);
   if (availability.state === "closed") return "This station is closed right now. Please order during its operating hours.";
