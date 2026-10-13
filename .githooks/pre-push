@@ -1,0 +1,26 @@
+#!/bin/sh
+# Pre-push guard: NEVER allow direct pushes to main/master/production.
+# Install: git config core.hooksPath .githooks  (or copy to .git/hooks/pre-push)
+# Bypass (admin override, logged): MAJI_ALLOW_MAIN_PUSH=1 git push origin main
+
+protected="main master production"
+allow_log=".git/maji-admin-push.log"
+
+while read local_ref local_sha remote_ref remote_sha; do
+  branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
+  for p in $protected; do
+    if [ "$branch" = "$p" ]; then
+      if [ "${MAJI_ALLOW_MAIN_PUSH:-}" = "1" ]; then
+        echo "[pre-push] WARNING: admin override push to '$p' (logging to $allow_log)" >&2
+        mkdir -p .git
+        echo "$(date -u +%FT%TZ) user=$(git config user.name || whoami) push-to=$p $local_ref $local_sha -> $remote_ref" >> "$allow_log"
+        exit 0
+      fi
+      echo "[pre-push] BLOCKED: direct pushes to '$p' are forbidden." >&2
+      echo "Use: git checkout -b feature/<name>-<task>  -> commit -> git push -u origin <branch> -> open PR" >&2
+      echo "Admin override (logged): MAJI_ALLOW_MAIN_PUSH=1 git push origin $p" >&2
+      exit 1
+    fi
+  done
+done
+exit 0
