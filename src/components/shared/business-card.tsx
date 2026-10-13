@@ -11,9 +11,20 @@ import { BusinessAvailability } from "@/components/shared/business-availability"
 interface BusinessCardProps {
   business: Business;
   className?: string;
+  distanceKm?: number;
 }
 
-export function BusinessCard({ business, className }: BusinessCardProps) {
+function formatDistanceKm(distanceKm: number): string {
+  if (distanceKm < 1) return "<1 km";
+  if (distanceKm < 10) return `${distanceKm.toFixed(1)} km`;
+  return `${Math.round(distanceKm)} km`;
+}
+
+export function BusinessCard({
+  business,
+  className,
+  distanceKm,
+}: BusinessCardProps) {
   return (
     <Link
       href={`/browse/${business.slug}`}
@@ -60,6 +71,12 @@ export function BusinessCard({ business, className }: BusinessCardProps) {
           </p>
 
           <BusinessAvailability hours={business.openingHours} compact plain />
+          {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#0052FF]">
+              <MapPin className="size-3.5" aria-hidden />{" "}
+              {formatDistanceKm(distanceKm)} away
+            </p>
+          )}
 
           <div className="mt-auto border-t border-border pt-4">
             <div className="flex items-center justify-between gap-3 text-sm">
