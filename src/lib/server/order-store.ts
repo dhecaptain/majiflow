@@ -95,7 +95,7 @@ function cleanName(v: unknown): string | null {
 }
 
 /** Normalize a Kenyan phone (+254…, 0…, 07…, bare 7…) to a canonical form. */
-function normalizePhone(v: unknown): string | null {
+export function normalizePhone(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const digits = v.replace(/[\s()\-.]/g, "");
   let local = digits;
@@ -301,11 +301,14 @@ export interface ListOptions {
   businessId?: string;
   status?: string;
   phone?: string;
+  /** Restrict to orders owned by this customer account. */
+  customerUserId?: string;
 }
 
 export async function listOrders(opts: ListOptions = {}): Promise<Order[]> {
   return readOnly((orders) => {
     let list = Object.values(orders);
+    if (opts.customerUserId) list = list.filter((o) => o.customerUserId === opts.customerUserId);
     if (opts.businessId) list = list.filter((o) => o.businessId === opts.businessId);
     if (opts.status) list = list.filter((o) => o.status === opts.status);
     if (opts.phone) {
@@ -328,6 +331,36 @@ export async function listOrders(opts: ListOptions = {}): Promise<Order[]> {
 
 export async function getOrder(id: string): Promise<Order | null> {
   return readOnly((orders) => (orders[id] ? clone(orders[id]) : null));
+}
+
+/** Ownership-checked read: another customer's order is indistinguishable from a missing one. */
+/** Order as exposed by the public (unauthenticated) order endpoints - without the owning account id. */
+export function publicOrder(order: Order): Order {
+  const copy = { ...order };
+  delete copy.customerUserId;
+  return copy;
+}
+
+export async function getCustomerOrder(id: string, customerUserId: string): Promise<Order | null> {
+  const order = await getOrder(id);
+  return order && order.customerUserId === customerUserId ? order : null;
+}
+
+/**
+ * Unlink a deleted account from its orders. The orders stay - stations need
+ * them for their records - but they no longer point at a user.
+ */
+export async function detachCustomerOrders(customerUserId: string): Promise<number> {
+  return mutate((orders) => {
+    let count = 0;
+    for (const order of Object.values(orders)) {
+      if (order.customerUserId === customerUserId) {
+        delete order.customerUserId;
+        count += 1;
+      }
+    }
+    return count;
+  });
 }
 
 /**
@@ -375,6 +408,31 @@ export async function updateOrder(id: string, patch: Partial<Order>): Promise<Or
       patch.locationHistory !== undefined ? patch.locationHistory : existing.locationHistory;
     orders[id] = next;
     return clone(next);
+  });
+}
+
+/**
+ * Move an order to a new status only if `guard` still allows it, checked
+ * inside the same serialized write so a concurrent station update can't slip
+ * between the check and the change.
+ */
+export async function transitionOrder(
+  id: string,
+  status: OrderStatus,
+  guard: (order: Order) => string | null
+): Promise<{ order: Order } | { error: string } | null> {
+  return mutate((orders) => {
+    const existing = orders[id];
+    if (!existing) return null;
+    const blocked = guard(clone(existing));
+    if (blocked) return { error: blocked };
+    const next: Order = {
+      ...existing,
+      status,
+      timeline: [...(existing.timeline ?? []), { status, at: new Date().toISOString() }],
+    };
+    orders[id] = next;
+    return { order: clone(next) };
   });
 }
 

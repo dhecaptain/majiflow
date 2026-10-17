@@ -23,6 +23,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Dialog } from "@/components/ui/dialog";
 import { useCustomer, type CustomerProfile } from "@/components/order/customer-provider";
 import { useToast } from "@/components/ui/toast";
+import { accountApi } from "@/lib/account-client";
 import {
   captureLocationBestEffort,
   geolocationErrorMessage,
@@ -34,14 +35,11 @@ import {
 } from "@/lib/geo";
 import type { DeliveryAddress } from "@/lib/types";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 type Errors = Record<string, string>;
 
 interface ProfileForm {
   name: string;
   phone: string;
-  email: string;
 }
 
 function primaryAddress(profile: CustomerProfile) {
@@ -81,7 +79,6 @@ function toForm(profile: CustomerProfile): ProfileForm {
   return {
     name: profile.name,
     phone: profile.phone,
-    email: profile.email ?? "",
   };
 }
 
@@ -91,7 +88,7 @@ function isComplete(profile: CustomerProfile): boolean {
 }
 
 export function ProfilePage() {
-  const { profile, hydrated, loggedIn, updateProfile, deleteAccount } = useCustomer();
+  const { profile, hydrated, loggedIn, refreshAccount, forgetLocalAccount } = useCustomer();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -101,6 +98,10 @@ export function ProfilePage() {
   const [form, setForm] = useState<ProfileForm>(() => toForm(profile));
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [password, setPassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   if (!hydrated) {
     return (
@@ -172,26 +173,34 @@ export function ProfilePage() {
       const loc = await captureLocationBestEffort();
       const near = nearestPlace(loc.lat, loc.lng);
       const geo = await reverseGeocode(loc.lat, loc.lng, loc.accuracy);
-      updateProfile({
-        name: profile.name,
-        phone: profile.phone,
-        email: profile.email ?? "",
-        address: {
-          label: address?.label ?? "Home",
-          estate: geo?.estate || address?.estate || near.estate || "",
-          street: geo?.street || address?.street,
-          city: resolveCity(geo?.city, address?.city, near.city),
-          landmark: address?.landmark,
-          building: geo?.building || address?.building,
-          floor: address?.floor,
-          notes: address?.notes,
-          phone: profile.phone,
-          lat: loc.lat,
-          lng: loc.lng,
-          accuracy: loc.accuracy,
-          locationAt: loc.at,
-        },
-      });
+      const estate = geo?.estate || address?.estate || near.estate || "";
+      if (!estate) {
+        setLocationError("We pinned you but couldn't name your estate. Add it under Addresses so riders know the area.");
+        return;
+      }
+      const next = {
+        label: address?.label ?? "Home",
+        estate,
+        street: geo?.street || address?.street,
+        city: resolveCity(geo?.city, address?.city, near.city),
+        landmark: address?.landmark,
+        building: geo?.building || address?.building,
+        floor: address?.floor,
+        notes: address?.notes,
+        phone: address?.phone || profile.phone,
+        lat: loc.lat,
+        lng: loc.lng,
+        accuracy: loc.accuracy,
+        locationAt: loc.at,
+      };
+      const result = address?.id
+        ? await accountApi.updateAddress(address.id, next)
+        : await accountApi.saveAddress({ ...next, makeDefault: true });
+      if (!result.ok) {
+        setLocationError(Object.values(result.fields)[0] ?? result.error);
+        return;
+      }
+      await refreshAccount();
       toast({
         kind: "success",
         title: "Location shared",
@@ -216,50 +225,57 @@ export function ProfilePage() {
     else if (digits.startsWith("254")) digits = "0" + digits.slice(3);
     if (!/^0\d{9}$/.test(digits))
       errs.phone = "Use a Kenyan number, e.g. 07XX XXX XXX or +254 7XX….";
-
-    if (!form.email.trim()) errs.email = "Add your email for receipts and updates.";
-    else if (!EMAIL_RE.test(form.email.trim())) errs.email = "Enter a valid email address.";
     return errs;
   };
 
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     setErrors(errs);
-    const first = ["name", "phone", "email"].find((k) => errs[k]);
+    const first = ["name", "phone"].find((k) => errs[k]);
     if (first) {
       toast({ kind: "error", title: "A few details need fixing", message: errs[first] });
       return;
     }
-    updateProfile({
-      name: form.name,
-      phone: form.phone,
-      email: form.email,
-      address: {
-        label: address?.label ?? "Home",
-        estate: address?.estate ?? "",
-        street: address?.street,
-        city: address?.city,
-        landmark: address?.landmark,
-        building: address?.building,
-        floor: address?.floor,
-        notes: address?.notes,
-        phone: form.phone,
-        lat: address?.lat,
-        lng: address?.lng,
-        accuracy: address?.accuracy,
-        locationAt: address?.locationAt,
-      },
-    });
+    setSaving(true);
+    const result = await accountApi.updateProfile({ name: form.name.trim(), phone: form.phone.trim() });
+    setSaving(false);
+    if (!result.ok) {
+      setErrors(result.fields);
+      toast({ kind: "error", title: "Couldn't save your details", message: Object.values(result.fields)[0] ?? result.error });
+      return;
+    }
+    await refreshAccount();
     setEditing(false);
     toast({ kind: "success", title: "Profile updated", message: "Your details are saved for next time." });
   };
 
-  const confirmDelete = () => {
-    deleteAccount();
+  const closeDelete = () => {
+    if (deleting) return;
+    setConfirmOpen(false);
+    setPassword("");
+    setDeleteError(null);
+  };
+
+  const confirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) {
+      setDeleteError("Enter your password to confirm.");
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await accountApi.deleteAccount(password);
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error);
+      return;
+    }
+    forgetLocalAccount();
     setConfirmOpen(false);
     toast({ kind: "info", title: "Account deleted", message: "Your profile and saved details were removed." });
-    router.push("/");
+    router.replace("/");
+    router.refresh();
   };
 
   return (
@@ -342,16 +358,8 @@ export function ProfilePage() {
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Email" required error={errors.email} hint="For receipts and account updates.">
-                  <Input
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    invalid={Boolean(errors.email)}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                  />
+                <Field label="Email" hint="This is how you sign in, so it can't be changed here.">
+                  <Input name="email" type="email" value={profile.email ?? ""} readOnly aria-readonly />
                 </Field>
               </div>
             </div>
@@ -369,8 +377,8 @@ export function ProfilePage() {
             <Button type="button" variant="secondary" size="lg" onClick={() => setEditing(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="lg" className="group">
-              Save changes
+            <Button type="submit" size="lg" className="group" disabled={saving} aria-busy={saving}>
+              {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </form>
@@ -405,8 +413,8 @@ export function ProfilePage() {
         </div>
         <div className="p-6">
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Permanently delete your account and all saved details. This signs you out and clears your
-            profile and cart on this device.
+            Permanently delete your account, saved addresses and preferences. Past orders stay with the
+            stations for their records but are no longer linked to you. This signs you out.
           </p>
           <Button variant="danger" className="mt-4" onClick={() => setConfirmOpen(true)}>
             <Trash2 className="size-4" aria-hidden /> Delete account
@@ -416,18 +424,29 @@ export function ProfilePage() {
 
       <Dialog
         open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
+        onClose={closeDelete}
         title="Delete your account?"
-        description="Are you sure? This will permanently delete your account and saved details. This cannot be undone."
+        description="This permanently deletes your account and saved details. It cannot be undone."
       >
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={() => setConfirmOpen(false)} data-autofocus>
-            Keep my account
-          </Button>
-          <Button variant="danger" onClick={confirmDelete}>
-            Yes, delete my account
-          </Button>
-        </div>
+        <form onSubmit={confirmDelete} noValidate className="space-y-4">
+          <Field label="Confirm with your password" required error={deleteError ?? undefined}>
+            <Input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              invalid={Boolean(deleteError)}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" onClick={closeDelete} disabled={deleting} data-autofocus>
+              Keep my account
+            </Button>
+            <Button type="submit" variant="danger" disabled={deleting} aria-busy={deleting}>
+              {deleting ? "Deleting…" : "Yes, delete my account"}
+            </Button>
+          </div>
+        </form>
       </Dialog>
     </Container>
   );

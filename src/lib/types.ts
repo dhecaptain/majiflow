@@ -78,6 +78,8 @@ export interface OrderItem {
 }
 
 export interface DeliveryAddress {
+  /** Server id for addresses saved to a signed-in customer's account. */
+  id?: string;
   label: string;
   estate: string;
   street?: string;
@@ -112,6 +114,11 @@ export interface Order {
   businessName: string;
   customerName: string;
   customerPhone: string;
+  /**
+   * Owning customer account, stamped server-side from the session at checkout.
+   * Never accepted from the client; guest orders have none.
+   */
+  customerUserId?: string;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
