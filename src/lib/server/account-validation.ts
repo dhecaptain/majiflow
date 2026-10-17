@@ -135,6 +135,32 @@ export function validatePreferencesInput(input: unknown): { preferences: Prefere
   return Object.keys(errors).length > 0 ? { errors } : { preferences };
 }
 
+type StoredAddressFields = Omit<AddressInput, "makeDefault">;
+
+/**
+ * Re-saving a place that already exists (checkout does this after every order)
+ * must only add detail: the stored label and spelling stay, blank fields keep
+ * their saved values, and the map pin is replaced only by a new one.
+ */
+export function mergeAddressInput(stored: StoredAddressFields, input: AddressInput): StoredAddressFields {
+  const hasPin = input.latitude !== null && input.longitude !== null;
+  return {
+    label: stored.label,
+    estate: stored.estate,
+    building: stored.building ?? input.building,
+    floor: stored.floor ?? input.floor,
+    street: input.street ?? stored.street,
+    city: input.city ?? stored.city,
+    landmark: input.landmark ?? stored.landmark,
+    notes: input.notes ?? stored.notes,
+    phone: input.phone || stored.phone,
+    latitude: hasPin ? input.latitude : stored.latitude,
+    longitude: hasPin ? input.longitude : stored.longitude,
+    accuracy: hasPin ? input.accuracy : stored.accuracy,
+    locationAt: hasPin ? input.locationAt : stored.locationAt,
+  };
+}
+
 /** Stable identity for de-duplicating the same place saved twice. */
 export function addressKey(a: { estate: string; building?: string | null; floor?: string | null }): string {
   return [a.estate, a.building ?? "", a.floor ?? ""].map((p) => p.trim().toLowerCase()).join("|");

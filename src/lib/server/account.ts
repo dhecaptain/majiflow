@@ -1,7 +1,7 @@
 import { and, desc, eq, ne } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { customerAddresses, customerPreferences, users } from "@/lib/server/db/schema";
-import { addressKey, type AddressInput, type PreferencesInput, type ProfileInput } from "@/lib/server/account-validation";
+import { addressKey, mergeAddressInput, type AddressInput, type PreferencesInput, type ProfileInput } from "@/lib/server/account-validation";
 import { detachCustomerOrders } from "@/lib/server/order-store";
 import type { CustomerAccountProfile, CustomerPreferences, SavedAddress } from "@/lib/account";
 
@@ -94,7 +94,7 @@ export async function saveAddress(userId: string, input: AddressInput): Promise<
     const [row] = match
       ? await tx
           .update(customerAddresses)
-          .set({ ...columns(input), isDefault: makeDefault || match.isDefault, updatedAt: now })
+          .set({ ...mergeAddressInput(match, input), isDefault: makeDefault || match.isDefault, updatedAt: now })
           .where(and(eq(customerAddresses.id, match.id), eq(customerAddresses.userId, userId)))
           .returning()
       : await tx
