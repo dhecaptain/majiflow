@@ -143,3 +143,24 @@ export async function requireCustomer() {
   if (!user || user.role !== "customer") throw new AuthenticationError("Customer access is required.");
   return user;
 }
+
+/**
+ * The signed-in customer, or null. Never throws: guest flows (checkout, public
+ * tracking) must keep working when there is no session or no database.
+ */
+export async function getOptionalCustomer(): Promise<AuthenticatedUser | null> {
+  try {
+    const user = await getCurrentUser();
+    return user?.role === "customer" ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Re-check a signed-in user's password before a destructive action. */
+export async function verifyUserPassword(userId: string, password: unknown): Promise<boolean> {
+  if (typeof password !== "string" || !password) return false;
+  const { db } = await getDatabase();
+  const [user] = await db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).limit(1);
+  return Boolean(user) && (await verifyPassword(password, user.passwordHash));
+}

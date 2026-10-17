@@ -114,8 +114,9 @@ function prefillFromAddress(a: DeliveryAddress | undefined) {
 }
 
 export function CheckoutPage() {
-  const { hydrated } = useCustomer();
-  return <CheckoutForm key={hydrated ? "hydrated" : "initial"} />;
+  const { hydrated, accountSynced } = useCustomer();
+  // Re-prefill once when a signed-in customer's saved details arrive from the server.
+  return <CheckoutForm key={!hydrated ? "initial" : accountSynced ? "account" : "hydrated"} />;
 }
 
 function CheckoutForm() {

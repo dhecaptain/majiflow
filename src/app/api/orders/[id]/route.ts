@@ -1,6 +1,7 @@
 import { notifyStatusChange, reportFailure } from "@/lib/monitoring";
 import { isOrderStatus } from "@/lib/order-status";
-import { getOrder, updateOrder } from "@/lib/server/order-store";
+import { wantsOrderUpdates } from "@/lib/server/account";
+import { getOrder, publicOrder, updateOrder } from "@/lib/server/order-store";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET(_request: Request, ctx: Context) {
   const { id } = await ctx.params;
   const order = await getOrder(id);
   if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-  return Response.json({ order });
+  return Response.json({ order: publicOrder(order) });
 }
 
 // Payment state is written server-side only (verified provider callbacks in
@@ -67,9 +68,12 @@ export async function PATCH(request: Request, ctx: Context) {
 
   if (typeof patch.status === "string" && patch.status !== before?.status) {
     // Failures inside the notification seam are reported there, so this cannot
-    // turn a saved status change into an error response.
-    await notifyStatusChange({ id: order.id, status: order.status }, order.customerPhone);
+    // turn a saved status change into an error response. Account holders who
+    // opted out of order updates are skipped.
+    if (await wantsOrderUpdates(order.customerUserId)) {
+      await notifyStatusChange({ id: order.id, status: order.status }, order.customerPhone);
+    }
   }
 
-  return Response.json({ order });
+  return Response.json({ order: publicOrder(order) });
 }

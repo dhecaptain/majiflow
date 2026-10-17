@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profileForSession, type CustomerProfile } from "./customer-provider";
+import { profileForSession, profileFromAccount, type CustomerProfile } from "./customer-provider";
 
 const stored: CustomerProfile = {
   name: "Old Customer",
@@ -35,5 +35,20 @@ describe("customer session isolation", () => {
       addresses: [],
       defaultAddressIndex: 0,
     });
+  });
+});
+
+describe("profileFromAccount", () => {
+  it("uses the server account and points at its default address", () => {
+    const profile = profileFromAccount(
+      { name: "Jane", phone: "0712345678", email: "jane@example.com" },
+      [
+        { id: "a1", label: "Work", estate: "Upper Hill", phone: "0712345678", isDefault: false },
+        { id: "a2", label: "Home", estate: "South B", phone: "0712345678", isDefault: true },
+      ]
+    );
+    expect(profile.defaultAddressIndex).toBe(1);
+    expect(profile.addresses[1]).toEqual({ id: "a2", label: "Home", estate: "South B", phone: "0712345678" });
+    expect(profile.email).toBe("jane@example.com");
   });
 });

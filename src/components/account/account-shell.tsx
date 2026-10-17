@@ -83,7 +83,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           href={item.href}
           label={item.label}
           icon={item.icon}
-          active={pathname === item.href}
+          active={pathname === item.href || (item.href !== "/account" && pathname.startsWith(`${item.href}/`))}
           onClick={() => setOpen(false)}
         />
       ))}

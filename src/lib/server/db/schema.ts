@@ -1,5 +1,7 @@
 import {
   boolean,
+  doublePrecision,
+  index,
   integer,
   numeric,
   pgEnum,
@@ -106,6 +108,44 @@ export const businesses = pgTable(
     slugUnique: uniqueIndex("businesses_slug_unique").on(table.slug),
   })
 );
+
+export const customerAddresses = pgTable(
+  "customer_addresses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 40 }).notNull(),
+    estate: varchar("estate", { length: 60 }).notNull(),
+    street: varchar("street", { length: 120 }),
+    building: varchar("building", { length: 60 }),
+    floor: varchar("floor", { length: 60 }),
+    city: varchar("city", { length: 40 }),
+    landmark: varchar("landmark", { length: 500 }),
+    notes: varchar("notes", { length: 500 }),
+    phone: varchar("phone", { length: 20 }).notNull(),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    accuracy: doublePrecision("accuracy"),
+    locationAt: timestamp("location_at", { withTimezone: true }),
+    isDefault: boolean("is_default").default(false).notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    userIdx: index("customer_addresses_user_idx").on(table.userId),
+  })
+);
+
+export const customerPreferences = pgTable("customer_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  orderUpdates: boolean("order_updates").default(true).notNull(),
+  marketing: boolean("marketing").default(false).notNull(),
+  notificationsReadAt: timestamp("notifications_read_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
