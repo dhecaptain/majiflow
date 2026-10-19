@@ -3,11 +3,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ADDRESS_PIN_RETENTION_DAYS,
+  applyOrderRetention,
   createOrder,
   getOrder,
   listOrders,
+  locationBlockReason,
   recordLocation,
+  transitionOrder,
   updateOrder,
+  updateOrderConsent,
   validateOrder,
 } from "@/lib/server/order-store";
 import { makeOrder } from "@/lib/testing/factories";
@@ -258,8 +263,78 @@ describe("recordLocation", () => {
     const at = "2026-09-21T10:50:00.000Z";
 
     const updated = await recordLocation(created.id, { lat: -1.23, lng: 36.89, at });
-    expect(updated?.location).toEqual({ lat: -1.23, lng: 36.89, accuracy: undefined, at });
+    expect(updated && "location" in updated ? updated.location : null).toEqual({ lat: -1.23, lng: 36.89, accuracy: undefined, at });
     expect(await recordLocation("nope", { lat: 0, lng: 0, at })).toBeNull();
+  });
+
+  it("refuses a fix without location consent or once the order has closed", async () => {
+    const at = "2026-09-21T10:50:00.000Z";
+    await createOrder(makeOrder({ id: "no-consent", status: "pending", consent: { location: false, smsUpdates: true, updatedAt: at } }));
+    expect(await recordLocation("no-consent", { lat: 0, lng: 0, at }, locationBlockReason)).toEqual({
+      error: expect.stringMatching(/sharing is off/),
+    });
+
+    await createOrder(makeOrder({ id: "closed", status: "delivered", consent: { location: true, smsUpdates: true, updatedAt: at } }));
+    expect(await recordLocation("closed", { lat: 0, lng: 0, at }, locationBlockReason)).toEqual({
+      error: expect.stringMatching(/closed/),
+    });
+  });
+
+  it("deletes shared locations when consent is withdrawn", async () => {
+    const at = "2026-09-21T10:50:00.000Z";
+    await createOrder(makeOrder({ id: "withdraw", status: "pending", consent: { location: true, smsUpdates: true, updatedAt: at } }));
+    await recordLocation("withdraw", { lat: -1.2, lng: 36.8, at }, locationBlockReason);
+    const after = await updateOrderConsent("withdraw", { location: false });
+    expect(after?.location).toBeNull();
+    expect(after?.locationHistory).toEqual([]);
+    expect(after?.consent).toMatchObject({ location: false, smsUpdates: true });
+  });
+});
+
+describe("transitionOrder", () => {
+  it("purges live location and the rider link when an order closes", async () => {
+    const at = "2026-09-21T10:50:00.000Z";
+    await createOrder(
+      makeOrder({
+        id: "closing",
+        status: "out_for_delivery",
+        riderTokenHash: "hash",
+        location: { lat: 1, lng: 1, at },
+        locationHistory: [{ lat: 1, lng: 1, at }],
+      })
+    );
+    const result = await transitionOrder("closing", "delivered", () => null, { actor: "rider" });
+    expect(result && "order" in result).toBe(true);
+    const order = (result as { order: import("@/lib/types").Order }).order;
+    expect(order.location).toBeNull();
+    expect(order.locationHistory).toEqual([]);
+    expect(order).not.toHaveProperty("riderTokenHash");
+    expect(order.closedAt).toBeTruthy();
+    expect(order.timeline?.at(-1)).toMatchObject({ status: "delivered", actor: "rider" });
+  });
+
+  it("leaves the order untouched when the guard refuses", async () => {
+    await createOrder(makeOrder({ id: "guarded", status: "pending" }));
+    expect(await transitionOrder("guarded", "accepted", () => "no")).toEqual({ error: "no" });
+    expect((await getOrder("guarded"))?.status).toBe("pending");
+  });
+});
+
+describe("applyOrderRetention", () => {
+  it(`drops the address pin ${ADDRESS_PIN_RETENTION_DAYS} days after an order closes, never for open orders`, async () => {
+    const pin = { label: "Home", estate: "Kasarani", phone: "0712345678", lat: -1.22, lng: 36.89, accuracy: 10 };
+    const closedAt = "2026-08-01T10:00:00.000Z";
+    await createOrder(makeOrder({ id: "old", status: "delivered", closedAt, address: { ...pin } }));
+    await createOrder(makeOrder({ id: "recent", status: "delivered", closedAt: "2026-09-20T10:00:00.000Z", address: { ...pin } }));
+    await createOrder(makeOrder({ id: "open", status: "pending", address: { ...pin } }));
+
+    expect(await applyOrderRetention(new Date("2026-09-21T07:00:00Z"))).toBe(1);
+    const old = await getOrder("old");
+    expect(old?.address.lat).toBeUndefined();
+    expect(old?.address.estate).toBe("Kasarani");
+    expect(old?.pinRedactedAt).toBeTruthy();
+    expect((await getOrder("recent"))?.address.lat).toBe(-1.22);
+    expect((await getOrder("open"))?.address.lat).toBe(-1.22);
   });
 });
 

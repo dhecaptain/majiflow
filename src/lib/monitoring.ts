@@ -96,8 +96,9 @@ let warnedNoNotificationProvider = false;
  * failing on every status change.
  */
 export async function notifyStatusChange(
-  order: { id: string; status: string },
-  to: string
+  order: { id: string; status: string; orderNumber?: string },
+  to: string,
+  message?: string
 ): Promise<{ sent: boolean }> {
   const url = process.env.MF_NOTIFY_WEBHOOK_URL;
   if (!url) {
@@ -115,7 +116,13 @@ export async function notifyStatusChange(
       method: "POST",
       headers: { "content-type": "application/json" },
       // The sending provider receives the number; the alert log never does.
-      body: JSON.stringify({ orderId: order.id, status: order.status, to }),
+      body: JSON.stringify({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        to,
+        ...(message ? { message } : {}),
+      }),
     });
     if (!response.ok) {
       await reportFailure("notification", `Notification provider rejected a status message (${response.status}).`, {

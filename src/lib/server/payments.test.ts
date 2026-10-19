@@ -2,10 +2,11 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createOrder, validateOrder } from "@/lib/server/order-store";
+import { createOrder, getOrder, validateOrder } from "@/lib/server/order-store";
 import {
   applyProviderOutcome,
   confirmRefund,
+  findPaymentForOrder,
   getPayment,
   initiatePayment,
   parseDarajaCallback,
@@ -211,6 +212,28 @@ describe("refund lifecycle", () => {
     await expect(requestRefund({ paymentId: payment.id, reason: "x", requestedBy: "admin" })).rejects.toThrow(
       /only successful/i
     );
+  });
+
+  it("refunds one station's order from a multi-station payment, once", async () => {
+    await seedOrder("pay-a");
+    await seedOrder("pay-b");
+    const { payment } = await initiatePayment({
+      orderIds: ["pay-a", "pay-b"],
+      phone: "0712345678",
+      method: "mpesa",
+      idempotencyKey: "key-split",
+    });
+    await applyProviderOutcome({ paymentId: payment.id, outcome: "success", amount: 1640 });
+    expect((await findPaymentForOrder("pay-b"))?.id).toBe(payment.id);
+
+    const first = await requestRefund({ paymentId: payment.id, orderId: "pay-a", reason: "Rejected", requestedBy: "station" });
+    expect(first).toMatchObject({ amount: 820, orderIds: ["pay-a"], status: "pending" });
+    const again = await requestRefund({ paymentId: payment.id, orderId: "pay-a", reason: "Retry", requestedBy: "station" });
+    expect(again.id).toBe(first.id);
+
+    await confirmRefund(first.id, "REV-A");
+    expect((await getOrder("pay-a"))?.paymentState).toBe("refunded");
+    expect((await getOrder("pay-b"))?.paymentState).toBe("success");
   });
 });
 

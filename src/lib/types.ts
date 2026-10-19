@@ -54,6 +54,8 @@ export type WeeklyOperatingHours = Partial<Record<Weekday, OperatingHours | null
 export type OrderStatus =
   | "pending"
   | "accepted"
+  | "preparing"
+  | "rider_assigned"
   | "out_for_delivery"
   | "delivered"
   | "rejected"
@@ -102,9 +104,41 @@ export interface OrderLocation {
   at: string;
 }
 
+/** Who moved an order: station staff, the assigned rider, the customer, the platform admin or the system. */
+export type FulfillmentActor = "station" | "rider" | "customer" | "admin" | "system";
+
 export interface OrderTimelineEntry {
   status: OrderStatus;
   at: string;
+  actor?: FulfillmentActor;
+  /** Customer-safe note, e.g. a rejection reason or the rider's first name. */
+  note?: string;
+}
+
+export interface OrderRider {
+  name: string;
+  phone: string;
+  assignedAt: string;
+}
+
+/** Refund handed off to the payments service after a paid order is rejected or cancelled. */
+export interface OrderRefund {
+  id: string;
+  status: "pending" | "confirmed" | "failed";
+  amount: number;
+  requestedAt: string;
+  confirmedAt?: string;
+  /** Why the handoff could not be opened automatically (support follows up). */
+  error?: string;
+}
+
+/** Customer consent captured at checkout and changeable from the tracking page. */
+export interface OrderConsent {
+  /** Stream the customer's live location to the station while the order is active. */
+  location: boolean;
+  /** Transactional SMS status updates for this order. */
+  smsUpdates: boolean;
+  updatedAt: string;
 }
 
 export interface Order {
@@ -145,6 +179,16 @@ export interface Order {
   timeline?: OrderTimelineEntry[];
   location?: OrderLocation | null;
   locationHistory?: OrderLocation[];
+  consent?: OrderConsent;
+  rider?: OrderRider;
+  /** SHA-256 of the rider's one-order access token. Server-only; never leaves the store. */
+  riderTokenHash?: string;
+  /** Customer-facing reason recorded with a rejection or cancellation. */
+  closedReason?: string;
+  closedAt?: string;
+  refund?: OrderRefund;
+  /** Set once the precise address pin has been dropped under the retention policy. */
+  pinRedactedAt?: string;
 }
 
 export interface Business {
