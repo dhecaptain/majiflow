@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
   Bell,
   Boxes,
-  ChevronDown,
   CircleUser,
+  ClipboardCheck,
   CreditCard,
   LayoutDashboard,
   Megaphone,
@@ -24,13 +25,13 @@ import { WaterDrawer } from "@/components/ui/water-drawer";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { PageTransition } from "@/components/layout/page-transition";
 import { BusinessProvider, useBusiness } from "@/components/business/business-provider";
-import { businesses } from "@/lib/data/businesses";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; badge?: string };
 
 const NAV: NavItem[] = [
   { href: "/business", label: "Overview", icon: LayoutDashboard },
+  { href: "/business/applications", label: "Applications", icon: ClipboardCheck },
   { href: "/business/orders", label: "Orders", icon: Package },
   { href: "/business/products", label: "Products", icon: Boxes },
   { href: "/business/customers", label: "Customers", icon: Users },
@@ -54,9 +55,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const { business, setBusinessId } = useBusiness();
-  const [picker, setPicker] = useState(false);
+  const { business, hasBusiness } = useBusiness();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Could not sign out.");
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      setLoggingOut(false);
+    }
+  };
 
   const nav = (
     <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
@@ -91,45 +105,20 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           <Menu className="size-5" aria-hidden />
         </button>
         <div className="relative">
-          <button
-            type="button"
-            onClick={() => setPicker((v) => !v)}
-            onBlur={() => setTimeout(() => setPicker(false), 150)}
-            className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-left transition-colors hover:border-[#0052FF]/40"
-            aria-haspopup="listbox"
-            aria-expanded={picker}
-          >
-            <span className="flex size-7 items-center justify-center rounded-lg bg-foreground font-display text-xs text-white">
-              {business.name.slice(0, 1)}
-            </span>
-            <span className="hidden text-sm font-semibold text-foreground sm:block">{business.name}</span>
-            <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", picker && "rotate-180")} aria-hidden />
-          </button>
-          {picker && (
-            <ul role="listbox" className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 rounded-2xl border border-border bg-white p-1.5 shadow-layered">
-              {businesses.map((b) => (
-                <li key={b.slug}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={b.slug === business.slug}
-                    onMouseDown={() => {
-                      setBusinessId(b.id);
-                      setPicker(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted",
-                      b.slug === business.slug && "bg-transparent/5 text-[#0052FF]"
-                    )}
-                  >
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted font-display text-[10px] text-foreground">
-                      {b.name.slice(0, 1)}
-                    </span>
-                    {b.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {hasBusiness ? (
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-foreground font-display text-xs text-white">
+                {business.name.slice(0, 1)}
+              </span>
+              <span className="hidden text-sm font-semibold text-foreground sm:block">{business.name}</span>
+            </div>
+          ) : (
+            <Link
+              href="/business/applications"
+              className="rounded-xl border border-[#0052FF]/25 bg-[#0052FF]/5 px-3 py-2 text-sm font-semibold text-[#0052FF]"
+            >
+              Application pending
+            </Link>
           )}
         </div>
       </div>
@@ -153,10 +142,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </button>
         <button
           type="button"
-          className="flex size-10 items-center justify-center rounded-xl bg-foreground text-white shadow-accent"
-          aria-label="Your profile"
+          onClick={logout}
+          disabled={loggingOut}
+          className="rounded-xl bg-foreground px-3 py-2 text-sm font-semibold text-white shadow-accent disabled:opacity-50"
         >
-          <span className="font-display text-sm">DK</span>
+          {loggingOut ? "Signing out…" : "Log out"}
         </button>
       </div>
     </>
@@ -182,7 +172,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           {header}
         </header>
         <main className="p-4 pb-24 sm:p-6 lg:pb-6">
-          <PageTransition>{children}</PageTransition>
+          <PageTransition>          {hasBusiness || pathname === "/business/applications" ? children : <PendingBusinessState />}</PageTransition>
         </main>
       </div>
 
@@ -195,6 +185,25 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           { label: "More", icon: MoreHorizontal, onClick: () => setOpen(true) },
         ]}
       />
+    </div>
+  );
+}
+
+function PendingBusinessState() {
+  return (
+    <div className="mx-auto max-w-2xl rounded-3xl border border-border bg-white p-8 text-center shadow-card sm:p-12">
+      <ClipboardCheck className="mx-auto size-10 text-[#0052FF]" aria-hidden />
+      <h1 className="mt-5 font-display text-3xl text-foreground">Your application is being reviewed</h1>
+      <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+        Your dashboard will be enabled after your station is approved. Until then, you can track your
+        application status without viewing or changing another station&apos;s data.
+      </p>
+      <Link
+        href="/business/applications"
+        className="mt-6 inline-flex rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-white"
+      >
+        View applications
+      </Link>
     </div>
   );
 }

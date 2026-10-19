@@ -52,7 +52,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     deliveryFee: 120,
     total: 820,
     payment: "mpesa",
-    paymentState: "success",
+    paymentState: "pending",
     status: "pending",
     address: { label: "Home", estate: "Kasarani", phone: "0712345678" },
     placedAt: "2026-09-21T10:42:00.000Z",
@@ -80,10 +80,59 @@ describe("validateOrder", () => {
     expect(errors).toHaveProperty("total");
   });
 
-  it("recomputes the total from the items even when the fee changes", () => {
+  it("rejects a tampered delivery fee instead of recomputing from it", () => {
     const { order, errors } = validateOrder(validPayload({ deliveryFee: 0, total: 700 }));
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("deliveryFee");
+  });
+
+  it("rejects a client-declared paid state - payment is verified server-side", () => {
+    const { order, errors } = validateOrder(validPayload({ paymentState: "success" }));
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("paymentState");
+  });
+
+  it("rejects a manipulated unit price against the catalog", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [{ productId: "bw-refill-20", name: "Refill - 20L can", quantity: 2, unitPrice: 1 }],
+        subtotal: 2,
+        total: 122,
+      })
+    );
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("items");
+  });
+
+  it("rejects a product that belongs to a different station", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [{ productId: "tf-refill-20", name: "Stranger item", quantity: 1, unitPrice: 100 }],
+        subtotal: 100,
+        total: 220,
+      })
+    );
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("items");
+  });
+
+  it("rejects a quantity above available stock", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [{ productId: "bw-refill-20", name: "Refill - 20L can", quantity: 500, unitPrice: 350 }],
+        subtotal: 175000,
+        total: 175000,
+      })
+    );
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("items");
+  });
+
+  it("stores an immutable pricing snapshot on the verified totals", () => {
+    const { order, errors } = validateOrder(validPayload());
     expect(errors).toBeUndefined();
-    expect(order?.total).toBe(700);
+    expect(order?.pricingSnapshot).toMatchObject({ subtotal: 700, deliveryFee: 120, total: 820 });
+    expect(order?.businessName).toBe("BioWater Refill Station");
   });
 
   it("normalises a +254 number to the canonical form", () => {

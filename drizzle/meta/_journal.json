@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791991995301,
+      "tag": "0001_orange_quasimodo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792264931522,
+      "tag": "0002_customer_account",
+      "breakpoints": true
+    }
+  ]
+}

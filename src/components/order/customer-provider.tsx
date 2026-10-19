@@ -8,6 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { CustomerAccountProfile, SavedAddress } from "@/lib/account";
+import { accountApi } from "@/lib/account-client";
 import type { DeliveryAddress } from "@/lib/types";
 
 export interface CustomerProfile {
@@ -25,9 +27,31 @@ export interface ProfileDetails {
   address?: DeliveryAddress;
 }
 
-export interface ProfileUpdate extends ProfileDetails {
-  email: string;
-  address: DeliveryAddress;
+export function profileForSession(
+  stored: CustomerProfile,
+  sessionUser: { name: string; email: string; role: "customer" | "business_owner" } | null
+): CustomerProfile {
+  if (!sessionUser || sessionUser.role !== "customer") return EMPTY;
+  if (stored.email?.trim().toLowerCase() !== sessionUser.email.toLowerCase()) {
+    return { ...EMPTY, name: sessionUser.name, email: sessionUser.email };
+  }
+  return { ...stored, name: sessionUser.name, email: sessionUser.email };
+}
+
+/** The server account is the source of truth; localStorage is only a cache of it. */
+export function profileFromAccount(account: CustomerAccountProfile, addresses: SavedAddress[]): CustomerProfile {
+  const defaultIndex = addresses.findIndex((a) => a.isDefault);
+  return {
+    name: account.name,
+    phone: account.phone,
+    email: account.email,
+    addresses: addresses.map((saved) => {
+      const address: DeliveryAddress & { isDefault?: boolean } = { ...saved };
+      delete address.isDefault;
+      return address;
+    }),
+    defaultAddressIndex: defaultIndex >= 0 ? defaultIndex : 0,
+  };
 }
 
 interface CustomerContextValue {
@@ -36,17 +60,19 @@ interface CustomerContextValue {
   hydrated: boolean;
   /** True once the user has signed in (MajiFlow uses a lightweight session flag). */
   loggedIn: boolean;
+  /** True once a signed-in customer's profile has been loaded from the server. */
+  accountSynced: boolean;
   saveCustomer: (p: Partial<CustomerProfile>) => void;
   /** Persist reusable checkout details; upserts (never duplicates) the address. */
   saveProfileDetails: (details: ProfileDetails) => void;
-  /** Persist the complete, validated profile (contact + primary delivery address). */
-  updateProfile: (details: ProfileUpdate) => void;
-  addAddress: (a: DeliveryAddress) => void;
-  removeAddress: (index: number) => void;
-  setDefaultAddress: (index: number) => void;
+  /** Replace the cached profile with fresh server data after an account change. */
+  applyAccount: (account: CustomerAccountProfile, addresses: SavedAddress[]) => void;
+  /** Re-read the signed-in customer's profile and addresses from the server. */
+  refreshAccount: () => Promise<void>;
   login: (seed?: Partial<CustomerProfile>) => void;
   logout: () => void;
-  deleteAccount: () => void;
+  /** Drop everything cached on this device (after the server account is deleted). */
+  forgetLocalAccount: () => void;
 }
 
 const CustomerContext = createContext<CustomerContextValue | null>(null);
@@ -102,6 +128,17 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<CustomerProfile>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [accountSynced, setAccountSynced] = useState(false);
+
+  const applyAccount = useCallback((account: CustomerAccountProfile, addresses: SavedAddress[]) => {
+    setProfile(profileFromAccount(account, addresses));
+    setAccountSynced(true);
+  }, []);
+
+  const refreshAccount = useCallback(async () => {
+    const result = await accountApi.profile();
+    if (result.ok) applyAccount(result.data.profile, result.data.addresses);
+  }, [applyAccount]);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- hydrate the profile from localStorage after mount */
@@ -117,6 +154,25 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    let active = true;
+    void fetch("/api/auth/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body: { user?: { name: string; email: string; role: "customer" | "business_owner" } | null }) => {
+        if (!active) return;
+        setProfile((current) => profileForSession(current, body.user ?? null));
+        setLoggedIn(body.user?.role === "customer");
+        if (body.user?.role === "customer") return refreshAccount();
+      })
+      .catch(() => {
+        // Public browsing and guest checkout remain available if session lookup is unavailable.
+      });
+    return () => {
+      active = false;
+    };
+  }, [hydrated, refreshAccount]);
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
@@ -161,64 +217,35 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         addresses,
       };
     });
-  }, []);
-
-  const updateProfile = useCallback((details: ProfileUpdate) => {
-    setProfile((prev) => {
-      const next = normalizeAddress(details.address, details.phone.trim());
-      let addresses: DeliveryAddress[];
-      let defaultIndex: number;
-      if (prev.addresses.length === 0) {
-        addresses = [next];
-        defaultIndex = 0;
-      } else {
-        const existingIdx = prev.addresses.findIndex((a) => addressKey(a) === addressKey(next));
-        defaultIndex = existingIdx >= 0 ? existingIdx : Math.min(prev.defaultAddressIndex, prev.addresses.length - 1);
-        addresses = prev.addresses.map((a, i) => (i === defaultIndex ? { ...a, ...next } : a));
-      }
-      return {
-        ...prev,
-        name: details.name.trim(),
-        phone: details.phone.trim(),
-        email: details.email.trim(),
-        defaultAddressIndex: defaultIndex,
-        addresses,
-      };
-    });
-  }, []);
-
-  const addAddress = useCallback((a: DeliveryAddress) => {
-    setProfile((prev) => ({
-      ...prev,
-      addresses: [normalizeAddress(a, prev.phone), ...prev.addresses],
-      defaultAddressIndex: 0,
-    }));
-  }, []);
-
-  const removeAddress = useCallback((index: number) => {
-    setProfile((prev) => ({
-      ...prev,
-      addresses: prev.addresses.filter((_, i) => i !== index),
-      defaultAddressIndex: 0,
-    }));
-  }, []);
-
-  const setDefaultAddress = useCallback((index: number) => {
-    setProfile((prev) => ({ ...prev, defaultAddressIndex: index }));
-  }, []);
+    if (!loggedIn) return;
+    void (async () => {
+      if (name && phone) await accountApi.updateProfile({ name, phone });
+      if (details.address) await accountApi.saveAddress({ ...normalizeAddress(details.address, phone) });
+      await refreshAccount();
+    })();
+  }, [loggedIn, refreshAccount]);
 
   const login = useCallback((seed?: Partial<CustomerProfile>) => {
     if (seed) setProfile((prev) => ({ ...prev, ...seed, phone: seed.phone?.trim() || prev.phone }));
     setLoggedIn(true);
-  }, []);
+    void (async () => {
+      // Registration collects a first address; persist it before the server copy replaces the cache.
+      for (const address of seed?.addresses ?? []) {
+        if (address.estate?.trim()) await accountApi.saveAddress(address);
+      }
+      await refreshAccount();
+    })();
+  }, [refreshAccount]);
 
   const logout = useCallback(() => {
     setLoggedIn(false);
+    setAccountSynced(false);
   }, []);
 
-  const deleteAccount = useCallback(() => {
+  const forgetLocalAccount = useCallback(() => {
     setProfile(EMPTY);
     setLoggedIn(false);
+    setAccountSynced(false);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
       window.localStorage.removeItem(AUTH_KEY);
@@ -235,15 +262,14 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         profile,
         hydrated,
         loggedIn,
+        accountSynced,
         saveCustomer,
         saveProfileDetails,
-        updateProfile,
-        addAddress,
-        removeAddress,
-        setDefaultAddress,
+        applyAccount,
+        refreshAccount,
         login,
         logout,
-        deleteAccount,
+        forgetLocalAccount,
       }}
     >
       {children}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Bell,
@@ -53,12 +53,27 @@ const HELP: NavItem[] = [
 
 export function AccountShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const { count } = useCart();
-  const { profile } = useCustomer();
+  const { profile, logout } = useCustomer();
 
   const name = profile.name || "";
   const initial = name ? name.trim().slice(0, 1).toUpperCase() : "U";
+
+  const signOut = async () => {
+    setLoggingOut(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Could not sign out.");
+      logout();
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      setLoggingOut(false);
+    }
+  };
 
   const nav = (
     <nav aria-label="Account" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
@@ -68,7 +83,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           href={item.href}
           label={item.label}
           icon={item.icon}
-          active={pathname === item.href}
+          active={pathname === item.href || (item.href !== "/account" && pathname.startsWith(`${item.href}/`))}
           onClick={() => setOpen(false)}
         />
       ))}
@@ -164,6 +179,14 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
             </span>
           )}
         </Link>
+        <button
+          type="button"
+          onClick={signOut}
+          disabled={loggingOut}
+          className="rounded-xl bg-foreground px-3 py-2 text-sm font-semibold text-white shadow-accent disabled:opacity-50"
+        >
+          {loggingOut ? "Signing out…" : "Log out"}
+        </button>
       </div>
     </>
   );

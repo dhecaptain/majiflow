@@ -34,4 +34,7 @@ export const PAYMENT_STATE_META: Record<PaymentState, { label: string; tone: "wa
   pending: { label: "Payment pending", tone: "warning" },
   success: { label: "Paid", tone: "success" },
   failed: { label: "Payment failed", tone: "danger" },
+  cancelled: { label: "Payment cancelled", tone: "warning" },
+  timeout: { label: "Payment timed out", tone: "danger" },
+  refunded: { label: "Refunded", tone: "success" },
 };

@@ -39,7 +39,7 @@ function validBody(overrides: Record<string, unknown> = {}) {
     deliveryFee: 120,
     total: 820,
     payment: "mpesa",
-    paymentState: "success",
+    paymentState: "pending",
     status: "pending",
     address: { label: "Home", estate: "Kasarani", phone: "0712345678" },
     placedAt: "2026-09-21T10:42:00.000Z",
@@ -92,6 +92,24 @@ describe("POST /api/orders", () => {
     expect((await response.json()).fields.total).toBeTruthy();
   });
 
+  it("rejects a client-declared paid state", async () => {
+    const response = await createOrder(validBody({ paymentState: "success" }));
+    expect(response.status).toBe(422);
+    expect((await response.json()).fields.paymentState).toBeTruthy();
+  });
+
+  it("rejects a manipulated unit price", async () => {
+    const response = await createOrder(
+      validBody({
+        items: [{ productId: "bw-refill-20", name: "Refill - 20L can", quantity: 2, unitPrice: 1 }],
+        subtotal: 2,
+        total: 122,
+      })
+    );
+    expect(response.status).toBe(422);
+    expect((await response.json()).fields.items).toBeTruthy();
+  });
+
   it("answers 400 on a malformed JSON body", async () => {
     expect((await POST(postRequest("{not json"))).status).toBe(400);
   });
@@ -141,14 +159,14 @@ describe("PATCH /api/orders/[id]", () => {
     ).toBe(400);
   });
 
-  it("carries a payment from pending to failed and then to success", async () => {
-    await createOrder(validBody({ paymentState: "pending" }));
-
-    const failed = await PATCH(patchRequest("api-order-1", { paymentState: "failed" }), context("api-order-1"));
-    expect((await failed.json()).order.paymentState).toBe("failed");
-
-    const ok = await PATCH(patchRequest("api-order-1", { paymentState: "success" }), context("api-order-1"));
-    expect((await ok.json()).order.paymentState).toBe("success");
+  it("refuses every client payment-state transition - payment is server-managed", async () => {
+    await createOrder();
+    for (const paymentState of ["pending", "failed", "success"]) {
+      const response = await PATCH(patchRequest("api-order-1", { paymentState }), context("api-order-1"));
+      expect(response.status).toBe(400);
+    }
+    const stored = await (await listRoute(new NextRequest("http://localhost/api/orders"))).json();
+    expect(stored.orders[0].paymentState).toBe("pending");
   });
 
   it("answers 404 for an unknown order", async () => {

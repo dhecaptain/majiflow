@@ -1,33 +1,149 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { AlertCircle, Loader2, Navigation, Search } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import { BusinessCard } from "@/components/shared/business-card";
 import { EmptyState } from "@/components/ui/feedback";
 import { Stagger, StaggerItem } from "@/components/ui/animated-section";
-import { getBusinessesByCity } from "@/lib/data/businesses";
+import { businesses, getBusinessesByCity } from "@/lib/data/businesses";
 import { CITIES } from "@/lib/constants";
+import {
+  captureCurrentLocation,
+  geolocationErrorMessage,
+  haversineMeters,
+  townLocation,
+  type CapturedLocation,
+} from "@/lib/geo";
+
+const DISCOVERY_RADII_KM = [3, 5, 10, 20] as const;
+
+type LocationMode = "manual" | "current";
 
 export function BrowsePage({ initialCity }: { initialCity: string }) {
   const [city, setCity] = useState(initialCity || "All cities");
   const [query, setQuery] = useState("");
+  const [location, setLocation] = useState<CapturedLocation | null>(null);
+  const [locationMode, setLocationMode] = useState<LocationMode>("manual");
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const locationRequestRef = useRef(0);
 
-  const results = useMemo(() => {
-    const byCity = getBusinessesByCity(city);
+  const discovery = useMemo(() => {
+    const source = locationMode === "current" ? businesses : getBusinessesByCity(city);
     const q = query.trim().toLowerCase();
-    if (!q) return byCity;
-    return byCity.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) ||
-        b.city.toLowerCase().includes(q) ||
-        b.estates.some((e) => e.toLowerCase().includes(q)) ||
-        b.tagline.toLowerCase().includes(q)
-    );
-  }, [city, query]);
+    const searched = !q
+      ? source
+      : source.filter(
+          (b) =>
+            b.name.toLowerCase().includes(q) ||
+            b.city.toLowerCase().includes(q) ||
+            b.estates.some((e) => e.toLowerCase().includes(q)) ||
+            b.tagline.toLowerCase().includes(q)
+        );
 
-  const countLabel = city === "All cities" ? "all stations" : `stations in ${city}`;
+    if (locationMode !== "current" || !location) {
+      return {
+        results: searched
+          .map((business, index) => {
+            const hasValidLocation =
+              location !== null &&
+              Number.isFinite(location.lat) &&
+              Number.isFinite(location.lng) &&
+              Number.isFinite(business.lat) &&
+              Number.isFinite(business.lng);
+            const distanceKm = hasValidLocation
+              ? haversineMeters(location, business) / 1000
+              : undefined;
+            return { business, distanceKm, index };
+          })
+          .sort((a, b) => {
+            if (a.distanceKm === undefined && b.distanceKm === undefined) {
+              return a.index - b.index;
+            }
+            if (a.distanceKm === undefined) return 1;
+            if (b.distanceKm === undefined) return -1;
+            return a.distanceKm - b.distanceKm;
+          }),
+        radiusKm: null,
+      };
+    }
+
+    const radiusKm =
+      DISCOVERY_RADII_KM.find((radius) =>
+        searched.some(
+          (business) =>
+            Number.isFinite(business.lat) &&
+            Number.isFinite(business.lng) &&
+            haversineMeters(location, business) / 1000 <= radius
+        )
+      ) ?? DISCOVERY_RADII_KM[DISCOVERY_RADII_KM.length - 1];
+
+    return {
+      results: searched
+        .map((business, index) => {
+          if (!Number.isFinite(business.lat) || !Number.isFinite(business.lng)) {
+            return null;
+          }
+          const distanceKm = haversineMeters(location, business) / 1000;
+          return distanceKm <= radiusKm ? { business, distanceKm, index } : null;
+        })
+        .filter(
+          (
+            result
+          ): result is {
+            business: (typeof businesses)[number];
+            distanceKm: number;
+            index: number;
+          } => result !== null
+        )
+        .sort((a, b) => a.distanceKm - b.distanceKm),
+      radiusKm,
+    };
+  }, [city, location, locationMode, query]);
+
+  const countLabel =
+    locationMode === "current"
+      ? "nearby stations"
+      : city === "All cities"
+        ? "all stations"
+        : `stations in ${city}`;
+
+  const selectCity = (nextCity: string) => {
+    locationRequestRef.current += 1;
+    setCity(nextCity);
+    setLocationMode("manual");
+    setLocation(nextCity === "All cities" ? null : townLocation(nextCity));
+    setLocationError(null);
+    setLocating(false);
+  };
+
+  const useCurrentLocation = async () => {
+    const requestId = ++locationRequestRef.current;
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const nextLocation = await captureCurrentLocation({
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+      if (requestId !== locationRequestRef.current) return;
+      setLocation(nextLocation);
+      setLocationMode("current");
+    } catch (err) {
+      if (requestId !== locationRequestRef.current) return;
+      setLocationMode("manual");
+      setLocation(city === "All cities" ? null : townLocation(city));
+      setLocationError(geolocationErrorMessage(err));
+    } finally {
+      if (requestId === locationRequestRef.current) {
+        setLocating(false);
+      }
+    }
+  };
 
   return (
     <>
@@ -67,7 +183,7 @@ export function BrowsePage({ initialCity }: { initialCity: string }) {
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setCity(c)}
+                  onClick={() => selectCity(c)}
                   aria-pressed={city === c}
                   className={`min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
                     city === c
@@ -79,6 +195,34 @@ export function BrowsePage({ initialCity }: { initialCity: string }) {
                 </button>
               ))}
             </div>
+            <div className="mt-5 flex flex-col items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={useCurrentLocation}
+                disabled={locating}
+              >
+                {locating ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Navigation className="size-4" aria-hidden />
+                )}
+                {locating ? "Finding stations near you…" : "Use my current location"}
+              </Button>
+              {locationError && (
+                <p className="flex items-start gap-2 text-left text-xs text-danger" role="alert">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  <span>
+                    {locationError} Choose a city above to browse by an approximate location.
+                  </span>
+                </p>
+              )}
+              {!location && !locationError && (
+                <p className="text-xs text-muted-foreground">
+                  Choose a city or allow location access to sort stations by distance.
+                </p>
+              )}
+            </div>
           </div>
         </Container>
       </section>
@@ -87,24 +231,46 @@ export function BrowsePage({ initialCity }: { initialCity: string }) {
         <Container>
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              <strong className="font-semibold text-foreground">{results.length}</strong>{" "}
+              <strong className="font-semibold text-foreground">{discovery.results.length}</strong>{" "}
               {countLabel}
             </p>
           </div>
 
-          {results.length > 0 ? (
-            <Stagger className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
-              {results.map((b) => (
-                <StaggerItem key={b.id}>
-                  <BusinessCard business={b} />
+          {discovery.results.length > 0 ? (
+            <div
+              className="relative"
+              aria-busy={locating}
+              aria-label={locating ? "Updating station distances" : undefined}
+            >
+              <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
+              {discovery.results.map(({ business, distanceKm }) => (
+                <StaggerItem key={business.id}>
+                  <BusinessCard business={business} distanceKm={distanceKm} />
                 </StaggerItem>
               ))}
-            </Stagger>
+              </Stagger>
+              {locating && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Updating distances…
+                </div>
+              )}
+              {locationMode === "current" && discovery.radiusKm !== null && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  Showing stations within {discovery.radiusKm} km
+                  {discovery.radiusKm > DISCOVERY_RADII_KM[0] ? " after expanding the search" : ""}.
+                </p>
+              )}
+            </div>
           ) : (
             <div className="mt-8">
               <EmptyState
-                title="No stations matched"
-                description={`No refill business matched "${query}" in ${city}. Try a different estate or clear your search.`}
+                title={locationMode === "current" ? "No nearby stations found" : "No stations matched"}
+                description={
+                  locationMode === "current"
+                    ? `No stations were found within ${DISCOVERY_RADII_KM[DISCOVERY_RADII_KM.length - 1]} km of your location. Try manual city selection or clear your search.`
+                    : `No refill business matched "${query}" in ${city}. Try a different estate or clear your search.`
+                }
                 action={
                   <button
                     onClick={() => setQuery("")}

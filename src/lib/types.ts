@@ -61,7 +61,14 @@ export type OrderStatus =
 
 export type PaymentMethod = "mpesa" | "card";
 
-export type PaymentState = "pending" | "success" | "failed";
+/**
+ * Payment lifecycle, written server-side only. Clients must never submit
+ * `success` (or any terminal state): an order is created `pending` and moves
+ * only through verified provider callbacks, status reconciliation, or an
+ * explicit refund flow. `timeout` marks a pending payment that outlived its
+ * confirmation window; `refunded` is set only after provider confirmation.
+ */
+export type PaymentState = "pending" | "success" | "failed" | "cancelled" | "timeout" | "refunded";
 
 export interface OrderItem {
   productId: string;
@@ -71,6 +78,8 @@ export interface OrderItem {
 }
 
 export interface DeliveryAddress {
+  /** Server id for addresses saved to a signed-in customer's account. */
+  id?: string;
   label: string;
   estate: string;
   street?: string;
@@ -105,6 +114,11 @@ export interface Order {
   businessName: string;
   customerName: string;
   customerPhone: string;
+  /**
+   * Owning customer account, stamped server-side from the session at checkout.
+   * Never accepted from the client; guest orders have none.
+   */
+  customerUserId?: string;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
@@ -112,6 +126,19 @@ export interface Order {
   payment: PaymentMethod;
   paymentState: PaymentState;
   status: OrderStatus;
+  /**
+   * Immutable snapshot of the server-side pricing decision. The top-level
+   * items/subtotal/deliveryFee/total always carry these verified numbers, so
+   * later catalog edits can never rewrite a confirmed order; the snapshot
+   * records when and at which catalog prices the totals were settled.
+   */
+  pricingSnapshot?: {
+    verifiedAt: string;
+    items: { productId: string; name: string; quantity: number; unitPrice: number }[];
+    subtotal: number;
+    deliveryFee: number;
+    total: number;
+  };
   address: DeliveryAddress;
   placedAt: string;
   eta?: string;

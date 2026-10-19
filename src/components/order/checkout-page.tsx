@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Transition } from "framer-motion";
@@ -25,12 +25,19 @@ import {
   reverseGeocode,
   type CapturedLocation,
 } from "@/lib/geo";
-import { createOrder, generateOrderNumber, OrderValidationError, postLocation } from "@/lib/orders";
+import { createOrder, fetchOrder, generateOrderNumber, OrderValidationError, postLocation } from "@/lib/orders";
+import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 import { useMotionSafe } from "@/lib/motion";
 import type { DeliveryAddress, Order, PaymentMethod } from "@/lib/types";
 
-type PayState = "idle" | "pending" | "failed";
+type PayState = "idle" | "working" | "awaiting-provider" | "failed" | "stale";
 type FieldErrors = Record<string, string>;
+
+interface StationBlocker {
+  businessId: string;
+  businessName: string;
+  reason: string;
+}
 
 const CONSENT_KEY = "mf:profileConsent";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -107,8 +114,9 @@ function prefillFromAddress(a: DeliveryAddress | undefined) {
 }
 
 export function CheckoutPage() {
-  const { hydrated } = useCustomer();
-  return <CheckoutForm key={hydrated ? "hydrated" : "initial"} />;
+  const { hydrated, accountSynced } = useCustomer();
+  // Re-prefill once when a signed-in customer's saved details arrive from the server.
+  return <CheckoutForm key={!hydrated ? "initial" : accountSynced ? "account" : "hydrated"} />;
 }
 
 function CheckoutForm() {
@@ -144,6 +152,18 @@ function CheckoutForm() {
   const submittingRef = useRef(false);
   const attemptKeyRef = useRef<string | null>(null);
   const lastSigRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+  const paymentIdRef = useRef<string | null>(null);
+  const orderIdsRef = useRef<string[] | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [testMode, setTestMode] = useState(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const rows = useMemo(
     () =>
@@ -279,16 +299,77 @@ function CheckoutForm() {
     startPayment();
   };
 
+  const stationBlockers: StationBlocker[] = useMemo(() => {
+    const seen = new Map<string, StationBlocker>();
+    for (const r of rows) {
+      const business = r.business!;
+      if (!seen.has(business.id)) {
+        const reason = getBusinessOrderBlockReason(business);
+        if (reason) seen.set(business.id, { businessId: business.id, businessName: business.name, reason });
+      }
+    }
+    return [...seen.values()];
+  }, [rows]);
+
   const startPayment = () => {
     setErrors({});
+    if (stationBlockers.length > 0) {
+      setErrors({ _form: stationBlockers[0].reason });
+      toast({ kind: "error", title: "Station unavailable", message: stationBlockers[0].reason });
+      return;
+    }
     ensureAttemptKey();
-    setPayState("pending");
+    setPayState("working");
+    void runCheckout();
   };
 
-  const paymentSucceeded = async () => {
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function pollPayment(paymentId: string): Promise<string> {
+    // ~2 minutes of provider grace, then the order page takes over.
+    for (let i = 0; i < 40; i++) {
+      await sleep(3000);
+      if (!mountedRef.current) return "pending";
+      try {
+        const res = await fetch(`/api/payments/${encodeURIComponent(paymentId)}`, { cache: "no-store" });
+        if (!res.ok) continue;
+        const data = (await res.json()) as { payment?: { status?: string; failureReason?: string | null } };
+        const status = data.payment?.status ?? "pending";
+        if (status !== "pending") {
+          if (data.payment?.failureReason) setStatusMessage(data.payment.failureReason);
+          return status;
+        }
+        setPayState("awaiting-provider");
+      } catch {
+        /* transient - keep polling */
+      }
+    }
+    return "pending";
+  }
+
+  const simulateProviderApproval = async () => {
+    if (!paymentIdRef.current) return;
+    try {
+      await fetch("/api/payments/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: true, paymentId: paymentIdRef.current, outcome: "success" }),
+      });
+    } catch {
+      /* the poller surfaces the real state either way */
+    }
+  };
+
+  /**
+   * Verified checkout: create PENDING orders first (the server validates
+   * hours, catalog prices, stock, and totals), then initiate payment, then
+   * wait for the provider - never the customer's word - to confirm it.
+   */
+  const runCheckout = async () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
+    setStatusMessage(null);
     try {
       let coords: CapturedLocation | null = location;
       let addrEstate = estate;
@@ -315,105 +396,171 @@ function CheckoutForm() {
         groups.set(r.business!.id, list);
       }
       const attemptKey = ensureAttemptKey();
-      const created: Order[] = [];
-      for (const group of groups.values()) {
-        const station = group[0].business!;
-        // The station totals come from the same calculation the summary shows,
-        // so the amount charged can never drift from the amount displayed.
-        const stationTotals = totalsByStation.get(station.id);
-        const groupSubtotal =
-          stationTotals?.subtotal ??
-          group.reduce((s, r) => s + (r.product?.price ?? 0) * r.line.quantity, 0);
-        const groupFee =
-          stationTotals?.deliveryFee ?? (groupSubtotal >= station.freeDeliveryAbove ? 0 : station.deliveryFee);
-        const order: Order = {
-          id: `order-${attemptKey}-${station.id}`,
-          orderNumber: generateOrderNumber(),
-          businessId: station.id,
-          businessName: station.name,
-          customerName: name,
-          customerPhone: phone,
-          items: group.map((r) => ({
-            productId: r.product!.id,
-            name: r.product!.name,
-            quantity: r.line.quantity,
-            unitPrice: r.product!.price,
-          })),
-          subtotal: groupSubtotal,
-          deliveryFee: groupFee,
-          total: stationTotals?.total ?? groupSubtotal + groupFee,
-          payment: method,
-          paymentState: "success",
-          status: "pending",
-          address: {
-            label: "Delivery",
-            estate: addrEstate || addrBuilding || "Estate on file",
-            street: addrStreet.trim() || undefined,
-            city: addrCity || undefined,
-            building: addrBuilding || undefined,
-            floor: floor || undefined,
-            landmark: notes.trim() || undefined,
-            notes: notes || undefined,
-            phone,
-            lat: coords?.lat,
-            lng: coords?.lng,
-            accuracy: coords?.accuracy,
-            locationAt: coords?.at,
-          },
-          placedAt: new Date().toISOString(),
-          eta: "≈ 50 min",
-        };
-        created.push(await createOrder(order));
+      let created: Order[];
+      if (orderIdsRef.current) {
+        // Retry after a failed payment: the pending orders already exist,
+        // so rejoin them instead of duplicating.
+        const existing: Order[] = [];
+        for (const id of orderIdsRef.current) {
+          const found = await fetchOrder(id);
+          if (found) existing.push(found);
+        }
+        if (existing.length !== orderIdsRef.current.length) {
+          throw new Error("An order went missing - please start checkout again.");
+        }
+        created = existing;
+      } else {
+        created = [];
+        for (const group of groups.values()) {
+          const station = group[0].business!;
+          // The station totals come from the same calculation the summary shows,
+          // so the amount charged can never drift from the amount displayed.
+          const stationTotals = totalsByStation.get(station.id);
+          const groupSubtotal =
+            stationTotals?.subtotal ??
+            group.reduce((s, r) => s + (r.product?.price ?? 0) * r.line.quantity, 0);
+          const groupFee =
+            stationTotals?.deliveryFee ?? (groupSubtotal >= station.freeDeliveryAbove ? 0 : station.deliveryFee);
+          const order: Order = {
+            id: `order-${attemptKey}-${station.id}`,
+            orderNumber: generateOrderNumber(),
+            businessId: station.id,
+            businessName: station.name,
+            customerName: name,
+            customerPhone: phone,
+            items: group.map((r) => ({
+              productId: r.product!.id,
+              name: r.product!.name,
+              quantity: r.line.quantity,
+              unitPrice: r.product!.price,
+            })),
+            subtotal: groupSubtotal,
+            deliveryFee: groupFee,
+            total: stationTotals?.total ?? groupSubtotal + groupFee,
+            payment: method,
+            paymentState: "pending",
+            status: "pending",
+            address: {
+              label: "Delivery",
+              estate: addrEstate || addrBuilding || "Estate on file",
+              street: addrStreet.trim() || undefined,
+              city: addrCity || undefined,
+              building: addrBuilding || undefined,
+              floor: floor || undefined,
+              landmark: notes.trim() || undefined,
+              notes: notes || undefined,
+              phone,
+              lat: coords?.lat,
+              lng: coords?.lng,
+              accuracy: coords?.accuracy,
+              locationAt: coords?.at,
+            },
+            placedAt: new Date().toISOString(),
+            eta: "≈ 50 min",
+          };
+          created.push(await createOrder(order));
+        }
+        orderIdsRef.current = created.map((o) => o.id);
       }
-      if (shareLocation && coords) {
-        await Promise.all(
-          created.map((o) =>
-            postLocation(o.id, {
-              lat: coords!.lat,
-              lng: coords!.lng,
-              accuracy: coords!.accuracy,
-              at: coords!.at,
-            })
-          )
-        );
-      }
-      const first = created[0];
-      setLastOrder(first);
-      clear();
-      if (saveProfile) {
-        saveProfileDetails({
-          name,
+
+      const payable = created.reduce((s, o) => s + o.total, 0);
+      const initRes = await fetch("/api/payments/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderIds: created.map((o) => o.id),
           phone,
-          email: email.trim() || undefined,
-          address: {
-            label: "Home",
-            estate: addrEstate,
-            street: addrStreet.trim() || undefined,
-            city: addrCity || undefined,
-            building: addrBuilding.trim() || undefined,
-            floor: floor.trim() || undefined,
-            landmark: notes.trim() || undefined,
-            phone,
-            lat: coords?.lat,
-            lng: coords?.lng,
-            accuracy: coords?.accuracy,
-            locationAt: coords?.at,
-          },
-        });
-      }
-      setPayState("idle");
-      toast({
-        kind: "success",
-        title: "Order placed",
-        message:
-          created.length > 1
-            ? `${created.length} orders placed from ${formatKES(total)}. Start with ${first.orderNumber} - ${first.businessName}.`
-            : `Order ${first.orderNumber} is with ${first.businessName}. Track it now.`,
+          method,
+          // A fresh key per payment attempt: retries never double-charge.
+          idempotencyKey: `${attemptKey}-${created.map((o) => o.id).join("+")}-${makeId()}`,
+        }),
       });
-      window.setTimeout(() => router.push(`/order/${first.id}`), 1600);
+      if (!initRes.ok) {
+        const detail = (await initRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(detail.error ?? "Payment could not be started.");
+      }
+      const init = (await initRes.json()) as {
+        payment: { id: string; amount: number; status: string };
+        testMode?: boolean;
+      };
+      paymentIdRef.current = init.payment.id;
+      setTestMode(init.testMode === true);
+      setPayState("awaiting-provider");
+
+      const outcome = await pollPayment(init.payment.id);
+      if (!mountedRef.current) return;
+      if (outcome === "success") {
+        const confirmed: Order[] = [];
+        for (const o of created) {
+          const fresh = await fetchOrder(o.id);
+          if (fresh) confirmed.push(fresh);
+        }
+        const first = confirmed[0] ?? created[0];
+        if (shareLocation && coords) {
+          await Promise.all(
+            created.map((o) =>
+              postLocation(o.id, {
+                lat: coords!.lat,
+                lng: coords!.lng,
+                accuracy: coords!.accuracy,
+                at: coords!.at,
+              })
+            )
+          );
+        }
+        setLastOrder(first);
+        clear();
+        if (saveProfile) {
+          saveProfileDetails({
+            name,
+            phone,
+            email: email.trim() || undefined,
+            address: {
+              label: "Home",
+              estate: addrEstate,
+              street: addrStreet.trim() || undefined,
+              city: addrCity || undefined,
+              building: addrBuilding.trim() || undefined,
+              floor: floor.trim() || undefined,
+              landmark: notes.trim() || undefined,
+              phone,
+              lat: coords?.lat,
+              lng: coords?.lng,
+              accuracy: coords?.accuracy,
+              locationAt: coords?.at,
+            },
+          });
+        }
+        setPayState("idle");
+        toast({
+          kind: "success",
+          title: "Payment confirmed",
+          message:
+            confirmed.length > 1
+              ? `${confirmed.length} orders paid (${formatKES(payable)}). Start with ${first.orderNumber} - ${first.businessName}.`
+              : `Order ${first.orderNumber} is paid and with ${first.businessName}. Track it now.`,
+        });
+        window.setTimeout(() => router.push(`/order/${first.id}`), 1600);
+      } else if (outcome === "pending") {
+        // Poll budget spent but the provider may still confirm late.
+        setPayState("stale");
+        setStatusMessage(
+          "Still waiting on the provider - your orders are saved as pending. Check the order page; it updates the moment payment lands."
+        );
+      } else {
+        setPayState("failed");
+        if (!statusMessage) {
+          setStatusMessage(
+            outcome === "cancelled"
+              ? "Payment was cancelled - no money left your account."
+              : outcome === "timeout"
+                ? "Confirmation took too long - no money left your account."
+                : "Payment failed - no money left your account."
+          );
+        }
+      }
     } catch (err) {
-      const fields =
-        err instanceof OrderValidationError ? mapServerFields(err.fields) : {};
+      const fields = err instanceof OrderValidationError ? mapServerFields(err.fields) : {};
       setErrors(fields);
       setPayState("failed");
       toast({
@@ -421,7 +568,7 @@ function CheckoutForm() {
         title: "Order not placed",
         message:
           err instanceof OrderValidationError
-            ? fields._form ?? "Please fix the highlighted fields and retry."
+            ? (fields._form ?? "Please fix the highlighted fields and retry.")
             : err instanceof Error
               ? err.message
               : "We hit a snag - nothing was charged and nothing was duplicated, so please retry.",
@@ -430,11 +577,6 @@ function CheckoutForm() {
       submittingRef.current = false;
       setSubmitting(false);
     }
-  };
-
-  const paymentFailed = () => {
-    if (submittingRef.current) return;
-    setPayState("failed");
   };
 
   if (lastOrder) {
@@ -774,9 +916,32 @@ function CheckoutForm() {
             </span>
           </label>
 
+          {stationBlockers.length > 0 && (
+            <div className="mt-4 rounded-xl border border-danger/30 bg-danger/5 p-3" role="alert">
+              {stationBlockers.map((b) => (
+                <p key={b.businessId} className="flex items-start gap-2 text-xs leading-relaxed text-foreground">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                  <span>
+                    <strong>{b.businessName}:</strong> {b.reason}
+                  </span>
+                </p>
+              ))}
+            </div>
+          )}
+          {errors._form && (
+            <p className="mt-3 text-xs font-medium text-danger" role="alert">
+              {errors._form}
+            </p>
+          )}
+
           {payState === "idle" && (
             <>
-              <Button type="submit" size="lg" className="group mt-4 w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]">
+              <Button
+                type="submit"
+                size="lg"
+                className="group mt-4 w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]"
+                disabled={stationBlockers.length > 0}
+              >
                 {method === "mpesa" ? `Pay ${formatKES(total)} with M-Pesa` : `Pay ${formatKES(total)} by card`}
               </Button>
               <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -784,41 +949,67 @@ function CheckoutForm() {
               </p>
             </>
           )}
+          {(payState === "working" || payState === "awaiting-provider") && (
+            <div className="mt-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Loader2 className="size-4 animate-spin text-[#0052FF]" aria-hidden />
+                {payState === "working" ? "Creating your order…" : "Waiting for provider confirmation…"}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {statusMessage ?? "Do not close this page - confirmation usually lands within a minute."}
+              </p>
+            </div>
+          )}
+          {payState === "stale" && (
+            <div className="mt-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <AlertCircle className="size-4 text-warning" aria-hidden /> Still processing
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {statusMessage} Your orders are saved - use the track link from your order history; it
+                updates the moment payment lands.
+              </p>
+              <Link href="/account/orders" className="mt-3 inline-flex">
+                <Button size="lg" variant="outline">
+                  View my orders
+                </Button>
+              </Link>
+            </div>
+          )}
           {payState === "failed" && (
             <div className="mt-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-danger">
                 <AlertCircle className="size-4" aria-hidden /> Order didn&apos;t go through
               </p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Your account has not been charged. Review the highlighted fields (if any) or retry
-                the payment.
+                {statusMessage ?? "Your account has not been charged."} Review the highlighted fields
+                (if any) or retry the payment - retrying never duplicates your order.
               </p>
               <Button
                 type="button"
                 size="lg"
                 className="group mt-4 w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]"
                 onClick={startPayment}
-                disabled={submitting}
+                disabled={submitting || stationBlockers.length > 0}
               >
-                Retry M-Pesa payment
+                {method === "mpesa" ? "Retry M-Pesa payment" : "Retry card payment"}
               </Button>
             </div>
           )}
         </div>
       </form>
 
-      {/* M-Pesa payment overlay */}
+      {/* Payment overlay: status display only. Nothing here can mark an order paid. */}
       <AnimatePresence>
-        {payState === "pending" && (
-          <MpesaOverlay
+        {(payState === "working" || payState === "awaiting-provider") && (
+          <PaymentOverlay
             phone={phone}
             amount={total}
+            method={method}
             busy={submitting}
-            onSuccess={paymentSucceeded}
-            onFail={paymentFailed}
-            onClose={() => {
-              if (!submitting) setPayState("idle");
-            }}
+            testMode={testMode}
+            statusMessage={statusMessage}
+            onSimulateApprove={simulateProviderApproval}
             reduce={reduce}
             transition={transition}
           />
@@ -877,30 +1068,37 @@ function PaymentOption({
   );
 }
 
-function MpesaOverlay({
+/**
+ * Status display for an in-flight provider payment. Deliberately buttonless
+ * (except an honestly-labelled dev-test hook): nothing on this screen can
+ * mark an order paid - only a verified provider callback can.
+ */
+function PaymentOverlay({
   phone,
   amount,
+  method,
   busy,
-  onSuccess,
-  onFail,
-  onClose,
+  testMode,
+  statusMessage,
+  onSimulateApprove,
   reduce,
   transition,
 }: {
   phone: string;
   amount: number;
+  method: PaymentMethod;
   busy?: boolean;
-  onSuccess: () => void;
-  onFail: () => void;
-  onClose: () => void;
+  testMode?: boolean;
+  statusMessage?: string | null;
+  onSimulateApprove: () => void;
   reduce?: boolean;
   transition?: Transition;
 }) {
-  const [sent, setSent] = useState(false);
   const r = reduce ?? false;
   const t = transition ?? { duration: 0.35, ease: [0.16, 1, 0.3, 1] };
   const overlayTransition: Transition = r ? { duration: 0 } : { duration: 0.2 };
   const panelTransition: Transition = r ? { duration: 0 } : t;
+  const isMpesa = method === "mpesa";
   return (
     <motion.div
       className="fixed inset-0 z-[80] flex items-center justify-center p-4"
@@ -909,11 +1107,12 @@ function MpesaOverlay({
       exit={r ? { opacity: 0 } : { opacity: 0 }}
       transition={overlayTransition}
     >
-      <div className="absolute inset-0 bg-transparent/70 backdrop-blur-sm" onClick={busy ? undefined : onClose} aria-hidden />
+      <div className="absolute inset-0 bg-transparent/70 backdrop-blur-sm" aria-hidden />
       <motion.div
         role="dialog"
         aria-modal="true"
-        aria-label="M-Pesa payment"
+        aria-label={isMpesa ? "M-Pesa payment" : "Card payment"}
+        aria-live="polite"
         className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-layered"
         initial={r ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -922,59 +1121,52 @@ function MpesaOverlay({
       >
         <div className="bg-foreground px-6 py-5 text-white">
           <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/80">
-            <Smartphone className="size-4" aria-hidden /> M-Pesa · B2C
+            {isMpesa ? <Smartphone className="size-4" aria-hidden /> : <CreditCard className="size-4" aria-hidden />}{" "}
+            {isMpesa ? "M-Pesa · STK push" : "Card · verifying"}
           </p>
-          <p className="mt-2 font-display text-xl">Confirm payment on your phone</p>
+          <p className="mt-2 font-display text-xl">
+            {isMpesa ? "Confirm payment on your phone" : "Confirming your card payment"}
+          </p>
         </div>
 
         <div className="flex flex-col items-center px-6 py-8 text-center">
-          {!sent ? (
-            <div className="flex flex-col items-center gap-3">
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-transparent-soft text-success">
-                <Smartphone className="size-7" aria-hidden />
-              </span>
-              <p className="text-sm text-muted-foreground">
-                An STK push for <strong className="text-foreground">{formatKES(amount)}</strong> has
-                been sent to <strong className="text-foreground">{phone}</strong>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Enter your M-Pesa PIN and press Send.
-              </p>
-              <Button size="lg" className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]" disabled={busy} onClick={() => setSent(true)}>
-                I&apos;ve confirmed - verify payment
-              </Button>
-              <button
-                onClick={onFail}
-                className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
-              >
-                Payment didn&apos;t arrive on my phone
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="size-10 animate-spin text-[#0052FF]" aria-hidden />
-              <p className="text-sm text-muted-foreground">Verifying with M-Pesa…</p>
-              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                DO NOT close this window
-              </p>
-
-              <fieldset className="mt-5 w-full rounded-xl border border-border bg-muted/40 p-4">
-                <legend className="sr-only">Confirm your payment</legend>
-                <p className="mb-3 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Confirm on this screen
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="size-10 animate-spin text-[#0052FF]" aria-hidden />
+            <p className="text-sm text-muted-foreground">
+              {isMpesa ? (
+                <>
+                  An STK push for <strong className="text-foreground">{formatKES(amount)}</strong> was
+                  sent to <strong className="text-foreground">{phone}</strong>. Enter your M-Pesa PIN
+                  and press Send.
+                </>
+              ) : (
+                <>
+                  Verifying <strong className="text-foreground">{formatKES(amount)}</strong> with the
+                  card provider…
+                </>
+              )}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {statusMessage ?? "Waiting for provider confirmation…"}
+            </p>
+            <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+              {busy ? "Placing your order…" : "Do not close this window"}
+            </p>
+            {testMode && (
+              <div className="mt-2 w-full rounded-xl border border-dashed border-warning/60 bg-warning/5 p-4">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-warning">
+                  Development mode - no real charge
                 </p>
-                <div className="flex flex-col gap-2.5">
-                  <Button size="lg" className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]" disabled={busy} onClick={onSuccess}>
-                    {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CheckCircle2 className="size-4" aria-hidden />}
-                    {busy ? "Placing your order…" : "Payment received - place order"}
-                  </Button>
-                  <Button size="lg" variant="secondary" className="w-full" disabled={busy} onClick={onFail}>
-                    <AlertCircle className="size-4 text-danger" aria-hidden /> I didn&apos;t receive the request
-                  </Button>
-                </div>
-              </fieldset>
-            </div>
-          )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Live credentials are not configured. This button fires the server&apos;s test
+                  callback; production builds never show it.
+                </p>
+                <Button size="lg" variant="secondary" className="mt-3 w-full" onClick={onSimulateApprove}>
+                  <CheckCircle2 className="size-4" aria-hidden /> Simulate provider approval
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
     </motion.div>

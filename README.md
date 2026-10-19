@@ -5,8 +5,9 @@ stations. Customers browse stations near them, build a cart with a per-station
 delivery fee, check out, and track the delivery; stations get a storefront and a
 dashboard to take orders, manage their catalogue and see their numbers.
 
-It is a single Next.js app with no external database - orders are stored as JSON
-on disk - so it runs anywhere with a Node runtime and a writable data directory.
+Business identity and onboarding data is prepared for hosted Neon PostgreSQL.
+Orders remain in the existing JSON store until a separate order migration is
+planned.
 
 ## Features
 
@@ -79,6 +80,21 @@ All variables are optional; without them the app runs and logs to stderr.
 | `MF_ALERT_WEBHOOK_URL` | Where order, payment, notification, store and geocode failures are POSTed. Without it, failures go to stderr only. |
 | `MF_NOTIFY_WEBHOOK_URL` | Provider that sends order-status messages to customers. |
 | `NEXT_PUBLIC_SITE_URL` | Absolute site URL used for metadata. Defaults to `http://localhost:3000`. |
+| `DATABASE_URL` | Neon PostgreSQL connection string. Keep it in `.env.local` or your deployment provider's secret manager. |
+
+### Neon database setup
+
+1. Create a Neon project and database outside this repository.
+2. Copy the connection string from Neon into a local `.env.local` file as
+   `DATABASE_URL`. Do not use a `NEXT_PUBLIC_` prefix and do not commit the
+   file or its value.
+3. Generate migrations after schema changes with `pnpm db:generate`.
+4. Apply committed migrations to the configured database with `pnpm db:migrate`.
+
+The Drizzle CLI loads `DATABASE_URL` from `.env.local` when it is not already
+set in the environment. The database client is server-only. Neon credentials
+must be configured as server-side environment variables in deployment and
+should be rotated through Neon and the hosting provider if exposed.
 
 ## Data
 
@@ -95,7 +111,7 @@ src/
   components/          UI by area: home, shared, order, business, account, admin, ui
   lib/
     data/              seeded stations, plans and FAQs
-    server/            file-backed order store
+    server/            database foundation and file-backed order store
     analytics.ts       station analytics (pure functions)
     business-hours.ts  opening hours and availability
     pricing.ts         cart totals

@@ -2,7 +2,6 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useSyncExternalStore,
   type ReactNode,
@@ -11,31 +10,24 @@ import { businesses } from "@/lib/data/businesses";
 import type { Business } from "@/lib/types";
 
 /**
- * Which station the business dashboard is currently acting as. Persisted to
- * localStorage so the sidebar picker, the orders list and the order detail
- * pages all agree, exposed via useSyncExternalStore (SSR-safe, cross-tab
- * aware through the `storage` event).
+ * A business dashboard station may only be selected when the server has
+ * associated it with an approved owner application. Until that association
+ * exists, the dashboard must not fall back to a seeded station.
  */
 
 const STORAGE_KEY = "mf:business";
-const DEFAULT_BUSINESS_ID = businesses[1].id;
-
 interface BusinessContextValue {
   business: Business;
-  setBusinessId: (id: string) => void;
+  hasBusiness: boolean;
 }
 
 const BusinessContext = createContext<BusinessContextValue | null>(null);
 
 const listeners = new Set<() => void>();
 
-function emit() {
-  listeners.forEach((listener) => listener());
-}
-
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  const onStorage = () => emit();
+  const onStorage = () => listener();
   window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(listener);
@@ -43,34 +35,28 @@ function subscribe(listener: () => void) {
   };
 }
 
-function readBusinessId() {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved && businesses.some((b) => b.id === saved)) return saved;
-  } catch {
-    /* noop */
-  }
-  return DEFAULT_BUSINESS_ID;
+export function resolveBusinessId(savedId: string | null, approvedBusinessIds: readonly string[] = []) {
+  if (!savedId || !approvedBusinessIds.includes(savedId)) return null;
+  return businesses.some((business) => business.id === savedId) ? savedId : null;
 }
 
-const getServerSnapshot = () => DEFAULT_BUSINESS_ID;
+function readBusinessId() {
+  try {
+    return resolveBusinessId(window.localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+const getServerSnapshot = () => null;
 
 export function BusinessProvider({ children }: { children: ReactNode }) {
   const businessId = useSyncExternalStore(subscribe, readBusinessId, getServerSnapshot);
 
-  const setBusinessId = useCallback((id: string) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, id);
-    } catch {
-      /* noop */
-    }
-    emit();
-  }, []);
-
-  const business = businesses.find((b) => b.id === businessId) ?? businesses[1];
+  const business = businesses.find((b) => b.id === businessId) ?? businesses[0];
 
   return (
-    <BusinessContext.Provider value={{ business, setBusinessId }}>
+    <BusinessContext.Provider value={{ business, hasBusiness: businessId !== null }}>
       {children}
     </BusinessContext.Provider>
   );

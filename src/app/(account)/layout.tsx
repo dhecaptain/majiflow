@@ -1,5 +1,13 @@
 import { AccountShell } from "@/components/account/account-shell";
+import { AuthenticationError, requireCustomer } from "@/lib/server/auth";
+import { redirect } from "next/navigation";
 
-export default function AccountLayout({ children }: { children: React.ReactNode }) {
+export default async function AccountLayout({ children }: { children: React.ReactNode }) {
+  try {
+    await requireCustomer();
+  } catch (error) {
+    if (error instanceof AuthenticationError) redirect("/login");
+    throw error;
+  }
   return <AccountShell>{children}</AccountShell>;
 }

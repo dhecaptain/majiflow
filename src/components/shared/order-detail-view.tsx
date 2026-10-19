@@ -6,7 +6,7 @@ import {
   ArrowLeft, CheckCircle2, Clock, MapPin, Phone, Radio, Truck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusBadge } from "@/components/ui/order-status-badge";
+import { OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { fetchOrder, fetchOrderLocation, updateOrder, type OrderLocationSnapshot } from "@/lib/orders";
@@ -249,8 +249,8 @@ export function OrderDetailView({
               <span className="text-xs text-muted-foreground">
                 Paid via {order.payment === "mpesa" ? "M-Pesa" : "Card"}
               </span>
-              <Badge variant={order.paymentState === "success" ? "success" : order.paymentState === "failed" ? "danger" : "muted"}>
-                {order.paymentState === "success" ? "Payment successful" : order.paymentState}
+              <Badge variant={PAYMENT_STATE_META[order.paymentState].tone}>
+                {PAYMENT_STATE_META[order.paymentState].label}
               </Badge>
             </div>
           </section>

@@ -190,9 +190,30 @@ export function BusinessRegister() {
   const draft = useSyncExternalStore(subscribeDraft, getDraftSnapshot, getDraftServerSnapshot);
   const [errors, setErrors] = useState<Errors>({});
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState("");
+  const [ownerSession, setOwnerSession] = useState<"loading" | "owner" | "anonymous" | "other">("loading");
+  const [switchingAccount, setSwitchingAccount] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const autoAsked = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/session")
+      .then((response) => response.json())
+      .then((body) => {
+        if (!active) return;
+        setOwnerSession(body.user?.role === "business_owner" ? "owner" : body.user ? "other" : "anonymous");
+      })
+      .catch(() => {
+        if (active) setOwnerSession("anonymous");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const update = useCallback(
     <K extends keyof RegistrationDraft>(key: K, value: RegistrationDraft[K]) => {
@@ -201,6 +222,19 @@ export function BusinessRegister() {
     },
     []
   );
+
+  const switchToBusinessOwner = async () => {
+    setSwitchingAccount(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Could not switch accounts.");
+      setOwnerSession("anonymous");
+    } catch {
+      toast({ kind: "error", title: "Could not switch accounts", message: "Please try again." });
+    } finally {
+      setSwitchingAccount(false);
+    }
+  };
 
   const selected = plans.find((p) => p.id === draft.plan) ?? plans[1];
 
@@ -282,7 +316,7 @@ export function BusinessRegister() {
     setStep((s) => Math.max(0, s - 1));
   };
 
-  const submit = () => {
+  const submit = async () => {
     for (let i = 0; i <= 2; i++) {
       const stepErrors = validateStep(i, draft);
       if (Object.keys(stepErrors).length > 0) {
@@ -295,6 +329,73 @@ export function BusinessRegister() {
     // Location is a must, but never a dead end: fall back to the town's
     // approximate coordinates when GPS wasn't captured.
     const finalDraft = draft.location ? draft : { ...draft, location: townLocation(draft.city) };
+    if (ownerSession === "loading") {
+      toast({ kind: "error", title: "Checking your account", message: "Please try again in a moment." });
+      return;
+    }
+    if (ownerSession === "other") {
+      toast({ kind: "error", title: "Business owner account required", message: "Sign out below to create a separate business owner account." });
+      return;
+    }
+    if (ownerSession === "anonymous") {
+      if (accountPassword.length < 8 || accountPassword !== accountPasswordConfirm) {
+        toast({ kind: "error", title: "Finish your account setup", message: "Enter matching passwords with at least 8 characters." });
+        return;
+      }
+      const accountResponse = await fetch("/api/auth/business-register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: draft.ownerName,
+          email: draft.email,
+          phone: draft.phone,
+          password: accountPassword,
+        }),
+      });
+      const accountBody = await accountResponse.json().catch(() => ({}));
+      if (!accountResponse.ok) {
+        toast({
+          kind: "error",
+          title: "Could not create owner account",
+          message: accountBody.error ?? "Please try again.",
+        });
+        return;
+      }
+      setOwnerSession("owner");
+    }
+    setSubmitting(true);
+    const response = await fetch("/api/business-applications", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        businessName: finalDraft.businessName,
+        ownerName: finalDraft.ownerName,
+        phone: finalDraft.phone,
+        email: finalDraft.email,
+        description: finalDraft.description,
+        registrationNumber: finalDraft.registrationNumber,
+        address: finalDraft.address,
+        city: finalDraft.city,
+        zones: finalDraft.zones,
+        deliveryFee: finalDraft.deliveryFee,
+        deliveryTimeMinutes: finalDraft.deliveryTime,
+        plan: finalDraft.plan,
+        latitude: finalDraft.location?.lat,
+        longitude: finalDraft.location?.lng,
+      }),
+    });
+    const body = await response.json().catch(() => ({}));
+    setSubmitting(false);
+    if (!response.ok) {
+      toast({
+        kind: "error",
+        title: response.status === 401 ? "Sign in required" : "Could not submit",
+        message: body.error ?? "Please try again.",
+      });
+      return;
+    }
+    setAccountPassword("");
+    setAccountPasswordConfirm("");
     saveDraft(finalDraft);
     writeDraft(finalDraft);
     setDone(true);
@@ -408,6 +509,50 @@ export function BusinessRegister() {
               <h2 className="flex items-center gap-2 font-display text-xl text-foreground">
                 <Building2 className="size-5 text-[#0052FF]" aria-hidden /> Tell us about the business
               </h2>
+              {ownerSession === "other" && (
+                <div className="rounded-2xl border border-warning/25 bg-transparent/5 p-4">
+                  <p className="text-sm font-semibold text-foreground">You are signed in as a customer</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Business applications must belong to a separate business owner account.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="mt-4"
+                    onClick={switchToBusinessOwner}
+                    disabled={switchingAccount}
+                  >
+                    {switchingAccount ? "Signing out…" : "Sign out and create owner account"}
+                  </Button>
+                </div>
+              )}
+              {ownerSession === "anonymous" && (
+                <div className="rounded-2xl border border-[#0052FF]/20 bg-[#0052FF]/5 p-4">
+                  <p className="text-sm font-semibold text-foreground">Create your business owner account</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Your application is private to this account. We never save your password in the registration draft.
+                  </p>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <Field label="Password" required>
+                      <Input
+                        type="password"
+                        minLength={8}
+                        value={accountPassword}
+                        onChange={(e) => setAccountPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </Field>
+                    <Field label="Confirm password" required>
+                      <Input
+                        type="password"
+                        minLength={8}
+                        value={accountPasswordConfirm}
+                        onChange={(e) => setAccountPasswordConfirm(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              )}
               <Field label="Business name" required error={errors.businessName}>
                 <Input
                   placeholder="e.g. BioWater Refill Station"
@@ -790,8 +935,8 @@ export function BusinessRegister() {
                 Continue
               </Button>
             ) : (
-              <Button size="lg" className="group" onClick={submit}>
-                Start free trial
+              <Button size="lg" className="group" onClick={submit} disabled={submitting}>
+                {submitting ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Submitting…</> : "Submit application"}
               </Button>
             )}
           </div>

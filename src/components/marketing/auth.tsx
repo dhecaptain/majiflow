@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useCustomer } from "@/components/order/customer-provider";
 import { CITIES } from "@/lib/constants";
+import { postLoginPath } from "@/lib/auth-navigation";
 
 const perks = [
   "Browse verified stations around you",
@@ -86,12 +87,21 @@ export function RegisterForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", city: "Nairobi", estate: "" });
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setSending(true);
-    window.setTimeout(() => {
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not create your account.");
       setSending(false);
       toast({
         kind: "success",
@@ -105,7 +115,10 @@ export function RegisterForm() {
         addresses: [{ label: "Home", estate: form.estate.trim(), city: form.city, phone: form.phone.trim() }],
       });
       router.push("/account");
-    }, 900);
+    } catch (err) {
+      setSending(false);
+      setError(err instanceof Error ? err.message : "Could not create your account.");
+    }
   };
 
   return (
@@ -114,6 +127,7 @@ export function RegisterForm() {
       <p className="mt-2 text-sm text-muted-foreground">
         Create an account to order water, track deliveries and manage your saved addresses.
       </p>
+      {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
 
       <form onSubmit={submit} className="mt-8 space-y-5">
         <Field label="Full name" required>
@@ -208,17 +222,33 @@ export function LoginForm() {
   const { login } = useCustomer();
   const router = useRouter();
   const [sending, setSending] = useState(false);
-  const [form, setForm] = useState({ phone: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setSending(true);
-    window.setTimeout(() => {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not sign in.");
       setSending(false);
       toast({ kind: "success", title: "Signed in", message: "Welcome back" });
-      login({ phone: form.phone.trim() });
-      router.push("/account");
-    }, 700);
+      if (body.user?.role === "business_owner") {
+        router.push(postLoginPath("business_owner"));
+      } else {
+        login({ name: body.user.name, email: body.user.email });
+        router.push(postLoginPath("customer"));
+      }
+    } catch (err) {
+      setSending(false);
+      setError(err instanceof Error ? err.message : "Could not sign in.");
+    }
   };
 
   return (
@@ -227,16 +257,17 @@ export function LoginForm() {
       <p className="mt-2 text-sm text-muted-foreground">
         Sign in with the phone number and password you registered with.
       </p>
+      {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
 
       <form onSubmit={submit} className="mt-8 space-y-5">
-        <Field label="Phone number" required>
+        <Field label="Email" required>
           <Input
             required
-            type="tel"
-            placeholder="+254 7XX XXX XXX"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            autoComplete="tel"
+            type="email"
+            placeholder="you@example.com"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            autoComplete="email"
           />
         </Field>
         <Field label="Password" required hint="Enter your password">
