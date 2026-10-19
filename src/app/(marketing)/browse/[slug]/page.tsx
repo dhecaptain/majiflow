@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Clock, MapPin, ShieldCheck, Smartphone, Star, Truck } from "lucide-react";
+import { ArrowLeft, Clock, Droplets, MapPin, ShieldCheck, Smartphone, Star, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/shared/product-card";
 import { StationBadge } from "@/components/shared/station-badge";
 import { BusinessAvailability } from "@/components/shared/business-availability";
+import { EmptyState } from "@/components/ui/feedback";
+import { JourneyLink, JourneyRecorder } from "@/components/order/journey";
+import { StationAvailabilityNotice, StationCartBar } from "@/components/order/station-status";
 import { getBusiness, businesses } from "@/lib/data/businesses";
 import { formatKES } from "@/lib/format";
 
@@ -37,7 +39,8 @@ export default async function BusinessProfile({ params }: PageProps) {
   const lowStockCount = business.products.filter((p) => p.stock <= p.stockLow).length;
 
   return (
-    <div className="pb-24">
+    <div className="pb-40 lg:pb-32">
+      <JourneyRecorder step="station" href={`/browse/${business.slug}`} />
       {/* Banner */}
       <section className="relative overflow-hidden bg-ink">
         <div aria-hidden className="absolute inset-0">
@@ -53,12 +56,12 @@ export default async function BusinessProfile({ params }: PageProps) {
         </div>
 
         <Container className="relative pb-8 pt-40 sm:pt-56">
-          <Link
-            href="/browse"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-white"
+          <JourneyLink
+            step="browse"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-white"
           >
-            <ArrowLeft className="size-4" aria-hidden /> Back to browse
-          </Link>
+            <ArrowLeft className="size-4" aria-hidden /> Back to stations
+          </JourneyLink>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl leading-tight tracking-tight text-white sm:text-4xl">
@@ -157,19 +160,45 @@ export default async function BusinessProfile({ params }: PageProps) {
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 className="font-display text-3xl text-foreground sm:text-4xl">
-                Add to your cart
+                Choose your water
               </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Open an item for details and options, or add it straight to your cart.
+              </p>
             </div>
             <Badge variant="mono">{business.products.length} products</Badge>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {business.products.map((product) => (
-              <ProductCard key={product.id} product={product} businessId={business.id} openingHours={business.openingHours} />
-            ))}
-          </div>
+          <StationAvailabilityNotice business={business} className="mt-6" />
+
+          {business.products.length === 0 ? (
+            <EmptyState
+              className="mt-10"
+              icon={<Droplets className="size-7" aria-hidden />}
+              title="No items listed yet"
+              description={`${business.name} hasn't published its menu. Try another station nearby.`}
+              action={
+                <JourneyLink step="browse" className="text-sm font-semibold text-[#0052FF] hover:underline">
+                  Back to stations
+                </JourneyLink>
+              }
+            />
+          ) : (
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {business.products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  businessId={business.id}
+                  businessSlug={business.slug}
+                  openingHours={business.openingHours}
+                />
+              ))}
+            </div>
+          )}
         </Container>
       </section>
+      <StationCartBar business={business} />
     </div>
   );
 }
