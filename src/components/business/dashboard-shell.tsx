@@ -45,9 +45,15 @@ const LOWER: NavItem[] = [
   { href: "/business/settings", label: "Settings", icon: Settings, badge: "Plan" },
 ];
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  stationIds = [],
+}: {
+  children: React.ReactNode;
+  stationIds?: readonly string[];
+}) {
   return (
-    <BusinessProvider>
+    <BusinessProvider approvedBusinessIds={stationIds}>
       <DashboardShellInner>{children}</DashboardShellInner>
     </BusinessProvider>
   );

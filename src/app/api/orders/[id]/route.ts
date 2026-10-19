@@ -1,7 +1,9 @@
-import { notifyStatusChange, reportFailure } from "@/lib/monitoring";
+import { reportFailure } from "@/lib/monitoring";
 import { isOrderStatus } from "@/lib/order-status";
-import { wantsOrderUpdates } from "@/lib/server/account";
-import { getOrder, publicOrder, updateOrder } from "@/lib/server/order-store";
+import { assignRider, moveOrder, validateRider } from "@/lib/server/fulfillment";
+import { actorFor, canManageOrder, optionalStaff } from "@/lib/server/order-access";
+import { getOrder, publicOrder, staffOrder, updateOrder } from "@/lib/server/order-store";
+import { asStaff } from "@/lib/server/staff-http";
 
 export const dynamic = "force-dynamic";
 
@@ -9,17 +11,29 @@ interface Context {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: Request, ctx: Context) {
+/**
+ * The order id is the customer's unguessable tracking link, so anyone holding
+ * it gets the tracking view. The owning station and the admin get the full
+ * operational record.
+ */
+export async function GET(request: Request, ctx: Context) {
   const { id } = await ctx.params;
   const order = await getOrder(id);
   if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-  return Response.json({ order: publicOrder(order) });
+  const staff = await optionalStaff(request);
+  const view = staff && canManageOrder(staff, order) ? staffOrder(order) : publicOrder(order);
+  return Response.json({ order: view });
 }
 
-// Payment state is written server-side only (verified provider callbacks in
-// /api/payments). Clients - including vendor screens - cannot set it here.
-const PATCHABLE = new Set(["status", "eta"]);
+const MAX_ETA = 40;
 
+/**
+ * Station/admin fulfilment actions:
+ *   { status, reason? }              lifecycle move (enforced server-side)
+ *   { status: "rider_assigned", rider: { name, phone } }   assign or reassign a rider
+ *   { eta }                          update the promised arrival
+ * Payment state is never writable here - only verified provider callbacks set it.
+ */
 export async function PATCH(request: Request, ctx: Context) {
   const { id } = await ctx.params;
   let body: unknown;
@@ -31,49 +45,58 @@ export async function PATCH(request: Request, ctx: Context) {
   if (typeof body !== "object" || body === null) {
     return Response.json({ error: "Invalid patch" }, { status: 400 });
   }
-
-  const patch: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
-    if (key === "paymentState") {
-      return Response.json(
-        { error: "Payment state is confirmed server-side after checkout - it cannot be set here." },
-        { status: 400 }
-      );
-    }
-    if (!PATCHABLE.has(key)) continue;
-    if (key === "status" && !isOrderStatus(value)) {
-      return Response.json({ error: "Unknown status" }, { status: 400 });
-    }
-    if (key === "eta" && typeof value !== "string") {
-      return Response.json({ error: "ETA must be a string" }, { status: 400 });
-    }
-    patch[key] = value;
+  const input = body as Record<string, unknown>;
+  if ("paymentState" in input) {
+    return Response.json(
+      { error: "Payment state is confirmed server-side after checkout - it cannot be set here." },
+      { status: 400 }
+    );
   }
-  if (Object.keys(patch).length === 0) {
+  if (input.status !== undefined && !isOrderStatus(input.status)) {
+    return Response.json({ error: "Unknown status" }, { status: 400 });
+  }
+  if (input.eta !== undefined && (typeof input.eta !== "string" || input.eta.length > MAX_ETA)) {
+    return Response.json({ error: "ETA must be a short text, e.g. \"25 min\"." }, { status: 400 });
+  }
+  if (input.status === undefined && input.eta === undefined) {
     return Response.json({ error: "No patchable fields supplied" }, { status: 400 });
   }
 
-  const before = await getOrder(id);
-  let order;
-  try {
-    order = await updateOrder(id, patch);
-  } catch (error) {
-    await reportFailure("store", "Could not update an order.", {
-      orderId: id,
-      reason: error instanceof Error ? error.message : "unknown",
-    });
-    return Response.json({ error: "We could not update the order. Please try again." }, { status: 500 });
-  }
-  if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-
-  if (typeof patch.status === "string" && patch.status !== before?.status) {
-    // Failures inside the notification seam are reported there, so this cannot
-    // turn a saved status change into an error response. Account holders who
-    // opted out of order updates are skipped.
-    if (await wantsOrderUpdates(order.customerUserId)) {
-      await notifyStatusChange({ id: order.id, status: order.status }, order.customerPhone);
+  return asStaff(request, "update order", async (principal) => {
+    const authorize = (order: { businessId: string }) => canManageOrder(principal, order);
+    const actor = actorFor(principal);
+    try {
+      let riderToken: string | undefined;
+      let order;
+      if (input.status === "rider_assigned") {
+        const checked = validateRider(input.rider);
+        if ("errors" in checked) {
+          return Response.json({ error: "Add the rider's details.", fields: checked.errors }, { status: 422 });
+        }
+        const result = await assignRider({ orderId: id, rider: checked.rider, actor, authorize });
+        if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+        order = result.order;
+        riderToken = result.token;
+      } else if (isOrderStatus(input.status)) {
+        const result = await moveOrder({ orderId: id, to: input.status, actor, authorize, reason: input.reason as string });
+        if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+        order = result.order;
+      }
+      if (typeof input.eta === "string") {
+        const current = order ?? (await getOrder(id));
+        if (!current || !authorize(current)) return Response.json({ error: "Order not found" }, { status: 404 });
+        order = (await updateOrder(id, { eta: input.eta.trim() || undefined })) ?? current;
+      }
+      return Response.json({
+        order: staffOrder(order!),
+        ...(riderToken ? { riderLink: `/rider/${riderToken}` } : {}),
+      });
+    } catch (error) {
+      await reportFailure("store", "Could not update an order.", {
+        orderId: id,
+        reason: error instanceof Error ? error.message : "unknown",
+      });
+      return Response.json({ error: "We could not update the order. Please try again." }, { status: 500 });
     }
-  }
-
-  return Response.json({ order: publicOrder(order) });
+  });
 }

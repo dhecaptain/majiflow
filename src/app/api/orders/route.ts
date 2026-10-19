@@ -1,18 +1,38 @@
 import type { NextRequest } from "next/server";
 import { reportFailure } from "@/lib/monitoring";
 import { getOptionalCustomer } from "@/lib/server/auth";
-import { createOrder, listOrders, publicOrder, validateOrder } from "@/lib/server/order-store";
+import { applyOrderRetention, createOrder, listOrders, publicOrder, staffOrder, validateOrder } from "@/lib/server/order-store";
+import { asStaff } from "@/lib/server/staff-http";
 
 export const dynamic = "force-dynamic";
 
+const RETENTION_SWEEP_MS = 60 * 60 * 1000;
+let lastRetentionSweep = 0;
+
+/**
+ * Order feed for station staff (their own stations only) and the platform
+ * admin (everything). Customers read their orders through /api/account.
+ */
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const orders = await listOrders({
-    businessId: searchParams.get("businessId") ?? undefined,
-    status: searchParams.get("status") ?? undefined,
-    phone: searchParams.get("phone") ?? undefined,
+  return asStaff(request, "list orders", async (principal) => {
+    const { searchParams } = request.nextUrl;
+    const businessId = searchParams.get("businessId") ?? undefined;
+    if (principal.kind === "station" && businessId && !principal.stationIds.includes(businessId)) {
+      return Response.json({ error: "You can only view orders for your own station." }, { status: 403 });
+    }
+    if (Date.now() - lastRetentionSweep > RETENTION_SWEEP_MS) {
+      lastRetentionSweep = Date.now();
+      await applyOrderRetention().catch(() => undefined);
+    }
+    const orders = await listOrders({
+      businessId,
+      status: searchParams.get("status") ?? undefined,
+      phone: searchParams.get("phone") ?? undefined,
+    });
+    const visible =
+      principal.kind === "admin" ? orders : orders.filter((order) => principal.stationIds.includes(order.businessId));
+    return Response.json({ orders: visible.map(staffOrder) });
   });
-  return Response.json({ orders: orders.map(publicOrder) });
 }
 
 export async function POST(request: Request) {

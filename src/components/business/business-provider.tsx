@@ -11,8 +11,10 @@ import type { Business } from "@/lib/types";
 
 /**
  * A business dashboard station may only be selected when the server has
- * associated it with an approved owner application. Until that association
- * exists, the dashboard must not fall back to a seeded station.
+ * associated it with an approved owner application (`approvedBusinessIds`,
+ * resolved from the session in the business layout). Until that association
+ * exists, the dashboard must not fall back to a seeded station. The server
+ * enforces the same scoping on every order request.
  */
 
 const STORAGE_KEY = "mf:business";
@@ -36,22 +38,31 @@ function subscribe(listener: () => void) {
 }
 
 export function resolveBusinessId(savedId: string | null, approvedBusinessIds: readonly string[] = []) {
-  if (!savedId || !approvedBusinessIds.includes(savedId)) return null;
-  return businesses.some((business) => business.id === savedId) ? savedId : null;
+  const approved = approvedBusinessIds.filter((id) => businesses.some((business) => business.id === id));
+  if (savedId && approved.includes(savedId)) return savedId;
+  return approved[0] ?? null;
 }
 
-function readBusinessId() {
+function readBusinessId(approvedBusinessIds: readonly string[]) {
   try {
-    return resolveBusinessId(window.localStorage.getItem(STORAGE_KEY));
+    return resolveBusinessId(window.localStorage.getItem(STORAGE_KEY), approvedBusinessIds);
   } catch {
-    return null;
+    return resolveBusinessId(null, approvedBusinessIds);
   }
 }
 
-const getServerSnapshot = () => null;
-
-export function BusinessProvider({ children }: { children: ReactNode }) {
-  const businessId = useSyncExternalStore(subscribe, readBusinessId, getServerSnapshot);
+export function BusinessProvider({
+  children,
+  approvedBusinessIds = [],
+}: {
+  children: ReactNode;
+  approvedBusinessIds?: readonly string[];
+}) {
+  const businessId = useSyncExternalStore(
+    subscribe,
+    () => readBusinessId(approvedBusinessIds),
+    () => resolveBusinessId(null, approvedBusinessIds)
+  );
 
   const business = businesses.find((b) => b.id === businessId) ?? businesses[0];
 

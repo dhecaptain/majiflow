@@ -1,6 +1,6 @@
 import { cancelBlockReason } from "@/lib/account";
 import { asCustomer, notFound } from "@/lib/server/account-http";
-import { getCustomerOrder } from "@/lib/server/order-store";
+import { getCustomerOrder, publicOrder } from "@/lib/server/order-store";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,6 @@ export async function GET(_request: Request, ctx: Context) {
   return asCustomer("order detail", async (user) => {
     const order = await getCustomerOrder(id, user.id);
     if (!order) return notFound();
-    return Response.json({ order, cancelBlockReason: cancelBlockReason(order) });
+    return Response.json({ order: publicOrder(order), cancelBlockReason: cancelBlockReason(order) });
   });
 }
