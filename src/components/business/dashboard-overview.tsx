@@ -11,7 +11,7 @@ import { formatKES } from "@/lib/format";
 import { percentChange, resolveDateRange, summarizeStation } from "@/lib/analytics";
 import { useBusiness } from "@/components/business/business-provider";
 import { useStationOrders } from "@/lib/use-station-orders";
-import { updateOrder } from "@/lib/orders";
+import { orderAction } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 
@@ -19,6 +19,7 @@ export function DashboardOverview() {
   const { business } = useBusiness();
   const { orders, stats, loading, delayed, error, refresh } = useStationOrders(business, "7d");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   /** Today's totals come from the station-local day, not the 7 day window. */
   const today = useMemo(
@@ -32,9 +33,11 @@ export function DashboardOverview() {
 
   const accept = async (order: Order) => {
     setBusyId(order.id);
-    const updated = await updateOrder(order.id, { status: "accepted" });
+    setActionError(null);
+    const result = await orderAction(order.id, { status: "accepted" });
     setBusyId(null);
-    if (updated) refresh();
+    if (result.ok) refresh();
+    else setActionError(result.error);
   };
 
   if (loading) {
@@ -88,14 +91,14 @@ export function DashboardOverview() {
           label="Orders today"
           value={String(today.orderCount)}
           delta={`${today.statusCounts.pending} need attention`}
-          hint={`${today.statusCounts.accepted} accepted, ${today.statusCounts.out_for_delivery} out`}
+          hint={`${today.statusCounts.accepted + today.statusCounts.preparing + today.statusCounts.rider_assigned} in preparation, ${today.statusCounts.out_for_delivery} out`}
         />
         <KpiCard
           icon={Boxes}
           label="Out for delivery"
           value={String(stats.statusCounts.out_for_delivery)}
           delta={`${stats.activeCount} live right now`}
-          hint="Live while a rider shares location"
+          hint="Live while the customer shares location"
         />
         <KpiCard
           icon={Repeat}
@@ -206,6 +209,11 @@ export function DashboardOverview() {
               </Button>
             </Link>
           </div>
+          {actionError && (
+            <p role="alert" className="border-b border-border bg-danger/5 px-6 py-3 text-sm text-danger">
+              {actionError}
+            </p>
+          )}
           {recent.length === 0 ? (
             <p className="p-10 text-center text-sm text-muted-foreground">
               Nothing here yet. Orders arrive the moment a customer checks out.
@@ -228,7 +236,9 @@ export function DashboardOverview() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-display text-base text-foreground">{formatKES(o.total)}</span>
-                    {o.status === "pending" ? (
+                    {o.status === "pending" && o.paymentState !== "success" ? (
+                      <span className="text-xs text-warning">Awaiting payment</span>
+                    ) : o.status === "pending" ? (
                       <Button size="sm" onClick={() => void accept(o)} disabled={busyId === o.id}>
                         {busyId === o.id ? "Accepting…" : "Accept"}
                       </Button>

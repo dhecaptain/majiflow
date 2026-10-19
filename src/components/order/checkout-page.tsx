@@ -141,6 +141,7 @@ function CheckoutForm() {
   const [method, setMethod] = useState<PaymentMethod>("mpesa");
   const [saveProfile, setSaveProfile] = useState(readConsent);
   const [shareLocation, setShareLocation] = useState(true);
+  const [smsUpdates, setSmsUpdates] = useState(true);
   const [touch, setTouch] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [payState, setPayState] = useState<PayState>("idle");
@@ -457,6 +458,7 @@ function CheckoutForm() {
             },
             placedAt: new Date().toISOString(),
             eta: "≈ 50 min",
+            consent: { location: shareLocation, smsUpdates, updatedAt: new Date().toISOString() },
           };
           created.push(await createOrder(order));
         }
@@ -911,8 +913,22 @@ function CheckoutForm() {
               </span>{" "}
               with the delivery person so they can see and find you.
               <span className="block text-muted-foreground/80">
-                Sharing stops automatically when the order is delivered.
+                Sharing stops automatically when the order is delivered, and you can turn it off from the
+                tracking page.
               </span>
+            </span>
+          </label>
+
+          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3">
+            <input
+              type="checkbox"
+              checked={smsUpdates}
+              onChange={(e) => setSmsUpdates(e.target.checked)}
+              className="mt-0.5 size-4 shrink-0 accent-[#0052FF]"
+            />
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Text me order updates</span> - accepted, rider on
+              the way, delivered, or if the station cannot fulfil it.
             </span>
           </label>
 

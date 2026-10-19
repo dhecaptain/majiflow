@@ -2,36 +2,37 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft, CheckCircle2, Clock, MapPin, Phone, Radio, Truck, XCircle } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Phone, Radio, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
-import { fetchOrder, fetchOrderLocation, updateOrder, type OrderLocationSnapshot } from "@/lib/orders";
-import { nextStatus } from "@/lib/order-status";
+import { FulfilmentPanel } from "@/components/shared/fulfilment-panel";
+import { fetchOrder, fetchOrderLocation, type OrderLocationSnapshot } from "@/lib/orders";
+import { isActiveStatus } from "@/lib/order-status";
 import { businesses } from "@/lib/data/businesses";
 import { CITY_COORDS, ESTATE_COORDS } from "@/lib/constants";
 import { formatKES, formatPhone } from "@/lib/format";
-import type { Order, OrderStatus, OrderTimelineEntry } from "@/lib/types";
-
-const STATUS_NOTES: Partial<Record<OrderStatus, string>> = {
-  pending: "Waiting for the station to accept.",
-  accepted: "Order accepted - customer notified.",
-  out_for_delivery: "Rider assigned and heading out.",
-  delivered: "Marked delivered. Payment settled via M-Pesa.",
-  rejected: "Order rejected - customer refunded automatically.",
-  cancelled: "Order cancelled.",
-};
+import type { FulfillmentActor, Order, OrderStatus, OrderTimelineEntry } from "@/lib/types";
 
 const TIMELINE_LABEL: Record<OrderStatus, string> = {
-  pending: "Order placed & paid",
+  pending: "Order placed",
   accepted: "Station accepted",
+  preparing: "Preparing",
+  rider_assigned: "Rider assigned",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
-  rejected: "Rejected by station",
+  rejected: "Rejected",
   cancelled: "Cancelled",
+};
+
+const ACTOR_LABEL: Record<FulfillmentActor, string> = {
+  station: "Station",
+  rider: "Rider",
+  customer: "Customer",
+  admin: "MajiFlow admin",
+  system: "System",
 };
 
 function addressPoint(order: Order): MapPoint {
@@ -60,22 +61,23 @@ function timelineOf(order: Order): OrderTimelineEntry[] {
 /**
  * Shared live-tracking view for a single order - used by the vendor
  * dashboard (`/business/orders/[id]`) and the platform admin
- * (`/admin/orders/[id]`). Brand-new surface; existing screens link into it.
+ * (`/admin/orders/[id]`). Reads and actions are authorized server-side.
  */
 export function OrderDetailView({
   id,
   backHref,
   backLabel,
+  actor,
 }: {
   id: string;
   backHref: string;
   backLabel: string;
+  actor: "station" | "admin";
 }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [snapshot, setSnapshot] = useState<OrderLocationSnapshot | null>(null);
   const [fetchedAt, setFetchedAt] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -95,12 +97,6 @@ export function OrderDetailView({
     };
   }, [id]);
 
-  const setStatus = async (status: OrderStatus) => {
-    const next = await updateOrder(id, { status });
-    if (next) setOrder(next);
-    setNote(STATUS_NOTES[status] ?? "Order updated.");
-  };
-
   if (loading) {
     return (
       <div className="py-10">
@@ -113,8 +109,8 @@ export function OrderDetailView({
     return (
       <div className="py-10">
         <ErrorState
-          title="Order not found"
-          message="This order no longer exists in the store."
+          title="Order not available"
+          message="This order does not exist, or it belongs to another station."
           action={
             <Link href={backHref}>
               <Button size="lg">{backLabel}</Button>
@@ -125,7 +121,7 @@ export function OrderDetailView({
     );
   }
 
-  const active = order.status === "pending" || order.status === "accepted" || order.status === "out_for_delivery";
+  const active = isActiveStatus(order.status);
   const live = snapshot?.location ?? order.location ?? null;
   const history = snapshot?.history ?? order.locationHistory ?? [];
   const liveAgeMs = live ? fetchedAt - new Date(live.at).getTime() : Number.POSITIVE_INFINITY;
@@ -157,17 +153,6 @@ export function OrderDetailView({
         <OrderStatusBadge status={order.status} className="text-sm" />
       </div>
 
-      {note && (
-        <div role="status" className="flex items-center justify-between rounded-xl border border-success/25 bg-transparent/5 px-4 py-3 text-sm text-success">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="size-4" aria-hidden /> {note}
-          </span>
-          <button onClick={() => setNote(null)} aria-label="Dismiss" className="font-semibold">
-            Dismiss
-          </button>
-        </div>
-      )}
-
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         {/* Live map */}
         <section className="space-y-4">
@@ -181,11 +166,15 @@ export function OrderDetailView({
               }`}
             >
               <Radio className={`size-3 ${liveFresh ? "animate-pulse-dot" : ""}`} aria-hidden />
-              {liveFresh
-                ? "Customer sharing live"
-                : live
-                  ? "Last fix " + Math.max(1, Math.round(liveAgeMs / 60000)) + " min ago"
-                  : "Address pin only"}
+              {!active
+                ? "Tracking ended"
+                : liveFresh
+                  ? "Customer sharing live"
+                  : live
+                    ? "Last fix " + Math.max(1, Math.round(liveAgeMs / 60000)) + " min ago"
+                    : order.consent?.location
+                      ? "Waiting for the customer's location"
+                      : "Address pin only"}
             </span>
           </div>
 
@@ -255,56 +244,7 @@ export function OrderDetailView({
             </div>
           </section>
 
-          {/* Actions */}
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <h2 className="font-display text-lg text-foreground">Fulfilment</h2>
-            {!active ? (
-              <div className="mt-4">
-                <OrderStatusBadge status={order.status} />
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  {order.status === "delivered"
-                    ? "Completed. Payment already settled to the station."
-                    : order.status === "rejected" || order.status === "cancelled"
-                      ? "Closed. Any payment is returned to the customer automatically."
-                      : "-"}
-                </p>
-              </div>
-            ) : (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {order.status === "pending" && (
-                  <>
-                    <Button onClick={() => void setStatus("accepted")}>Accept order</Button>
-                    <Button variant="secondary" onClick={() => void setStatus("rejected")}>
-                      <XCircle className="size-4" aria-hidden /> Reject
-                    </Button>
-                  </>
-                )}
-                {order.status === "accepted" && (
-                  <>
-                    <Button onClick={() => void setStatus("out_for_delivery")}>Assign rider & send</Button>
-                    <Button variant="secondary" onClick={() => void setStatus("cancelled")}>
-                      Cancel
-                    </Button>
-                  </>
-                )}
-                {order.status === "out_for_delivery" && (
-                  <>
-                    <Button onClick={() => void setStatus("delivered")}>Mark delivered</Button>
-                    <Button variant="secondary" onClick={() => void setStatus("cancelled")}>
-                      Cancel
-                    </Button>
-                  </>
-                )}
-                <Button
-                  variant="ghost"
-                  onClick={() => void setStatus(nextStatus(order.status))}
-                  disabled={nextStatus(order.status) === order.status}
-                >
-                  Advance step
-                </Button>
-              </div>
-            )}
-          </section>
+          <FulfilmentPanel order={order} actor={actor} onChange={setOrder} />
 
           {/* Timeline */}
           <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
@@ -320,7 +260,9 @@ export function OrderDetailView({
                       <p className="text-sm font-semibold text-foreground">{TIMELINE_LABEL[entry.status]}</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(entry.at).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}
+                        {entry.actor && ` · ${ACTOR_LABEL[entry.actor]}`}
                       </p>
+                      {entry.note && <p className="mt-0.5 text-xs text-foreground/80">{entry.note}</p>}
                     </div>
                     <OrderStatusBadge status={entry.status} />
                   </li>

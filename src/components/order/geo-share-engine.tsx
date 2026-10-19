@@ -8,14 +8,16 @@ import { isActiveStatus } from "@/lib/order-status";
 /**
  * Invisible live-location sharing.
  *
- * While a customer has an active order open at `/order/[id]`, this engine
- * asks the browser for its native geolocation permission and streams GPS
- * fixes to the order so the vendor and the platform admin can watch the
- * delivery live. It renders nothing - the only UI is the browser's own
- * permission prompt. Sharing stops automatically when the order reaches a
- * terminal state or the customer leaves the page. Denied permission falls
- * back silently to address-only tracking.
+ * While a customer has an active order open at `/order/[id]` and has agreed
+ * to share their location for that order, this engine streams browser GPS
+ * fixes so the station can find them. It renders nothing - the consent
+ * toggle lives on the tracking page and the browser shows its own permission
+ * prompt. Sharing stops when consent is withdrawn, the order closes or the
+ * customer leaves the page. Denied permission falls back to the address pin.
  */
+
+/** Fired by the tracking page after the customer changes consent. */
+export const ORDER_CONSENT_EVENT = "mf:order-consent";
 
 const POST_INTERVAL_MS = 5000;
 const POST_DISTANCE_M = 15;
@@ -47,32 +49,24 @@ export function GeoShareEngine() {
     let lastSent = 0;
     let lastFix: { lat: number; lng: number } | null = null;
 
-    const stop = () => {
-      stopped = true;
+    const stopWatch = () => {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
+    };
+
+    const stop = () => {
+      stopped = true;
+      stopWatch();
       if (poll !== null) {
         window.clearInterval(poll);
         poll = null;
       }
     };
 
-    const checkStatus = async () => {
-      const order = await fetchOrder(orderId);
-      if (!alive) return false;
-      if (!order || !isActiveStatus(order.status)) {
-        stop();
-        return false;
-      }
-      return true;
-    };
-
-    (async () => {
-      if (!(await checkStatus())) return;
-      if (!alive || stopped) return;
-
+    const startWatch = () => {
+      if (watchId !== null || stopped) return;
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (!alive || stopped) return;
@@ -87,19 +81,35 @@ export function GeoShareEngine() {
             ...fix,
             accuracy: pos.coords.accuracy ?? undefined,
             at: new Date().toISOString(),
+          }).then((ok) => {
+            // The server refuses fixes once consent is gone or the order closed.
+            if (!ok) void sync();
           });
         },
         () => stop(),
         { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 }
       );
+    };
 
-      poll = window.setInterval(() => {
-        void checkStatus();
-      }, STATUS_POLL_MS);
-    })();
+    const sync = async () => {
+      const order = await fetchOrder(orderId);
+      if (!alive || stopped) return;
+      if (!order || !isActiveStatus(order.status)) {
+        stop();
+        return;
+      }
+      if (order.consent?.location) startWatch();
+      else stopWatch();
+    };
+
+    const onConsent = () => void sync();
+    window.addEventListener(ORDER_CONSENT_EVENT, onConsent);
+    void sync();
+    poll = window.setInterval(() => void sync(), STATUS_POLL_MS);
 
     return () => {
       alive = false;
+      window.removeEventListener(ORDER_CONSENT_EVENT, onConsent);
       stop();
     };
   }, [orderId]);

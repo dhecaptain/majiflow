@@ -1,4 +1,5 @@
 import { BUSINESS_TIME_ZONE } from "@/lib/business-hours";
+import { ACTIVE_STATUSES } from "@/lib/order-status";
 import type { Business, Order, OrderStatus, StockAlert } from "@/lib/types";
 
 /**
@@ -12,7 +13,7 @@ import type { Business, Order, OrderStatus, StockAlert } from "@/lib/types";
  */
 
 const UNCOUNTED_STATUS: OrderStatus[] = ["rejected", "cancelled"];
-const ACTIVE_STATUS: OrderStatus[] = ["pending", "accepted", "out_for_delivery"];
+const ACTIVE_STATUS: readonly OrderStatus[] = ACTIVE_STATUSES;
 
 /** A customer with no order for this many days counts as dormant. */
 export const DORMANT_AFTER_DAYS = 30;
@@ -356,6 +357,8 @@ export function summarizeStation(
   const statusCounts: Record<OrderStatus, number> = {
     pending: 0,
     accepted: 0,
+    preparing: 0,
+    rider_assigned: 0,
     out_for_delivery: 0,
     delivered: 0,
     rejected: 0,
