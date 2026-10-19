@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Loader2, Navigation, Search } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Input } from "@/components/ui/field";
@@ -17,19 +17,32 @@ import {
   townLocation,
   type CapturedLocation,
 } from "@/lib/geo";
+import { browseHref } from "@/lib/journey";
+import { rememberJourneyStep } from "@/components/order/journey";
 
 const DISCOVERY_RADII_KM = [3, 5, 10, 20] as const;
 
 type LocationMode = "manual" | "current";
 
-export function BrowsePage({ initialCity }: { initialCity: string }) {
-  const [city, setCity] = useState(initialCity || "All cities");
-  const [query, setQuery] = useState("");
+export function BrowsePage({ initialCity, initialQuery = "" }: { initialCity: string; initialQuery?: string }) {
+  const [city, setCity] = useState<string>(
+    () => CITIES.find((c) => c.toLowerCase() === initialCity.trim().toLowerCase()) ?? "All cities"
+  );
+  const [query, setQuery] = useState(initialQuery);
   const [location, setLocation] = useState<CapturedLocation | null>(null);
   const [locationMode, setLocationMode] = useState<LocationMode>("manual");
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const locationRequestRef = useRef(0);
+
+  // Keep the search in the URL so back navigation from a station restores it.
+  useEffect(() => {
+    const href = browseHref(city, query);
+    if (`${window.location.pathname}${window.location.search}` !== href) {
+      window.history.replaceState(window.history.state, "", href);
+    }
+    rememberJourneyStep("browse", href);
+  }, [city, query]);
 
   const discovery = useMemo(() => {
     const source = locationMode === "current" ? businesses : getBusinessesByCity(city);
