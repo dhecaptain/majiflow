@@ -1,3 +1,4 @@
+import { WaterDroplets } from "@/components/ui/water-loader";
 import { cn } from "@/lib/utils";
 
 export function Skeleton({ className }: { className?: string }) {
@@ -18,9 +19,7 @@ export function LoadingState({ label = "Loading…", className }: LoadingStatePr
       aria-live="polite"
       className={cn("flex flex-col items-center justify-center gap-4 py-16 text-center", className)}
     >
-      <div className="animate-spin">
-        <div className="size-8 rounded-full border-2 border-[#0052FF]/20 border-t-[#0052FF]" />
-      </div>
+      <WaterDroplets />
       <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
     </div>
   );
