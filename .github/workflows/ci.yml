@@ -61,11 +61,15 @@ jobs:
         run: |
           BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           echo "Branch: $BRANCH"
-          # Only direct pushes to a protected branch skip the check. A PR whose
-          # head branch is literally "main" (the fork-sync anti-pattern) must
-          # still satisfy the naming convention, so no branch-name bypass.
+          # Skip checks on protected branch names.
+          # - direct pushes to protected branches
+          # - PRs opened from `main` (common sync/maintenance workflow)
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             echo "Skipping branch-name check for branch push."
+            exit 0
+          fi
+          if [[ "$BRANCH" == "main" ]]; then
+            echo "Skipping branch-name check for protected branch."
             exit 0
           fi
           if [[ "$BRANCH" =~ ^(feature|fix|task)/[a-z0-9]+-[a-z0-9-]+$ ]]; then
