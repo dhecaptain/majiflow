@@ -239,12 +239,16 @@ export function LoginForm() {
       if (!response.ok) throw new Error(body.error ?? "Could not sign in.");
       setSending(false);
       toast({ kind: "success", title: "Signed in", message: "Welcome back" });
-      if (body.user?.role === "business_owner") {
-        router.push(postLoginPath("business_owner"));
-      } else {
-        login({ name: body.user.name, email: body.user.email });
-        router.push(postLoginPath("customer"));
-      }
+      if (body.user?.role === "operations") {
+  router.replace("/admin");
+} else if (body.user?.role === "business_owner") {
+  router.push(postLoginPath("business_owner"));
+} else if (body.user?.role === "customer") {
+  login({ name: body.user.name, email: body.user.email });
+  router.push(postLoginPath("customer"));
+} else {
+  setError("Your account role could not be verified. Please contact support.");
+}
     } catch (err) {
       setSending(false);
       setError(err instanceof Error ? err.message : "Could not sign in.");

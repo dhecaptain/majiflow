@@ -10,15 +10,17 @@ const SESSION_COOKIE = "mf_session";
 const SESSION_DAYS = 30;
 
 export class AuthenticationError extends Error {}
+export class AuthorizationError extends Error {}
 
+export type UserRole = "customer" | "business_owner" | "operations";
 export type AuthenticatedUser = {
   id: string;
   name: string;
   email: string;
-  role: "customer" | "business_owner";
+  role: UserRole;
 };
 
-function publicUser(user: { id: string; name: string; email: string; role: "customer" | "business_owner" }): AuthenticatedUser {
+function publicUser(user: { id: string; name: string; email: string; role: UserRole }): AuthenticatedUser {
   return { id: user.id, name: user.name, email: user.email, role: user.role };
 }
 
@@ -163,4 +165,11 @@ export async function verifyUserPassword(userId: string, password: unknown): Pro
   const { db } = await getDatabase();
   const [user] = await db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).limit(1);
   return Boolean(user) && (await verifyPassword(password, user.passwordHash));
+}
+
+export async function requireOperations() {
+  const user = await getCurrentUser();
+  if (!user) throw new AuthenticationError("Operations authentication is required.");
+  if (user.role !== "operations") throw new AuthorizationError("Operations access is required.");
+  return user;
 }

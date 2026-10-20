@@ -1,4 +1,5 @@
 import { BusinessApplicationsStatus } from "@/components/business/business-applications-status";
+import { BusinessStationSetup } from "@/components/business/business-station-setup";
 
 export const metadata = { title: "Applications" };
 
@@ -9,10 +10,12 @@ export default function BusinessApplicationsPage() {
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#0052FF]">Owner account</p>
         <h1 className="mt-2 font-display text-3xl text-foreground">Business applications</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Track the review status of applications submitted from your account.
+          Track the review status of applications submitted from your account, then finish setting
+          up your station once it is approved.
         </p>
       </div>
       <BusinessApplicationsStatus />
+      <BusinessStationSetup />
     </div>
   );
 }

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "subscriptions_business_id_unique" ON "subscriptions" USING btree ("business_id");
