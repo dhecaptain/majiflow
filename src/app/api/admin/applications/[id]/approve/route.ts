@@ -1,4 +1,9 @@
 import { reportFailure } from "@/lib/monitoring";
+import {
+  BusinessApplicationSelfReviewError,
+  updateBusinessApplicationStatus,
+} from "@/lib/server/business-applications";
+import { authorizeOperationsRequest } from "@/lib/server/operations-authorization";
 import { isAdminRequest } from "@/lib/server/admin";
 import { approveApplicationForStation, StationLinkError } from "@/lib/server/stations";
 
@@ -14,7 +19,8 @@ interface Context {
  * From then on the owner's dashboard (and order access) is scoped to that station.
  */
 export async function POST(request: Request, ctx: Context) {
-  if (!isAdminRequest(request)) return Response.json({ error: "Not authorized." }, { status: 403 });
+  const authorization = await authorizeOperationsRequest();
+  if (authorization.response && !isAdminRequest(request)) return authorization.response;
   const { id } = await ctx.params;
   let body: unknown;
   try {
@@ -23,14 +29,17 @@ export async function POST(request: Request, ctx: Context) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   const stationSlug = (body as Record<string, unknown> | null)?.stationSlug;
-  if (typeof stationSlug !== "string" || !stationSlug.trim()) {
-    return Response.json({ error: "Choose the station to link." }, { status: 422 });
-  }
   try {
-    const result = await approveApplicationForStation(id, stationSlug.trim());
-    return Response.json({ stationId: result.stationId });
+    if (typeof stationSlug === "string" && stationSlug.trim()) {
+      const result = await approveApplicationForStation(id, stationSlug.trim());
+      return Response.json({ stationId: result.stationId });
+    }
+    if (authorization.response) return authorization.response;
+    const application = await updateBusinessApplicationStatus(id, "approved", undefined, authorization.user.id);
+    return Response.json({ application });
   } catch (error) {
     if (error instanceof StationLinkError) return Response.json({ error: error.message }, { status: error.status });
+    if (error instanceof BusinessApplicationSelfReviewError) return Response.json({ error: error.message }, { status: 403 });
     await reportFailure("store", "Could not approve a business application.", {
       applicationId: id,
       reason: error instanceof Error ? error.message : "unknown",

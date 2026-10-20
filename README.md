@@ -97,6 +97,20 @@ set in the environment. The database client is server-only. Neon credentials
 must be configured as server-side environment variables in deployment and
 should be rotated through Neon and the hosting provider if exposed.
 
+### Operations access
+
+Operations access is not available through either public registration endpoint. An authorized
+database operator provisions an operations account by first creating a normal account, then
+running this targeted update against the intended account:
+
+```sql
+UPDATE users SET role = 'operations' WHERE email = '<verified-operations-email>';
+```
+
+The update must be performed through the approved database access process; never expose database
+credentials to the browser or accept a role in a user-controlled request. The
+`0002_add_operations_role` migration must be applied before provisioning.
+
 ## Data
 
 Orders are persisted as JSON in `MF_DATA_DIR` (default `.data/orders.json`).

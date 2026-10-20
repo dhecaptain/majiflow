@@ -13,7 +13,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-export const userRole = pgEnum("user_role", ["customer", "business_owner"]);
+export const userRole = pgEnum("user_role", ["customer", "business_owner", "operations"]);
 export const applicationStatus = pgEnum("business_application_status", [
   "submitted",
   "under_review",
@@ -147,16 +147,24 @@ export const customerPreferences = pgTable("customer_preferences", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const subscriptions = pgTable("subscriptions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  businessId: uuid("business_id")
-    .notNull()
-    .references(() => businesses.id, { onDelete: "cascade" }),
-  plan: planName("plan").notNull(),
-  status: subscriptionStatus("status").default("trialing").notNull(),
-  trialStartedAt: timestamp("trial_started_at", { withTimezone: true }),
-  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
-  currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
-  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
-  ...timestamps,
-});
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    plan: planName("plan").notNull(),
+    status: subscriptionStatus("status").default("trialing").notNull(),
+    trialStartedAt: timestamp("trial_started_at", { withTimezone: true }),
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    paymentConfirmedAt: timestamp("payment_confirmed_at", { withTimezone: true }),
+    paymentReference: varchar("payment_reference", { length: 120 }),
+    ...timestamps,
+  },
+  (table) => ({
+    businessUnique: uniqueIndex("subscriptions_business_id_unique").on(table.businessId),
+  })
+);

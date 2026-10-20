@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, Banknote, Building2, Download, MapPin, Package, Radio, Search, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Banknote, Building2, ClipboardCheck, Download, MapPin, Package, Radio, Search, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,11 @@ export function AdminOverview() {
             <Link href="/admin/orders">
               <Button variant="secondary" className="gap-2">
                 <Radio className="size-4" aria-hidden /> Live orders
+              </Button>
+            </Link>
+            <Link href="/admin/applications">
+              <Button variant="secondary" className="gap-2">
+                <ClipboardCheck className="size-4" aria-hidden /> Applications
               </Button>
             </Link>
             <Button className="gap-2" onClick={() => setNote("Platform report exported as CSV.")}>

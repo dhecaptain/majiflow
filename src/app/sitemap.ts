@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
-import { businesses } from "@/lib/data/businesses";
+import { getPublicStationSlugs } from "@/lib/server/station-publication";
 import { SITE_URL } from "@/lib/constants";
+
+// Station URLs depend on live subscription eligibility, so the sitemap must
+// re-run the same authoritative gate instead of being cached at build time.
+export const dynamic = "force-dynamic";
 
 const staticRoutes: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
   { path: "", priority: 1, changeFrequency: "daily" },
@@ -18,7 +22,7 @@ const staticRoutes: { path: string; priority: number; changeFrequency: MetadataR
   { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
 
   const pages = staticRoutes.map((route) => ({
@@ -28,8 +32,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: route.priority,
   }));
 
-  const stations = businesses.map((business) => ({
-    url: `${SITE_URL}/browse/${business.slug}`,
+  const stationSlugs = await getPublicStationSlugs(lastModified);
+  const stations = stationSlugs.map((slug) => ({
+    url: `${SITE_URL}/browse/${slug}`,
     lastModified,
     changeFrequency: "weekly" as const,
     priority: 0.8,
