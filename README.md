@@ -79,6 +79,7 @@ All variables are optional; without them the app runs and logs to stderr.
 | `MF_DATA_DIR` | Directory for `orders.json`. Defaults to `.data` in the repo. Point it at a mounted volume in production. |
 | `MF_ALERT_WEBHOOK_URL` | Where order, payment, notification, store and geocode failures are POSTed. Without it, failures go to stderr only. |
 | `MF_NOTIFY_WEBHOOK_URL` | Provider that sends order-status messages to customers. |
+| `MF_ADMIN_KEY` | Signs admins in at `/admin` and authorizes admin APIs (refunds, linking an approved owner to a station via `POST /api/admin/applications/[id]/approve`). Without it, admin access is disabled. |
 | `NEXT_PUBLIC_SITE_URL` | Absolute site URL used for metadata. Defaults to `http://localhost:3000`. |
 | `DATABASE_URL` | Neon PostgreSQL connection string. Keep it in `.env.local` or your deployment provider's secret manager. |
 

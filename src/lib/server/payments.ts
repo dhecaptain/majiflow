@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Order, PaymentMethod, PaymentState } from "@/lib/types";
-import { getOrder, updateOrder } from "@/lib/server/order-store";
+import { getOrder, setOrderRefund, updateOrder } from "@/lib/server/order-store";
 
 /**
  * Server-side payment lifecycle (M-Pesa via Safaricom Daraja, card via the
@@ -320,22 +320,35 @@ export interface RefundRequest {
   paymentId: string;
   reason: string;
   requestedBy: string;
+  /**
+   * Refund only this order's share of the payment (one checkout can pay
+   * several stations). Without it the whole payment is refunded.
+   */
+  orderId?: string;
 }
 
 /** Open a refund. It stays `pending` until `confirmRefund` runs after provider confirmation. */
 export async function requestRefund(input: RefundRequest): Promise<RefundRecord> {
   if (!input.reason.trim()) throw new Error("A refund reason is required.");
+  const order = input.orderId ? await getOrder(input.orderId) : null;
+  if (input.orderId && !order) throw new Error("Order not found.");
   return mutate(async (records) => {
     const record = records[input.paymentId];
     if (!record) throw new Error("Payment not found.");
     if (record.status !== "success") throw new Error("Only successful payments can be refunded.");
-    const open = record.refunds.find((r) => r.status === "pending");
-    if (open) return clone(open);
+    const orderIds = order ? [order.id] : [...record.orderIds];
+    if (order && !record.orderIds.includes(order.id)) throw new Error("That order was not paid by this payment.");
+    const covers = (r: RefundRecord) => r.status !== "failed" && r.orderIds.some((id) => orderIds.includes(id));
+    const existing = record.refunds.find(covers);
+    if (existing) return clone(existing);
+    const amount = order ? order.total : record.amount;
+    const committed = record.refunds.filter((r) => r.status !== "failed").reduce((sum, r) => sum + r.amount, 0);
+    if (committed + amount > record.amount + 0.01) throw new Error("Refunds would exceed the amount paid.");
     const refund: RefundRecord = {
       id: newId("ref"),
       paymentId: record.id,
-      orderIds: [...record.orderIds],
-      amount: record.amount,
+      orderIds,
+      amount,
       reason: input.reason.trim().slice(0, 500),
       status: "pending",
       requestedBy: input.requestedBy,
@@ -344,6 +357,14 @@ export async function requestRefund(input: RefundRequest): Promise<RefundRecord>
     record.refunds.push(refund);
     event(record, "refund-requested", `${refund.id}: ${refund.reason}`);
     return clone(refund);
+  });
+}
+
+/** The successful payment that covered an order, if any. */
+export async function findPaymentForOrder(orderId: string): Promise<PaymentRecord | null> {
+  return mutate((records) => {
+    const record = Object.values(records).find((r) => r.status === "success" && r.orderIds.includes(orderId));
+    return record ? clone(record) : null;
   });
 }
 
@@ -378,6 +399,10 @@ export async function confirmRefund(refundId: string, providerReference?: string
     event(record, "refund-confirmed", `${refund.id}${refund.providerReference ? ` (${refund.providerReference})` : ""}`);
     for (const orderId of refund.orderIds) {
       await updateOrder(orderId, { paymentState: "refunded" });
+      const order = await getOrder(orderId);
+      if (order?.refund?.id === refund.id) {
+        await setOrderRefund(orderId, { ...order.refund, status: "confirmed", confirmedAt: refund.confirmedAt });
+      }
     }
     return clone(refund);
   });

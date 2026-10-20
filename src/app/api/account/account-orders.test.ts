@@ -15,6 +15,7 @@ vi.mock("@/lib/server/auth", () => {
       return session.user;
     },
     getOptionalCustomer: async () => session.user,
+    getCurrentUser: async () => session.user,
   };
 });
 
@@ -24,6 +25,7 @@ const { GET: detailRoute } = await import("@/app/api/account/orders/[id]/route")
 const { POST: reorderRoute } = await import("@/app/api/account/orders/[id]/reorder/route");
 const { POST: cancelRoute } = await import("@/app/api/account/orders/[id]/cancel/route");
 const { PAYMENT_TIMEOUT_MS } = await import("@/lib/server/payments");
+const { ADMIN_COOKIE, issueAdminToken } = await import("@/lib/server/admin");
 
 const jane = { id: "user-jane", name: "Jane", email: "jane@example.com", role: "customer" as const };
 const otto = { id: "user-otto", name: "Otto", email: "otto@example.com", role: "customer" as const };
@@ -35,12 +37,14 @@ beforeEach(async () => {
   vi.setSystemTime(new Date("2026-09-21T07:00:00Z")); // Mon 10:00 Nairobi
   dataDir = await mkdtemp(path.join(tmpdir(), "mf-account-"));
   process.env.MF_DATA_DIR = dataDir;
+  process.env.MF_ADMIN_KEY = "test-admin-key";
   session.user = null;
 });
 
 afterEach(async () => {
   vi.useRealTimers();
   delete process.env.MF_DATA_DIR;
+  delete process.env.MF_ADMIN_KEY;
   await rm(dataDir, { recursive: true, force: true });
 });
 
@@ -88,7 +92,11 @@ describe("order ownership", () => {
     const created = await placeOrder(jane, "o-jane", { customerUserId: "user-otto" });
     expect(created).not.toHaveProperty("customerUserId");
 
-    const { orders } = await (await publicList(new NextRequest("http://localhost/api/orders"))).json();
+    const { orders } = await (
+      await publicList(
+        new NextRequest("http://localhost/api/orders", { headers: { cookie: `${ADMIN_COOKIE}=${issueAdminToken()}` } })
+      )
+    ).json();
     expect(orders[0]).not.toHaveProperty("customerUserId");
 
     session.user = jane;

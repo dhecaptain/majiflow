@@ -8,5 +8,5 @@ interface PageProps {
 
 export default async function BusinessOrderDetail({ params }: PageProps) {
   const { id } = await params;
-  return <OrderDetailView id={id} backHref="/business/orders" backLabel="All orders" />;
+  return <OrderDetailView id={id} backHref="/business/orders" backLabel="All orders" actor="station" />;
 }

@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock }> = {
   pending: { label: "Order placed", icon: Clock },
   accepted: { label: "Order accepted", icon: CheckCircle2 },
+  preparing: { label: "Being prepared", icon: Clock },
+  rider_assigned: { label: "Rider assigned", icon: Truck },
   out_for_delivery: { label: "Out for delivery", icon: Truck },
   delivered: { label: "Delivered", icon: CheckCircle2 },
   rejected: { label: "Order rejected", icon: XCircle },

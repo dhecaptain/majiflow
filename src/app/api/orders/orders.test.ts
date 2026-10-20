@@ -5,6 +5,13 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as getOrderRoute, PATCH } from "@/app/api/orders/[id]/route";
 import { GET as listRoute, POST } from "@/app/api/orders/route";
+import { ADMIN_COOKIE, issueAdminToken } from "@/lib/server/admin";
+import { updateOrder } from "@/lib/server/order-store";
+
+vi.mock("@/lib/server/auth", () => {
+  class AuthenticationError extends Error {}
+  return { AuthenticationError, getCurrentUser: async () => null, getOptionalCustomer: async () => null };
+});
 
 /**
  * The route handlers are called directly, so the whole request path is
@@ -19,11 +26,13 @@ beforeEach(async () => {
   vi.setSystemTime(new Date("2026-09-21T07:00:00Z")); // Mon 10:00 Nairobi
   dataDir = await mkdtemp(path.join(tmpdir(), "mf-api-"));
   process.env.MF_DATA_DIR = dataDir;
+  process.env.MF_ADMIN_KEY = "test-admin-key";
 });
 
 afterEach(async () => {
   vi.useRealTimers();
   delete process.env.MF_DATA_DIR;
+  delete process.env.MF_ADMIN_KEY;
   await rm(dataDir, { recursive: true, force: true });
 });
 
@@ -55,13 +64,20 @@ function postRequest(body: unknown) {
   });
 }
 
-function patchRequest(id: string, body: unknown) {
+const admin = () => ({ cookie: `${ADMIN_COOKIE}=${issueAdminToken()}` });
+
+function patchRequest(id: string, body: unknown, headers: Record<string, string> = admin()) {
   return new Request(`http://localhost/api/orders/${id}`, {
     method: "PATCH",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
+
+const list = () => listRoute(new NextRequest("http://localhost/api/orders", { headers: admin() }));
+
+/** Payment is confirmed by the provider in production; tests settle it directly. */
+const markPaid = (id: string) => updateOrder(id, { paymentState: "success" });
 
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -82,7 +98,7 @@ describe("POST /api/orders", () => {
     expect((await createOrder()).status).toBe(201);
     expect((await createOrder()).status).toBe(200);
 
-    const listed = await (await listRoute(new NextRequest("http://localhost/api/orders"))).json();
+    const listed = await (await list()).json();
     expect(listed.orders.filter((o: { id: string }) => o.id === "api-order-1")).toHaveLength(1);
   });
 
@@ -116,8 +132,15 @@ describe("POST /api/orders", () => {
 });
 
 describe("PATCH /api/orders/[id]", () => {
+  it("needs a station or admin session", async () => {
+    await createOrder();
+    expect((await PATCH(patchRequest("api-order-1", { status: "accepted" }, {}), context("api-order-1"))).status).toBe(401);
+    expect((await listRoute(new NextRequest("http://localhost/api/orders"))).status).toBe(401);
+  });
+
   it("moves an order through the vendor flow", async () => {
     await createOrder();
+    await markPaid("api-order-1");
     const response = await PATCH(patchRequest("api-order-1", { status: "accepted" }), context("api-order-1"));
     expect(response.status).toBe(200);
     const { order } = await response.json();
@@ -136,6 +159,7 @@ describe("PATCH /api/orders/[id]", () => {
 
   it("applies allowed fields and ignores the rest", async () => {
     await createOrder();
+    await markPaid("api-order-1");
     const response = await PATCH(
       patchRequest("api-order-1", { status: "accepted", total: 1 }),
       context("api-order-1")
@@ -165,7 +189,7 @@ describe("PATCH /api/orders/[id]", () => {
       const response = await PATCH(patchRequest("api-order-1", { paymentState }), context("api-order-1"));
       expect(response.status).toBe(400);
     }
-    const stored = await (await listRoute(new NextRequest("http://localhost/api/orders"))).json();
+    const stored = await (await list()).json();
     expect(stored.orders[0].paymentState).toBe("pending");
   });
 

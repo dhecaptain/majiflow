@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Droplets, AlertCircle, Minus, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { Droplets, AlertCircle, ArrowLeft, PackageX, ShoppingCart, Trash2, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { EmptyState } from "@/components/ui/feedback";
+import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { productImage } from "@/lib/product-images";
 import { useCart } from "@/components/order/cart-provider";
+import { JourneyLink } from "@/components/order/journey";
+import { QuantityStepper } from "@/components/order/quantity-stepper";
 import { businesses } from "@/lib/data/businesses";
-import { getBusinessOrderBlockReason } from "@/lib/business-hours";
+import { itemHref, resolveCart, type ResolvedCartLine } from "@/lib/cart";
 import { formatKES } from "@/lib/format";
-import { computeCartTotals } from "@/lib/pricing";
+import { computeCartTotals, lineSubtotal } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 
 export function CartPage() {
-  const { items, updateQuantity, removeItem } = useCart();
+  const { items, hydrated, updateQuantity, removeItem } = useCart();
   const { toast } = useToast();
 
   const remove = (businessId: string, productId: string, name: string) => {
@@ -23,37 +26,39 @@ export function CartPage() {
     toast({ kind: "info", title: "Removed from cart", message: name });
   };
 
-  const rows = items
-    .map((line) => {
-      const business = businesses.find((b) => b.id === line.businessId);
-      const product = business?.products.find((p) => p.id === line.productId);
-      return { line, business, product };
-    })
-    .filter((r) => r.business && r.product);
-
-  if (rows.length === 0) {
+  if (!hydrated) {
     return (
       <Container className="py-24">
+        <LoadingState label="Loading your cart…" />
+      </Container>
+    );
+  }
+
+  const cart = resolveCart(items, businesses);
+
+  if (cart.lines.length === 0) {
+    return (
+      <Container className="py-24">
+        <h1 className="sr-only">Your cart</h1>
         <EmptyState
           icon={<ShoppingCart className="size-7" aria-hidden />}
           title="Your cart is empty"
           description="No cans in here yet. Find a trusted station near you and add a refill - it takes seconds."
           action={
-            <Link href="/browse">
-              <Button size="lg" className="group">
-                Browse stations
-              </Button>
-            </Link>
+            <JourneyLink step="station" className={buttonVariants({ size: "lg" })}>
+              Browse stations
+            </JourneyLink>
           }
         />
       </Container>
     );
   }
 
+  const priced = cart.orderable.filter((r) => r.max > 0);
   const totals = computeCartTotals(
-    rows.map((r) => ({
+    priced.map((r) => ({
       businessId: r.business!.id,
-      quantity: r.line.quantity,
+      quantity: Math.min(r.line.quantity, r.max),
       unitPrice: r.product!.price,
     })),
     businesses
@@ -63,14 +68,14 @@ export function CartPage() {
     (group) => group.subtotal > 0 && group.deliveryFee === 0
   );
   const stationNames = new Map(businesses.map((b) => [b.id, b.name]));
-  const stationById = new Map(businesses.map((b) => [b.id, b]));
-  const stationBlockers = totals.groups
-    .map((group) => {
-      const business = stationById.get(group.businessId);
-      const reason = business ? getBusinessOrderBlockReason(business) : "This station is no longer available.";
-      return reason ? { businessId: group.businessId, name: business?.name ?? group.businessId, reason } : null;
-    })
-    .filter((b): b is { businessId: string; name: string; reason: string } => b !== null);
+  const { stationBlockers, problems } = cart;
+  const removeUnavailable = () => {
+    for (const r of problems.filter((p) => p.status === "missing" || p.status === "out-of-stock")) {
+      removeItem(r.line.businessId, r.line.productId);
+    }
+    toast({ kind: "info", title: "Removed unavailable items" });
+  };
+  const removable = problems.filter((p) => p.status === "missing" || p.status === "out-of-stock").length;
 
   return (
     <Container className="py-14 lg:py-20">
@@ -83,70 +88,40 @@ export function CartPage() {
             Review your cart
           </h1>
         </div>
-        <Link href="/browse" className="text-sm font-semibold text-[#0052FF] hover:underline">
-          Keep shopping
-        </Link>
+        <JourneyLink
+          step="station"
+          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#0052FF] hover:underline"
+        >
+          <ArrowLeft className="size-4" aria-hidden /> Keep shopping
+        </JourneyLink>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.5fr_0.9fr]">
         <div className="flex flex-col gap-4">
-          {rows.map(({ line, business, product }) => (
-            <div
-              key={`${line.businessId}-${line.productId}`}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-white p-4 shadow-card sm:p-5"
-            >
-              <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">
-                <Image
-                  src={productImage(product!.image)}
-                  alt=""
-                  className="size-full object-cover"
-                />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold text-foreground">{product!.name}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {business!.name} · {business!.city}
-                </p>
-                <p className="mt-1 text-sm font-bold text-foreground">
-                  {formatKES(product!.price)}{" "}
-                  <span className="font-normal text-muted-foreground">/ {product!.unit}</span>
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1">
-                <button
-                  onClick={() => updateQuantity(line.businessId, line.productId, line.quantity - 1)}
-                  aria-label={`Decrease quantity of ${product!.name}`}
-                  className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <Minus className="size-3.5" aria-hidden />
-                </button>
-                <span className="w-8 text-center text-sm font-semibold tabular-nums">
-                  {line.quantity}
-                </span>
-                <button
-                  onClick={() => updateQuantity(line.businessId, line.productId, line.quantity + 1)}
-                  aria-label={`Increase quantity of ${product!.name}`}
-                  className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <Plus className="size-3.5" aria-hidden />
-                </button>
-              </div>
-
-              <div className="w-20 text-right">
-                <p className="text-sm font-bold text-foreground">
-                  {formatKES((product?.price ?? 0) * line.quantity)}
-                </p>
-                <button
-                  onClick={() => remove(line.businessId, line.productId, product!.name)}
-                  aria-label={`Remove ${product!.name} from cart`}
-                  className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-danger"
-                >
-                  <Trash2 className="size-3.5" aria-hidden /> Remove
-                </button>
-              </div>
+          {problems.length > 0 && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/30 bg-danger/5 p-4">
+              <p className="flex items-start gap-2 text-sm text-foreground">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                {problems.length === 1 ? "1 item needs" : `${problems.length} items need`} your attention before
+                checkout.
+              </p>
+              {removable > 0 && (
+                <Button variant="secondary" size="sm" onClick={removeUnavailable}>
+                  Remove unavailable
+                </Button>
+              )}
             </div>
-          ))}
+          )}
+          <ul className="flex flex-col gap-4" aria-label="Items in your cart">
+            {cart.lines.map((r) => (
+              <CartRow
+                key={`${r.line.businessId}-${r.line.productId}`}
+                row={r}
+                onQuantity={(n) => updateQuantity(r.line.businessId, r.line.productId, n)}
+                onRemove={() => remove(r.line.businessId, r.line.productId, r.product?.name ?? "Unavailable item")}
+              />
+            ))}
+          </ul>
         </div>
 
         {/* Summary */}
@@ -201,7 +176,7 @@ export function CartPage() {
                 <p key={b.businessId} className="flex items-start gap-2 text-xs leading-relaxed text-foreground">
                   <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
                   <span>
-                    <strong>{b.name}:</strong> {b.reason}
+                    <strong>{b.businessName}:</strong> {b.reason}
                   </span>
                 </p>
               ))}
@@ -211,16 +186,118 @@ export function CartPage() {
             </div>
           )}
 
-          <Link href="/checkout" className="mt-5 block">
-            <Button size="lg" className="group w-full bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]">
-              Continue to checkout
-            </Button>
-          </Link>
+          {cart.canCheckout ? (
+            <Link
+              href="/checkout"
+              className={buttonVariants({
+                size: "lg",
+                className: "mt-5 w-full bg-orange-500 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)] hover:bg-orange-600",
+              })}
+            >
+              Continue to checkout · {formatKES(total)}
+            </Link>
+          ) : (
+            <>
+              <Button size="lg" className="mt-5 w-full" disabled aria-describedby="checkout-blocked">
+                Continue to checkout
+              </Button>
+              <p id="checkout-blocked" className="mt-2 text-center text-xs text-danger">
+                {problems.length > 0
+                  ? "Fix the highlighted items to continue."
+                  : "A station in your cart can't take orders right now."}
+              </p>
+            </>
+          )}
           <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             1 of 2 · Next: delivery & payment
           </p>
         </div>
       </div>
     </Container>
+  );
+}
+
+function CartRow({
+  row,
+  onQuantity,
+  onRemove,
+}: {
+  row: ResolvedCartLine;
+  onQuantity: (n: number) => void;
+  onRemove: () => void;
+}) {
+  const { line, business, product, status, problem, max } = row;
+
+  if (!business || !product) {
+    return (
+      <li className="flex items-center gap-4 rounded-2xl border border-dashed border-danger/40 bg-white p-4 sm:p-5">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <PackageX className="size-6" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-foreground">Item unavailable</p>
+          <p className="mt-0.5 text-xs text-danger">{problem}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-sm font-medium text-muted-foreground hover:text-danger"
+        >
+          <Trash2 className="size-4" aria-hidden /> Remove
+        </button>
+      </li>
+    );
+  }
+
+  const href = itemHref(business.slug, product.id);
+  return (
+    <li
+      className={cn(
+        "flex flex-wrap items-center gap-4 rounded-2xl border bg-white p-4 shadow-card sm:flex-nowrap sm:p-5",
+        status === "ok" ? "border-border" : "border-danger/40"
+      )}
+    >
+      <Link href={href} tabIndex={-1} aria-hidden className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+        <Image src={productImage(product.image)} alt="" fill sizes="3.5rem" className="object-cover" />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <Link href={href} className="block truncate text-[15px] font-semibold text-foreground hover:text-[#0052FF] hover:underline">
+          {product.name}
+        </Link>
+        <Link href={`/browse/${business.slug}#menu`} className="mt-0.5 block text-xs text-muted-foreground hover:underline">
+          {business.name} · {business.city}
+        </Link>
+        <p className="mt-1 text-sm font-bold text-foreground">
+          {formatKES(product.price)} <span className="font-normal text-muted-foreground">/ {product.unit}</span>
+        </p>
+        {problem && <p className="mt-1 text-xs font-medium text-danger">{problem}</p>}
+      </div>
+
+      <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
+        {status === "out-of-stock" ? (
+          <span className="text-sm font-medium text-muted-foreground">Out of stock</span>
+        ) : (
+          <QuantityStepper value={line.quantity} min={0} max={Math.max(max, line.quantity)} label={product.name} onChange={onQuantity} size="sm" />
+        )}
+        {status === "over-stock" && (
+          <Button variant="secondary" size="sm" onClick={() => onQuantity(max)}>
+            Set to {max}
+          </Button>
+        )}
+        <div className="w-24 text-right">
+          <p className="text-sm font-bold text-foreground">
+            {formatKES(lineSubtotal(product.price, Math.min(line.quantity, max)))}
+          </p>
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remove ${product.name} from cart`}
+            className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs text-muted-foreground hover:text-danger"
+          >
+            <Trash2 className="size-3.5" aria-hidden /> Remove
+          </button>
+        </div>
+      </div>
+    </li>
   );
 }

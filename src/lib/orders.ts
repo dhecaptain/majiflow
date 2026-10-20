@@ -4,8 +4,8 @@ import type { Order, OrderLocation, OrderStatus } from "@/lib/types";
  * Order data layer.
  *
  * Thin client over the `/api/orders` route handlers (file-backed store in
- * `.data/orders.json`), so orders persist across tabs and devices and are
- * visible to the vendor dashboard and the platform admin in real time.
+ * `.data/orders.json`). Listing, location reads and fulfilment actions need a
+ * station or admin session; a single order can be read by its tracking link.
  */
 
 const BASE = "/api/orders";
@@ -107,23 +107,65 @@ export async function fetchOrdersResult(
   }
 }
 
-/** Update order status / payment state (vendor actions). */
-export async function updateOrder(id: string, patch: Partial<Order>): Promise<Order | null> {
+export interface OrderActionInput {
+  status?: OrderStatus;
+  /** Customer-facing reason for a rejection or cancellation. */
+  reason?: string;
+  rider?: { name: string; phone: string };
+  eta?: string;
+}
+
+export type OrderActionResult =
+  | { ok: true; order: Order; riderLink?: string }
+  | { ok: false; error: string; fields?: Record<string, string>; status: number };
+
+/**
+ * Station/admin fulfilment action. The server enforces the lifecycle, the
+ * payment gate and station ownership; failures come back with a message the
+ * screen can show as-is.
+ */
+export async function orderAction(id: string, input: OrderActionInput): Promise<OrderActionResult> {
+  let res: Response;
   try {
-    const res = await fetch(`${BASE}/${encodeURIComponent(id)}`, {
+    res = await fetch(`${BASE}/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return { ok: false, error: "Could not reach the order service. Check your connection and retry.", status: 0 };
+  }
+  let data: { order?: Order; riderLink?: string; error?: string; fields?: Record<string, string> } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* ignore unparseable body */
+  }
+  if (!res.ok || !data.order) {
+    return { ok: false, error: data.error ?? "That change could not be saved.", fields: data.fields, status: res.status };
+  }
+  return { ok: true, order: data.order, riderLink: data.riderLink };
+}
+
+/** Change the customer's consent for one order (from the tracking page). */
+export async function setOrderConsent(
+  id: string,
+  change: { location?: boolean; smsUpdates?: boolean }
+): Promise<Order | null> {
+  try {
+    const res = await fetch(`${BASE}/${encodeURIComponent(id)}/consent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(change),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { order: Order };
-    return data.order;
+    return ((await res.json()) as { order: Order }).order;
   } catch {
     return null;
   }
 }
 
-/** Stream the customer's live GPS fix for an order. */
+/** Stream the customer's live GPS fix for an order (refused without location consent). */
 export async function postLocation(id: string, location: OrderLocation): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/${encodeURIComponent(id)}/location`, {

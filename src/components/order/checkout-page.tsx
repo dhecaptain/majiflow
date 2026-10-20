@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Transition } from "framer-motion";
 import {
-  AlertCircle, CheckCircle2, CreditCard, Loader2, MapPin, Navigation, ShieldCheck, Smartphone, Truck } from "lucide-react";
+  AlertCircle, ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Navigation, ShieldCheck, Smartphone, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { useCart } from "@/components/order/cart-provider";
 import { useCustomer, type CustomerProfile } from "@/components/order/customer-provider";
@@ -26,18 +27,12 @@ import {
   type CapturedLocation,
 } from "@/lib/geo";
 import { createOrder, fetchOrder, generateOrderNumber, OrderValidationError, postLocation } from "@/lib/orders";
-import { getBusinessOrderBlockReason } from "@/lib/business-hours";
+import { resolveCart } from "@/lib/cart";
 import { useMotionSafe } from "@/lib/motion";
 import type { DeliveryAddress, Order, PaymentMethod } from "@/lib/types";
 
 type PayState = "idle" | "working" | "awaiting-provider" | "failed" | "stale";
 type FieldErrors = Record<string, string>;
-
-interface StationBlocker {
-  businessId: string;
-  businessName: string;
-  reason: string;
-}
 
 const CONSENT_KEY = "mf:profileConsent";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -121,7 +116,7 @@ export function CheckoutPage() {
 
 function CheckoutForm() {
   const router = useRouter();
-  const { items, clear } = useCart();
+  const { items, clear, hydrated: cartHydrated } = useCart();
   const { profile, loggedIn, saveProfileDetails } = useCustomer();
   const { toast } = useToast();
 
@@ -141,6 +136,7 @@ function CheckoutForm() {
   const [method, setMethod] = useState<PaymentMethod>("mpesa");
   const [saveProfile, setSaveProfile] = useState(readConsent);
   const [shareLocation, setShareLocation] = useState(true);
+  const [smsUpdates, setSmsUpdates] = useState(true);
   const [touch, setTouch] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [payState, setPayState] = useState<PayState>("idle");
@@ -165,17 +161,9 @@ function CheckoutForm() {
     };
   }, []);
 
-  const rows = useMemo(
-    () =>
-      items
-        .map((line) => {
-          const business = businesses.find((b) => b.id === line.businessId);
-          const product = business?.products.find((p) => p.id === line.productId);
-          return { line, business, product };
-        })
-        .filter((r) => r.business && r.product),
-    [items]
-  );
+  const cart = useMemo(() => resolveCart(items, businesses), [items]);
+  const rows = cart.orderable;
+  const cartProblems = cart.problems;
 
   const totals = computeCartTotals(
     rows.map((r) => ({
@@ -299,20 +287,16 @@ function CheckoutForm() {
     startPayment();
   };
 
-  const stationBlockers: StationBlocker[] = useMemo(() => {
-    const seen = new Map<string, StationBlocker>();
-    for (const r of rows) {
-      const business = r.business!;
-      if (!seen.has(business.id)) {
-        const reason = getBusinessOrderBlockReason(business);
-        if (reason) seen.set(business.id, { businessId: business.id, businessName: business.name, reason });
-      }
-    }
-    return [...seen.values()];
-  }, [rows]);
+  const stationBlockers = cart.stationBlockers;
 
   const startPayment = () => {
     setErrors({});
+    if (cartProblems.length > 0) {
+      const message = "Some items in your cart need attention - review your cart before paying.";
+      setErrors({ _form: message });
+      toast({ kind: "error", title: "Check your cart", message });
+      return;
+    }
     if (stationBlockers.length > 0) {
       setErrors({ _form: stationBlockers[0].reason });
       toast({ kind: "error", title: "Station unavailable", message: stationBlockers[0].reason });
@@ -457,6 +441,7 @@ function CheckoutForm() {
             },
             placedAt: new Date().toISOString(),
             eta: "≈ 50 min",
+            consent: { location: shareLocation, smsUpdates, updatedAt: new Date().toISOString() },
           };
           created.push(await createOrder(order));
         }
@@ -609,13 +594,36 @@ function CheckoutForm() {
     );
   }
 
-  if (rows.length === 0) {
+  if (!cartHydrated) {
+    return (
+      <Container className="py-24">
+        <LoadingState label="Loading your order…" />
+      </Container>
+    );
+  }
+
+  if (cart.lines.length === 0) {
     return (
       <Container className="py-24 text-center">
         <h1 className="font-display text-3xl text-foreground">Nothing to check out</h1>
-        <p className="mt-3 text-muted-foreground">Add water to your cart first.</p>
-        <Link href="/browse" className="mt-6 inline-flex">
-          <Button size="lg">Browse stations</Button>
+        <p className="mt-3 text-muted-foreground">Your cart is empty. Add water from a station first.</p>
+        <Link href="/browse" className={buttonVariants({ size: "lg", className: "mt-6" })}>
+          Browse stations
+        </Link>
+      </Container>
+    );
+  }
+
+  if (rows.length === 0 || cartProblems.length > 0) {
+    return (
+      <Container className="py-24 text-center">
+        <h1 className="font-display text-3xl text-foreground">Your cart needs a quick check</h1>
+        <p className="mx-auto mt-3 max-w-md text-muted-foreground">
+          {cartProblems.length === 1 ? "One item is" : `${cartProblems.length} items are`} unavailable or over the
+          stock a station can fill. Update your cart, then come back to pay - nothing has been charged.
+        </p>
+        <Link href="/cart" className={buttonVariants({ size: "lg", className: "mt-6" })}>
+          Review cart
         </Link>
       </Container>
     );
@@ -624,8 +632,14 @@ function CheckoutForm() {
   return (
     <Container className="py-14 lg:py-20">
       <div className="mb-8">
-        <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          <span className="size-1.5 rounded-full bg-foreground animate-pulse-dot" /> Delivery & payment
+        <Link
+          href="/cart"
+          className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#0052FF] hover:underline"
+        >
+          <ArrowLeft className="size-4" aria-hidden /> Back to cart
+        </Link>
+        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-foreground animate-pulse-dot" /> 2 of 2 · Delivery & payment
         </p>
         <h1 className="mt-2 font-display text-3xl text-foreground sm:text-4xl">Finish your order</h1>
       </div>
@@ -911,8 +925,22 @@ function CheckoutForm() {
               </span>{" "}
               with the delivery person so they can see and find you.
               <span className="block text-muted-foreground/80">
-                Sharing stops automatically when the order is delivered.
+                Sharing stops automatically when the order is delivered, and you can turn it off from the
+                tracking page.
               </span>
+            </span>
+          </label>
+
+          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3">
+            <input
+              type="checkbox"
+              checked={smsUpdates}
+              onChange={(e) => setSmsUpdates(e.target.checked)}
+              className="mt-0.5 size-4 shrink-0 accent-[#0052FF]"
+            />
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Text me order updates</span> - accepted, rider on
+              the way, delivered, or if the station cannot fulfil it.
             </span>
           </label>
 

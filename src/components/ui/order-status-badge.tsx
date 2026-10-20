@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { OrderStatus, PaymentState } from "@/lib/types";
+import { isActiveStatus } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
 
 export const ORDER_STATUS_META: Record<
@@ -8,6 +9,8 @@ export const ORDER_STATUS_META: Record<
 > = {
   pending: { label: "Pending", tone: "warning", dot: "bg-warning" },
   accepted: { label: "Accepted", tone: "softAccent", dot: "bg-[#0052FF]" },
+  preparing: { label: "Preparing", tone: "softAccent", dot: "bg-[#0052FF]" },
+  rider_assigned: { label: "Rider assigned", tone: "accent", dot: "bg-[#4D7CFF]" },
   out_for_delivery: { label: "Out for delivery", tone: "accent", dot: "bg-[#4D7CFF]" },
   delivered: { label: "Delivered", tone: "success", dot: "bg-success" },
   rejected: { label: "Rejected", tone: "danger", dot: "bg-danger" },
@@ -16,7 +19,7 @@ export const ORDER_STATUS_META: Record<
 
 export function OrderStatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
   const meta = ORDER_STATUS_META[status];
-  const live = status === "accepted" || status === "out_for_delivery";
+  const live = status !== "pending" && isActiveStatus(status);
   return (
     <Badge variant={meta.tone} className={cn(className)}>
       <span className="relative flex size-1.5">

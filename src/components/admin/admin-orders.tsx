@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, MapPin, Phone, Radio, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { OrderStatusBadge } from "@/components/ui/order-status-badge";
-import { LoadingState } from "@/components/ui/feedback";
-import { fetchOrders } from "@/lib/orders";
+import { ErrorState, LoadingState } from "@/components/ui/feedback";
+import { fetchOrdersResult } from "@/lib/orders";
+import { isActiveStatus } from "@/lib/order-status";
 import { formatKES, formatPhone, formatRelativeTime } from "@/lib/format";
 import type { Order, OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ const TAB_DEFS: { id: Tab; label: string }[] = [
   { id: "all", label: "All" },
   { id: "pending", label: "Pending" },
   { id: "accepted", label: "Accepted" },
+  { id: "preparing", label: "Preparing" },
+  { id: "rider_assigned", label: "Rider assigned" },
   { id: "out_for_delivery", label: "Out for delivery" },
   { id: "delivered", label: "Delivered" },
   { id: "rejected", label: "Rejected" },
@@ -30,12 +33,19 @@ const TAB_DEFS: { id: Tab; label: string }[] = [
 export function AdminOrders() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [tab, setTab] = useState<Tab>("all");
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
     const tick = async () => {
-      const list = await fetchOrders();
-      if (alive) setOrders(list);
+      const result = await fetchOrdersResult();
+      if (!alive) return;
+      if (result.ok) {
+        setOrders(result.orders);
+        setFailed(false);
+      } else {
+        setFailed(true);
+      }
     };
     void tick();
     const poll = window.setInterval(() => void tick(), 4000);
@@ -59,7 +69,7 @@ export function AdminOrders() {
     return tab === "all" ? orders : orders.filter((o) => o.status === tab);
   }, [orders, tab]);
 
-  const inFlight = orders?.filter((o) => ["pending", "accepted", "out_for_delivery"].includes(o.status)).length ?? 0;
+  const inFlight = orders?.filter((o) => isActiveStatus(o.status)).length ?? 0;
 
   return (
     <Container className="py-14 lg:py-20">
@@ -106,7 +116,14 @@ export function AdminOrders() {
       </div>
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-border bg-white shadow-card">
-        {!filtered ? (
+        {!filtered && failed ? (
+          <div className="p-10">
+            <ErrorState
+              title="Orders could not be loaded"
+              message="The order store did not answer, or your admin session ended. Retrying automatically."
+            />
+          </div>
+        ) : !filtered ? (
           <div className="p-10">
             <LoadingState label="Loading orders…" />
           </div>

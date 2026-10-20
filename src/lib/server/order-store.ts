@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { Order, OrderLocation, OrderStatus } from "@/lib/types";
+import type { FulfillmentActor, Order, OrderConsent, OrderLocation, OrderStatus } from "@/lib/types";
+import { isActiveStatus, isTerminalStatus } from "@/lib/order-status";
 import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 import { computeCartTotals } from "@/lib/pricing";
 import { businesses } from "@/lib/data/businesses";
@@ -293,8 +294,19 @@ export function validateOrder(input: unknown): ValidationResult {
     timeline: [{ status: o.status as OrderStatus, at: o.placedAt as string }],
     location: null,
     locationHistory: [],
+    consent: consentFrom(o.consent),
   };
   return { order };
+}
+
+/**
+ * Checkout consent. Live location sharing is opt-in; transactional SMS
+ * updates default on (the number was given for this delivery) and can be
+ * switched off at checkout or later from the tracking page.
+ */
+function consentFrom(input: unknown): OrderConsent {
+  const c = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
+  return { location: c.location === true, smsUpdates: c.smsUpdates !== false, updatedAt: new Date().toISOString() };
 }
 
 export interface ListOptions {
@@ -333,14 +345,26 @@ export async function getOrder(id: string): Promise<Order | null> {
   return readOnly((orders) => (orders[id] ? clone(orders[id]) : null));
 }
 
-/** Ownership-checked read: another customer's order is indistinguishable from a missing one. */
-/** Order as exposed by the public (unauthenticated) order endpoints - without the owning account id. */
+/**
+ * Order as shown to whoever holds the tracking link: no owning account id,
+ * no rider access token, and no stored location trail (only stations need it).
+ */
 export function publicOrder(order: Order): Order {
-  const copy = { ...order };
-  delete copy.customerUserId;
+  const copy = staffOrder(order);
+  delete copy.location;
+  delete copy.locationHistory;
   return copy;
 }
 
+/** Order as shown to the station that owns it and to the platform admin. */
+export function staffOrder(order: Order): Order {
+  const copy = { ...order };
+  delete copy.customerUserId;
+  delete copy.riderTokenHash;
+  return copy;
+}
+
+/** Ownership-checked read: another customer's order is indistinguishable from a missing one. */
 export async function getCustomerOrder(id: string, customerUserId: string): Promise<Order | null> {
   const order = await getOrder(id);
   return order && order.customerUserId === customerUserId ? order : null;
@@ -411,37 +435,161 @@ export async function updateOrder(id: string, patch: Partial<Order>): Promise<Or
   });
 }
 
+export interface TransitionOptions {
+  actor?: FulfillmentActor;
+  /** Customer-safe note stored on the timeline entry. */
+  note?: string;
+  /** Extra fields written in the same serialized write as the status change. */
+  patch?: (order: Order) => Partial<Order>;
+}
+
 /**
  * Move an order to a new status only if `guard` still allows it, checked
  * inside the same serialized write so a concurrent station update can't slip
- * between the check and the change.
+ * between the check and the change. Closing an order (delivered, rejected,
+ * cancelled) drops its live location trail and revokes rider access in the
+ * same write - nothing location-shaped outlives the delivery.
  */
 export async function transitionOrder(
   id: string,
   status: OrderStatus,
-  guard: (order: Order) => string | null
-): Promise<{ order: Order } | { error: string } | null> {
+  guard: (order: Order) => string | null,
+  options: TransitionOptions = {}
+): Promise<{ order: Order; previous: Order } | { error: string } | null> {
   return mutate((orders) => {
     const existing = orders[id];
     if (!existing) return null;
     const blocked = guard(clone(existing));
     if (blocked) return { error: blocked };
+    const at = new Date().toISOString();
+    const entry = { status, at, ...(options.actor ? { actor: options.actor } : {}), ...(options.note ? { note: options.note } : {}) };
     const next: Order = {
       ...existing,
+      ...(options.patch ? options.patch(clone(existing)) : {}),
+      id: existing.id,
       status,
-      timeline: [...(existing.timeline ?? []), { status, at: new Date().toISOString() }],
+      timeline: [...(existing.timeline ?? []), entry],
     };
+    if (isTerminalStatus(status)) {
+      next.location = null;
+      next.locationHistory = [];
+      delete next.riderTokenHash;
+      next.closedAt = at;
+    }
     orders[id] = next;
-    return { order: clone(next) };
+    return { order: clone(next), previous: clone(existing) };
   });
 }
 
-export async function recordLocation(id: string, loc: OrderLocation): Promise<Order | null> {
+/** The order a rider token was issued for, while that token is still live. */
+export async function findOrderByRiderToken(tokenHash: string): Promise<Order | null> {
+  if (!tokenHash) return null;
+  return readOnly((orders) => {
+    const match = Object.values(orders).find((order) => order.riderTokenHash === tokenHash);
+    return match ? clone(match) : null;
+  });
+}
+
+/**
+ * Update the customer's consent. Withdrawing location consent deletes the
+ * stored live location and trail immediately.
+ */
+export async function updateOrderConsent(
+  id: string,
+  change: Partial<Pick<OrderConsent, "location" | "smsUpdates">>
+): Promise<Order | null> {
   return mutate((orders) => {
     const existing = orders[id];
     if (!existing) return null;
+    const current = existing.consent ?? { location: false, smsUpdates: true, updatedAt: existing.placedAt };
+    const consent: OrderConsent = {
+      location: change.location ?? current.location,
+      smsUpdates: change.smsUpdates ?? current.smsUpdates,
+      updatedAt: new Date().toISOString(),
+    };
+    const next: Order = { ...existing, consent };
+    if (!consent.location) {
+      next.location = null;
+      next.locationHistory = [];
+    }
+    orders[id] = next;
+    return clone(next);
+  });
+}
+
+/** Days a closed order keeps the customer's precise address pin. */
+export const ADDRESS_PIN_RETENTION_DAYS = 30;
+
+/**
+ * Retention sweep: closed orders older than the window lose the precise GPS
+ * pin on their address (estate/street stay for the station's records), and
+ * any location data a closed order still carries is dropped.
+ */
+export async function applyOrderRetention(now = new Date()): Promise<number> {
+  const cutoff = now.getTime() - ADDRESS_PIN_RETENTION_DAYS * 86_400_000;
+  return mutate((orders) => {
+    let changed = 0;
+    for (const order of Object.values(orders)) {
+      if (!isTerminalStatus(order.status)) continue;
+      let touched = false;
+      if (order.location || order.locationHistory?.length) {
+        order.location = null;
+        order.locationHistory = [];
+        touched = true;
+      }
+      if (order.riderTokenHash) {
+        delete order.riderTokenHash;
+        touched = true;
+      }
+      const closedAt = Date.parse(order.closedAt ?? order.timeline?.at(-1)?.at ?? order.placedAt);
+      const hasPin = order.address.lat !== undefined || order.address.lng !== undefined;
+      if (hasPin && !Number.isNaN(closedAt) && closedAt < cutoff) {
+        delete order.address.lat;
+        delete order.address.lng;
+        delete order.address.accuracy;
+        delete order.address.locationAt;
+        order.pinRedactedAt = now.toISOString();
+        touched = true;
+      }
+      if (touched) changed += 1;
+    }
+    return changed;
+  });
+}
+
+/**
+ * Append a live location fix. With a `guard`, the fix is refused (inside the
+ * same serialized write) when the guard returns a reason.
+ */
+export async function recordLocation(
+  id: string,
+  loc: OrderLocation,
+  guard?: (order: Order) => string | null
+): Promise<Order | { error: string } | null> {
+  return mutate((orders) => {
+    const existing = orders[id];
+    if (!existing) return null;
+    const blocked = guard?.(clone(existing));
+    if (blocked) return { error: blocked };
     const history = [...(existing.locationHistory ?? []), loc].slice(-LOCATION_HISTORY_CAP);
     orders[id] = { ...existing, location: loc, locationHistory: history };
+    return clone(orders[id]);
+  });
+}
+
+/** Location fixes are accepted only while the order is active and the customer has opted in. */
+export function locationBlockReason(order: Order): string | null {
+  if (!isActiveStatus(order.status)) return "This order is closed, so live location is no longer collected.";
+  if (!order.consent?.location) return "Live location sharing is off for this order.";
+  return null;
+}
+
+/** Record a refund handoff (or its outcome) on the order. */
+export async function setOrderRefund(id: string, refund: Order["refund"]): Promise<Order | null> {
+  return mutate((orders) => {
+    const existing = orders[id];
+    if (!existing) return null;
+    orders[id] = { ...existing, refund };
     return clone(orders[id]);
   });
 }

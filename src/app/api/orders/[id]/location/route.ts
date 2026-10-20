@@ -1,6 +1,8 @@
 import { reportFailure } from "@/lib/monitoring";
 import type { OrderLocation } from "@/lib/types";
-import { getOrder, recordLocation } from "@/lib/server/order-store";
+import { canManageOrder } from "@/lib/server/order-access";
+import { getOrder, locationBlockReason, recordLocation } from "@/lib/server/order-store";
+import { asStaff } from "@/lib/server/staff-http";
 
 export const dynamic = "force-dynamic";
 
@@ -8,14 +10,17 @@ interface Context {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: Request, ctx: Context) {
+/** The customer's live location trail - only for the station handling the order and the admin. */
+export async function GET(request: Request, ctx: Context) {
   const { id } = await ctx.params;
-  const order = await getOrder(id);
-  if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-  return Response.json({
-    location: order.location ?? null,
-    history: order.locationHistory ?? [],
-    status: order.status,
+  return asStaff(request, "read order location", async (principal) => {
+    const order = await getOrder(id);
+    if (!order || !canManageOrder(principal, order)) return Response.json({ error: "Order not found" }, { status: 404 });
+    return Response.json({
+      location: order.location ?? null,
+      history: order.locationHistory ?? [],
+      status: order.status,
+    });
   });
 }
 
@@ -47,9 +52,12 @@ export async function POST(request: Request, ctx: Context) {
     return Response.json({ error: "Invalid location payload" }, { status: 400 });
   }
   try {
-    const order = await recordLocation(id, location);
-    if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-    return Response.json({ location: order.location, status: order.status }, { status: 201 });
+    // Posted from the customer's tracking page (the order id is their link).
+    // Accepted only with location consent and while the order is active.
+    const result = await recordLocation(id, location, locationBlockReason);
+    if (!result) return Response.json({ error: "Order not found" }, { status: 404 });
+    if ("error" in result) return Response.json({ error: result.error }, { status: 409 });
+    return Response.json({ location: result.location, status: result.status }, { status: 201 });
   } catch (error) {
     await reportFailure("store", "Could not record a courier location.", {
       orderId: id,

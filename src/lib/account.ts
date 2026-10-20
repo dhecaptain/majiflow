@@ -7,7 +7,9 @@ import { getBusinessOrderBlockReason } from "@/lib/business-hours";
  * the server.
  */
 
-export const ACTIVE_STATUSES: readonly OrderStatus[] = ["pending", "accepted", "out_for_delivery"];
+import { ACTIVE_STATUSES } from "@/lib/order-status";
+
+export { ACTIVE_STATUSES };
 export const PAST_STATUSES: readonly OrderStatus[] = ["delivered", "rejected", "cancelled"];
 
 /** Matches the server's payment confirmation window (PAYMENT_TIMEOUT_MS). */
