@@ -111,6 +111,29 @@ The update must be performed through the approved database access process; never
 credentials to the browser or accept a role in a user-controlled request. The
 `0002_add_operations_role` migration must be applied before provisioning.
 
+### Local admin access
+
+`/admin` is double-gated: the layout requires an `mf_admin` cookie (exchanged
+from `MF_ADMIN_KEY`), and every admin page additionally requires a signed-in
+`operations` account. The admin APIs accept the raw `MF_ADMIN_KEY` as a bearer
+token instead, so server-to-server callers need neither cookie.
+
+To enable the platform admin on a local machine:
+
+1. Set `MF_ADMIN_KEY` in `.env.local` (generate one with `openssl rand -hex 32`).
+2. Provision an `operations` account using the procedure above.
+3. Visit `/admin`, enter the key, then sign in with the operations account.
+
+The two cookies are established by:
+
+```
+POST /api/admin/session   # { "key": "<MF_ADMIN_KEY>" }  -> sets mf_admin
+POST /api/auth/login      # { "email": "...", "password": "..." } -> sets mf_session
+```
+
+Both are required for the `/admin` pages. Without a valid `MF_ADMIN_KEY`, all
+admin sessions fail closed and `/admin` stays behind the key prompt.
+
 ## Data
 
 Orders are persisted as JSON in `MF_DATA_DIR` (default `.data/orders.json`).
