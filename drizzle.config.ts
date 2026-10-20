@@ -1,5 +1,8 @@
 import { existsSync } from "node:fs";
+import * as net from "node:net";
 import { loadEnvFile } from "node:process";
+
+net.setDefaultAutoSelectFamilyAttemptTimeout(5000);
 
 if (!process.env.DATABASE_URL && existsSync(".env.local")) {
   loadEnvFile(".env.local");
