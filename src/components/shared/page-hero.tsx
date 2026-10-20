@@ -26,7 +26,7 @@ export function PageHero({
   return (
     <section
       className={cn(
-        "relative overflow-hidden",
+        "relative flex min-h-[100svh] w-full scroll-mt-16 flex-col justify-center overflow-hidden",
         tone === "dark" ? "bg-ink text-white" : "bg-background",
         "border-b",
         tone === "dark" ? "border-white/10" : "border-border",
@@ -48,7 +48,7 @@ export function PageHero({
           />
         </>
       )}
-      <Container className="relative py-16 lg:py-24">
+      <Container className="relative py-20 lg:py-24">
         <AnimatedSection
           className={cn(
             "flex flex-col gap-5",

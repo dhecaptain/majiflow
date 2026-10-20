@@ -60,8 +60,8 @@
   --color-danger-soft: var(--danger-soft);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-calistoga), ui-serif, serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
 
   --radius-xs: 0.375rem;
   --radius-sm: 0.5rem;

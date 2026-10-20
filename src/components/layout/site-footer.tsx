@@ -32,7 +32,7 @@ export function SiteFooter() {
       <Container className="pb-28 pt-16 lg:pb-16">
         <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="col-span-2 max-w-sm sm:col-span-3 lg:col-span-1">
-            <BrandMark dark />
+            <BrandMark showTagline />
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
               MajiFlow connects homes to independent water refill stations and gives those
               businesses a storefront and back office to take orders, track deliveries and grow.

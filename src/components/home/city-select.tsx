@@ -33,12 +33,12 @@ export function CitySelect({ value, onChange }: { value: string; onChange: (city
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        className="flex h-14 w-full items-center gap-3 rounded-xl border border-border bg-white px-4 text-left text-sm font-medium text-foreground transition-colors hover:border-[#0052FF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052FF]"
       >
-        <MapPin className="size-4 text-[#0052FF]" aria-hidden />
-        {value}
+        <MapPin className="size-5 shrink-0 text-[#0052FF]" aria-hidden />
+        <span className="flex-1 truncate">{value}</span>
         <ChevronDown
-          className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")}
+          className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
           aria-hidden
         />
       </button>
@@ -47,7 +47,7 @@ export function CitySelect({ value, onChange }: { value: string; onChange: (city
         <ul
           role="listbox"
           aria-label="Choose your city"
-          className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-56 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-layered"
+          className="absolute top-[calc(100%+8px)] left-0 z-40 w-full overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-layered"
         >
           {CITIES.map((c) => (
             <li key={c}>

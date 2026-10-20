@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Droplets } from "lucide-react";
 import { WaterLoader } from "@/components/ui/water-loader";
+import { MajiMark } from "@/components/layout/maji-mark";
 
 /**
  * Brand splash shown on the very first load while the app hydrates, then fades
@@ -33,11 +33,11 @@ export function AppSplash() {
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center gap-2.5"
           >
-            <span className="flex size-11 items-center justify-center rounded-xl bg-[#0052FF] text-white shadow-accent">
-              <Droplets className="size-6" aria-hidden />
+            <span className="flex size-11 items-center justify-center overflow-hidden rounded-2xl shadow-accent">
+              <MajiMark />
             </span>
-            <span className="font-display text-2xl tracking-tight text-foreground">
-              Maji<span className="text-gradient">Flow</span>
+            <span className="font-display text-2xl font-semibold tracking-tight text-foreground">
+              Maji<span className="text-[#0052FF]">Flow</span>
             </span>
           </motion.div>
           <WaterLoader label="Filling up" />
