@@ -10,15 +10,15 @@ import {
   type ReactNode,
 } from "react";
 
-export interface CartLine {
-  businessId: string;
-  productId: string;
-  quantity: number;
-}
+import { clampQuantity, sanitizeCartLines, type CartLine } from "@/lib/cart";
+
+export type { CartLine };
 
 interface CartContextValue {
   items: CartLine[];
   count: number;
+  /** False until the saved cart has been read, so pages don't flash an empty state. */
+  hydrated: boolean;
   addItem: (line: CartLine) => void;
   updateQuantity: (businessId: string, productId: string, quantity: number) => void;
   removeItem: (businessId: string, productId: string) => void;
@@ -38,7 +38,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     /* eslint-disable react-hooks/set-state-in-effect -- hydrate the cart from localStorage after mount */
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw) as CartLine[]);
+      if (raw) setItems(sanitizeCartLines(JSON.parse(raw)));
     } catch {
       /* noop */
     }
@@ -57,22 +57,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((line: CartLine) => {
     setItems((prev) => {
+      const quantity = clampQuantity(line.quantity);
+      if (quantity <= 0) return prev;
       const existing = prev.find(
         (i) => i.businessId === line.businessId && i.productId === line.productId
       );
       if (existing) {
         return prev.map((i) =>
-          i.businessId === line.businessId && i.productId === line.productId
-            ? { ...i, quantity: i.quantity + line.quantity }
-            : i
+          i === existing ? { ...i, quantity: clampQuantity(i.quantity + quantity) } : i
         );
       }
-      return [...prev, line];
+      return [...prev, { businessId: line.businessId, productId: line.productId, quantity }];
     });
   }, []);
 
   const updateQuantity = useCallback(
-    (businessId: string, productId: string, quantity: number) => {
+    (businessId: string, productId: string, next: number) => {
+      const quantity = clampQuantity(next);
       setItems((prev) =>
         quantity <= 0
           ? prev.filter((i) => !(i.businessId === businessId && i.productId === productId))
@@ -96,7 +97,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, count, addItem, updateQuantity, removeItem, clear }}
+      value={{ items, count, hydrated, addItem, updateQuantity, removeItem, clear }}
     >
       {children}
     </CartContext.Provider>

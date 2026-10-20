@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Minus, Plus, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 import type { BusinessProduct, WeeklyOperatingHours } from "@/lib/types";
 import { formatKES } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -14,35 +15,42 @@ import { productImage } from "@/lib/product-images";
 import { useCart } from "@/components/order/cart-provider";
 import { useFlyToCart } from "@/components/order/fly-to-cart";
 import { useBusinessAvailability } from "@/components/shared/business-availability";
+import { QuantityStepper } from "@/components/order/quantity-stepper";
+import { itemHref, maxOrderQuantity } from "@/lib/cart";
 
 interface ProductCardProps {
   product: BusinessProduct;
   businessId: string;
+  businessSlug: string;
   openingHours: WeeklyOperatingHours | undefined;
   className?: string;
 }
 
-export function ProductCard({ product, businessId, openingHours, className }: ProductCardProps) {
+export function ProductCard({ product, businessId, businessSlug, openingHours, className }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const { toast } = useToast();
   const availability = useBusinessAvailability(openingHours);
   const fly = useFlyToCart();
   const [qty, setQty] = useState(1);
   const [flying, setFlying] = useState(false);
-  const imageRef = useRef<HTMLDivElement | null>(null);
+  const imageRef = useRef<HTMLAnchorElement | null>(null);
   const cartItem = items.find(
     (i) => i.businessId === businessId && i.productId === product.id
   );
 
+  const href = itemHref(businessSlug, product.id);
+  const max = maxOrderQuantity(product);
+  const soldOut = max === 0;
   const closed = availability.state !== "open";
   const closedLabel =
     availability.state === "closed" ? "Station closed" : "Hours unavailable";
+  const pick = Math.min(qty, Math.max(1, max));
 
   const handleAdd = () => {
-    if (closed) return;
+    if (closed || soldOut) return;
     const add = () => {
-      addItem({ businessId, productId: product.id, quantity: qty });
-      toast({ kind: "success", title: "Added to cart", message: `${qty} × ${product.name}` });
+      addItem({ businessId, productId: product.id, quantity: pick });
+      toast({ kind: "success", title: "Added to cart", message: `${pick} × ${product.name}` });
       setQty(1);
     };
     const fromEl = imageRef.current;
@@ -69,7 +77,13 @@ export function ProductCard({ product, businessId, openingHours, className }: Pr
         className
       )}
     >
-      <div ref={imageRef} className="relative aspect-[4/3] overflow-hidden bg-muted" aria-hidden>
+      <Link
+        href={href}
+        ref={imageRef}
+        tabIndex={-1}
+        aria-hidden
+        className="relative block aspect-[4/3] overflow-hidden bg-muted"
+      >
         <Image
           src={productImage(product.image)}
           alt=""
@@ -82,16 +96,24 @@ export function ProductCard({ product, businessId, openingHours, className }: Pr
             Popular
           </Badge>
         )}
-        {product.stock <= product.stockLow && (
-          <Badge variant="warning" className="absolute right-3 top-3">
-            Low stock
+        {soldOut ? (
+          <Badge variant="danger" className="absolute right-3 top-3">
+            Out of stock
           </Badge>
+        ) : (
+          product.stock <= product.stockLow && (
+            <Badge variant="warning" className="absolute right-3 top-3">
+              Only {product.stock} left
+            </Badge>
+          )
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col p-5">
         <h3 className="line-clamp-1 text-[15px] font-semibold leading-snug text-foreground">
-          {product.name}
+          <Link href={href} className="rounded-sm hover:text-[#0052FF] hover:underline focus-visible:outline-2 focus-visible:outline-[#0052FF]">
+            {product.name}
+          </Link>
         </h3>
         <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
           {product.description}
@@ -105,39 +127,33 @@ export function ProductCard({ product, businessId, openingHours, className }: Pr
           )}
         </div>
 
-        <div className="mt-4 pt-1">
-          {closed ? (
-            <Button disabled className="h-10 w-full">
+        <div className="mt-auto pt-4">
+          {soldOut ? (
+            <Button disabled className="h-11 w-full">
+              Out of stock
+            </Button>
+          ) : closed ? (
+            <Button disabled className="h-11 w-full">
               {closedLabel}
             </Button>
           ) : cartItem ? (
-            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-1">
-              <button
-                onClick={() => updateQuantity(businessId, product.id, cartItem.quantity - 1)}
-                aria-label={`Decrease ${product.name} quantity`}
-                className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-foreground transition-colors hover:border-[#0052FF]/40 hover:text-[#0052FF]"
-              >
-                <Minus className="size-3.5" aria-hidden />
-              </button>
-              <span className="text-sm font-semibold tabular-nums" aria-live="polite">
-                {cartItem.quantity} in cart
-              </span>
-              <button
-                onClick={() => updateQuantity(businessId, product.id, cartItem.quantity + 1)}
-                aria-label={`Increase ${product.name} quantity`}
-                className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-foreground transition-colors hover:border-[#0052FF]/40 hover:text-[#0052FF]"
-              >
-                <Plus className="size-3.5" aria-hidden />
-              </button>
-            </div>
+            <QuantityStepper
+              value={cartItem.quantity}
+              min={0}
+              max={max}
+              label={product.name}
+              display={`${cartItem.quantity} in cart`}
+              onChange={(n) => updateQuantity(businessId, product.id, n)}
+              className="w-full justify-between bg-muted/50"
+            />
           ) : (
             <div className="flex items-center gap-2">
-              <SelectQuantity value={qty} onChange={setQty} name={product.name} />
+              <QuantityStepper value={pick} max={max} label={product.name} onChange={setQty} size="sm" />
               <Button
                 onClick={handleAdd}
                 disabled={flying}
-                className="h-10 flex-1"
-                aria-label={`Add ${product.name} to cart`}
+                className="h-11 flex-1"
+                aria-label={`Add ${pick} ${product.name} to cart`}
               >
                 <ShoppingCart className="size-4" aria-hidden />
                 Add
@@ -147,39 +163,5 @@ export function ProductCard({ product, businessId, openingHours, className }: Pr
         </div>
       </div>
     </Card>
-  );
-}
-
-function SelectQuantity({
-  value,
-  onChange,
-  name,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  name: string;
-}) {
-  return (
-    <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1">
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(1, value - 1))}
-        aria-label={`Decrease quantity for ${name}`}
-        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <Minus className="size-3.5" aria-hidden />
-      </button>
-      <span className="w-6 text-center text-sm font-semibold tabular-nums" aria-live="polite">
-        {value}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(Math.min(20, value + 1))}
-        aria-label={`Increase quantity for ${name}`}
-        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <Plus className="size-3.5" aria-hidden />
-      </button>
-    </div>
   );
 }
