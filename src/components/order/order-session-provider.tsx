@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { DeliveryAddress, FulfillmentMethod } from "@/lib/types";
+import { PICKUP_ENABLED } from "@/config/fulfilment";
 import { useCustomer } from "@/components/order/customer-provider";
 
 /**
@@ -63,7 +64,9 @@ export function OrderSessionProvider({ children }: { children: ReactNode }) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as StoredSession;
-        if (parsed.fulfilment === "delivery" || parsed.fulfilment === "pickup") {
+        // A saved pickup choice is ignored while pickup is off, so nobody is
+        // left in a mode the order pipeline cannot complete.
+        if (parsed.fulfilment === "delivery" || (PICKUP_ENABLED && parsed.fulfilment === "pickup")) {
           setFulfilmentState(parsed.fulfilment);
         }
         if (parsed.address && typeof parsed.address === "object") {
@@ -93,7 +96,10 @@ export function OrderSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [fulfilment, address, hydrated]);
 
-  const setFulfilment = useCallback((method: FulfillmentMethod) => setFulfilmentState(method), []);
+  const setFulfilment = useCallback(
+    (method: FulfillmentMethod) => setFulfilmentState(PICKUP_ENABLED ? method : "delivery"),
+    []
+  );
   const setAddress = useCallback((next: DeliveryAddress | null) => setAddressState(next), []);
   const useDefaultAddress = useCallback(() => {
     const saved = profile.addresses[profile.defaultAddressIndex] ?? profile.addresses[0] ?? null;

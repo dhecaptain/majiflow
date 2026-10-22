@@ -29,6 +29,7 @@ import {
   type GeocodedAddress,
 } from "@/lib/geo";
 import { discoverStations } from "@/lib/station-discovery";
+import { PICKUP_ENABLED } from "@/config/fulfilment";
 import { NearbySheet, NearbyStationList } from "@/components/order/nearby-sheet";
 import type { DeliveryAddress, FulfillmentMethod } from "@/lib/types";
 import { useCustomer } from "@/components/order/customer-provider";
@@ -244,7 +245,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Choose delivery or pickup and your location"
+            aria-label={PICKUP_ENABLED ? "Choose delivery or pickup and your location" : "Choose how to receive your order"}
             className="relative z-10 flex h-full w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[88vh] sm:max-w-2xl sm:rounded-3xl"
             initial={reduce ? { opacity: 1 } : { opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -267,7 +268,11 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                   {fulfilment === "pickup" ? "Pick up your water" : fulfilment === "delivery" && step === "type" ? "How would you like it?" : "Where should we go?"}
                 </h2>
                 <p className="truncate text-xs text-muted-foreground">
-                  {step === "map" ? "Move the map, then confirm" : "Delivery or pickup - you can change this later"}
+                  {step === "map"
+                    ? "Move the map, then confirm"
+                    : PICKUP_ENABLED
+                      ? "Delivery or pickup - you can change this later"
+                      : "A rider brings it to your door - you can change this later"}
                 </p>
               </div>
               <button
@@ -283,7 +288,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {/* STEP A - fulfilment */}
               {step === "type" && (
-                <div className="grid gap-3 p-5 sm:grid-cols-2">
+                <div className={`grid gap-3 p-5 ${PICKUP_ENABLED ? "sm:grid-cols-2" : ""}`}>
                   <TypeCard
                     selected={fulfilment === "delivery"}
                     onSelect={() => {
@@ -295,17 +300,19 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                     subtitle="A rider brings it to your door"
                     refProp={undefined}
                   />
-                  <TypeCard
-                    selected={fulfilment === "pickup"}
-                    onSelect={() => {
-                      setFulfilment("pickup");
-                      confirmPickup();
-                    }}
-                    icon={<Store className="size-6" aria-hidden />}
-                    title="Pickup"
-                    subtitle="Collect from a station - no delivery fee"
-                    badge="Free"
-                  />
+                  {PICKUP_ENABLED && (
+                    <TypeCard
+                      selected={fulfilment === "pickup"}
+                      onSelect={() => {
+                        setFulfilment("pickup");
+                        confirmPickup();
+                      }}
+                      icon={<Store className="size-6" aria-hidden />}
+                      title="Pickup"
+                      subtitle="Collect from a station - no delivery fee"
+                      badge="Free"
+                    />
+                  )}
                 </div>
               )}
 

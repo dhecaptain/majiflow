@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, MapPin } from "lucide-react";
 import { DeliveryPickupModal } from "@/components/order/delivery-pickup-modal";
+import { PICKUP_ENABLED } from "@/config/fulfilment";
 
 export function OrderTypeBar() {
   const [open, setOpen] = useState(false);
@@ -19,7 +20,9 @@ export function OrderTypeBar() {
             <MapPin className="size-5 text-foreground" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">Order type / Choose service</p>
-              <p className="truncate text-xs text-foreground/70">Delivery or Pickup · Set location</p>
+              <p className="truncate text-xs text-foreground/70">
+                {PICKUP_ENABLED ? "Delivery or Pickup · Set location" : "Delivery · Set location"}
+              </p>
             </div>
             <ChevronDown className="size-4 text-foreground/70" aria-hidden />
           </button>
