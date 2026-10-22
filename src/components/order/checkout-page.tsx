@@ -735,6 +735,19 @@ function CheckoutForm() {
                 <p className="text-xs text-muted-foreground">Who we call when your water arrives.</p>
               </div>
             </div>
+            <div className="mt-4">
+              {location ? (
+                <OrderMap
+                  address={{ lat: location.lat, lng: location.lng, label: "Your delivery point" }}
+                  className="h-[220px] w-full"
+                />
+              ) : (
+                <p className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                  <MapPin className="size-4 shrink-0 text-[#0052FF]" aria-hidden />
+                  Add a pinned location so the rider finds you faster.
+                </p>
+              )}
+            </div>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="Full name" required error={touch ? errors.name : undefined}>
                 <Input
