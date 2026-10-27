@@ -56,16 +56,48 @@ jobs:
   validate-branch:
     name: validate-branch
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Check branch naming convention
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
+          set -euo pipefail
           BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           echo "Branch: $BRANCH"
-          # Skip validation for direct pushes, sync PRs from main, and agent branches.
-          if [[ "$GITHUB_EVENT_NAME" == "push" || "$BRANCH" == "main" || "$BRANCH" == copilot/* ]]; then
-            echo "Skipping branch-name check for branch '$BRANCH'."
+
+          # Direct pushes are not contributor work; they already went through review.
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            echo "Skipping branch-name check for branch push."
             exit 0
           fi
+
+          # A PR with zero changed files is a pure fork sync (e.g. a contributor's
+          # `main` catching up). There is nothing to merge, so the name does not
+          # matter. The count comes from the API rather than the branch name, so
+          # this cannot be used to sneak code past the naming rule.
+          CHANGED_FILES="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json changedFiles --jq '.changedFiles')"
+          echo "Changed files: $CHANGED_FILES"
+          if [[ "$CHANGED_FILES" == "0" ]]; then
+            echo "Skipping branch-name check for a PR with no changes."
+            exit 0
+          fi
+
+          # Copilot cloud-agent branches are created by the GitHub Copilot app in
+          # this repository. Verify the PR author and head repo instead of
+          # trusting the prefix: a contributor cannot open a PR as the Copilot
+          # app, and cannot create a branch in this repository.
+          if [[ "$BRANCH" == copilot/* && "$PR_AUTHOR" == "Copilot" && "$HEAD_REPO" == "$REPO" ]]; then
+            echo "Skipping branch-name check for Copilot automation branch."
+            exit 0
+          fi
+
           if [[ "$BRANCH" =~ ^(feature|fix|task)/[a-z0-9]+-[a-z0-9-]+$ ]]; then
             echo "Branch name OK."
           else
