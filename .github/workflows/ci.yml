@@ -61,9 +61,9 @@ jobs:
         run: |
           BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           echo "Branch: $BRANCH"
-          # Skip validation for direct pushes and for PRs opened from `main`
-          # (common when syncing forks before creating a feature branch).
-          if [[ "$GITHUB_EVENT_NAME" == "push" || "$BRANCH" == "main" ]]; then
+          # Skip validation for direct pushes, PRs opened from `main`,
+          # and Copilot-generated branches.
+          if [[ "$GITHUB_EVENT_NAME" == "push" || "$BRANCH" == "main" || "$BRANCH" == copilot/* ]]; then
             echo "Skipping branch-name check for branch '$BRANCH'."
             exit 0
           fi
