@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { PackageOpen, RotateCcw } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
+import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
@@ -125,8 +125,8 @@ export function OrderHistoryPage() {
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-foreground">{formatKES(o.total)}</span>
-                    <Badge variant={PAYMENT_STATE_META[o.paymentState].tone}>
-                      {PAYMENT_STATE_META[o.paymentState].label}
+                    <Badge variant={paymentMeta(o).tone}>
+                      {paymentMeta(o).label}
                     </Badge>
                   </div>
                   <ReorderButton order={o} pending={pendingId === o.id} onReorder={() => reorder(o.id)} />
@@ -167,8 +167,8 @@ export function OrderHistoryPage() {
                       <td className="px-5 py-4 text-foreground/85">{itemsSummary(o)}</td>
                       <td className="px-5 py-4 font-bold text-foreground">{formatKES(o.total)}</td>
                       <td className="px-5 py-4">
-                        <Badge variant={PAYMENT_STATE_META[o.paymentState].tone}>
-                          {PAYMENT_STATE_META[o.paymentState].label}
+                        <Badge variant={paymentMeta(o).tone}>
+                          {paymentMeta(o).label}
                         </Badge>
                       </td>
                       <td className="px-5 py-4">

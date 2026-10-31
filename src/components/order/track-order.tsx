@@ -6,7 +6,7 @@ import { Bike, CheckCircle2, Clock, Inbox, MapPin, Phone, RefreshCcw, ShieldChec
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
+import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { useStations } from "@/components/order/stations-provider";
@@ -113,7 +113,7 @@ export function TrackOrderPage({ id }: { id: string }) {
   const delivered = order.status === "delivered";
   const active = isActiveStatus(order.status);
   const reachedIndex = STEPS.findIndex((step) => step.status === order.status);
-  const payment = PAYMENT_STATE_META[order.paymentState];
+  const payment = paymentMeta(order);
   const rider = order.rider && (order.status === "rider_assigned" || order.status === "out_for_delivery") ? order.rider : null;
 
   const stationPoint = (() => {

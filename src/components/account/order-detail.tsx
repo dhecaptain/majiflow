@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
-import { ORDER_STATUS_META, OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
+import { ORDER_STATUS_META, OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { useToast } from "@/components/ui/toast";
 import { AccountError, AccountPageHeader, useAccountResource, useReorder } from "@/components/account/account-ui";
 import { ACTIVE_STATUSES } from "@/lib/account";
@@ -73,7 +73,7 @@ export function OrderDetailPage({ id }: { id: string }) {
 
   const { order, cancelBlockReason } = resource.data;
   const active = ACTIVE_STATUSES.includes(order.status);
-  const payment = PAYMENT_STATE_META[order.paymentState];
+  const payment = paymentMeta(order);
   const timeline = [...(order.timeline ?? [])].reverse();
 
   const cancel = async () => {
