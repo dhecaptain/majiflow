@@ -90,10 +90,13 @@ export async function reportFailure(
 
 let warnedNoNotificationProvider = false;
 
+const NOTIFY_TIMEOUT_MS = 8000;
+
 /**
- * Tell a customer their order moved. When no notification provider is
- * configured, this reports the gap once and then stays quiet rather than
- * failing on every status change.
+ * Tell a customer their order moved. With `MF_NOTIFY_WEBHOOK_URL` the status
+ * goes to that provider as `{ orderId, orderNumber, status, to, message }`;
+ * otherwise the message is texted through the SMS provider (see sms.ts). When
+ * neither is configured, the gap is reported once and then stays quiet.
  */
 export async function notifyStatusChange(
   order: { id: string; status: string; orderNumber?: string },
@@ -102,6 +105,16 @@ export async function notifyStatusChange(
 ): Promise<{ sent: boolean }> {
   const url = process.env.MF_NOTIFY_WEBHOOK_URL;
   if (!url) {
+    const { sendSms, smsProviderConfigured } = await import("@/lib/server/sms");
+    if (message && smsProviderConfigured()) {
+      const digits = to.replace(/\D/g, "");
+      const result = await sendSms({
+        to: digits.startsWith("0") ? `254${digits.slice(1)}` : digits,
+        body: message,
+        purpose: "status",
+      });
+      return { sent: result.sent };
+    }
     if (!warnedNoNotificationProvider) {
       warnedNoNotificationProvider = true;
       await reportFailure("notification", "No notification provider is configured; status messages are not sent.", {
@@ -111,6 +124,8 @@ export async function notifyStatusChange(
     return { sent: false };
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), NOTIFY_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -123,6 +138,7 @@ export async function notifyStatusChange(
         to,
         ...(message ? { message } : {}),
       }),
+      signal: controller.signal,
     });
     if (!response.ok) {
       await reportFailure("notification", `Notification provider rejected a status message (${response.status}).`, {
@@ -139,5 +155,7 @@ export async function notifyStatusChange(
       reason: error instanceof Error ? error.message : "unknown",
     });
     return { sent: false };
+  } finally {
+    clearTimeout(timer);
   }
 }

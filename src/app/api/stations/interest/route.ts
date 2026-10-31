@@ -1,3 +1,4 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import { reportFailure } from "@/lib/monitoring";
 import { getCurrentUser } from "@/lib/server/auth";
 import { recordStationInterest } from "@/lib/server/station-interest";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
  * linked to their account instead of being identified only by number.
  */
 export async function POST(request: Request) {
+  const limited = await limitResponse([{ key: `station-interest:ip:${clientIp(request)}`, rule: LIMITS.formPerIp }]);
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await request.json();

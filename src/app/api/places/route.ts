@@ -1,3 +1,4 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import type { NextRequest } from "next/server";
 import { reportFailure } from "@/lib/monitoring";
 import type { PlaceKind, PlaceResult } from "@/lib/place-types";
@@ -218,6 +219,8 @@ function dedupe(places: PlaceResult[]): PlaceResult[] {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await limitResponse([{ key: `places:ip:${clientIp(request)}`, rule: LIMITS.geocodePerIp }]);
+  if (limited) return limited;
   const { searchParams } = request.nextUrl;
   const query = (searchParams.get("q") ?? "").trim();
   if (query.length < MIN_QUERY_LENGTH) {

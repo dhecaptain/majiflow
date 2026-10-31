@@ -1,3 +1,4 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import { initiatePayment } from "@/lib/server/payments";
 import { reportFailure } from "@/lib/monitoring";
 
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
  * always the orders' server-side totals - the client only names the orders.
  */
 export async function POST(request: Request) {
+  const limited = await limitResponse([{ key: `payment:ip:${clientIp(request)}`, rule: LIMITS.paymentPerIp }]);
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await request.json();

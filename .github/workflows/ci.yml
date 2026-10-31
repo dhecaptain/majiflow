@@ -52,6 +52,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://majiflow.co.ke
 
   test:
     name: test

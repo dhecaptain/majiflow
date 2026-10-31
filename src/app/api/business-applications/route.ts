@@ -1,3 +1,4 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import { AuthenticationError, requireBusinessOwner } from "@/lib/server/auth";
 import { createBusinessApplication, listOwnerApplications } from "@/lib/server/business-applications";
 
@@ -14,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const limited = await limitResponse([{ key: `business-application:ip:${clientIp(request)}`, rule: LIMITS.formPerIp }]);
+  if (limited) return limited;
   let body: unknown;
   try { body = await request.json(); } catch { return Response.json({ error: "Invalid JSON body" }, { status: 400 }); }
   try {
