@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/container";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Button } from "@/components/ui/button";
 import { Stagger, StaggerItem } from "@/components/ui/animated-section";
-import { businesses } from "@/lib/data/businesses";
+import { listStations } from "@/lib/server/catalog";
 import { cn } from "@/lib/utils";
 
 const pillars = [
@@ -41,15 +41,19 @@ const pillars = [
   },
 ];
 
-const productsInCatalogue = businesses.reduce((total, b) => total + b.products.length, 0);
-const citiesCovered = new Set(businesses.map((b) => b.city)).size;
-
-const numbers = [
-  { value: `${businesses.length}`, label: "stations live" },
-  { value: `${productsInCatalogue}`, label: "products in the catalogue" },
-  { value: `${citiesCovered}`, label: "cities covered" },
-  { value: "14", label: "day free trial on every plan" },
-];
+/** Live platform numbers. A count that is still zero is left out rather than shown. */
+async function platformNumbers() {
+  const stations = await listStations().catch(() => []);
+  const counts = [
+    { count: stations.length, label: "stations live" },
+    { count: stations.reduce((total, b) => total + b.products.length, 0), label: "products in the catalogue" },
+    { count: new Set(stations.map((b) => b.city)).size, label: "cities covered" },
+  ];
+  return [
+    ...counts.filter(({ count }) => count > 0).map(({ count, label }) => ({ value: `${count}`, label })),
+    { value: "14", label: "day free trial on every plan" },
+  ];
+}
 
 export const metadata = {
   title: "For businesses",
@@ -57,7 +61,8 @@ export const metadata = {
     "A storefront, a dashboard and simple monthly pricing for water refill businesses. Start with a 14-day free trial.",
 };
 
-export default function ForBusiness() {
+export default async function ForBusiness() {
+  const numbers = await platformNumbers();
   return (
     <>
       <PageHero

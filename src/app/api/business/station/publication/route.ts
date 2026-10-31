@@ -1,4 +1,5 @@
 import { AuthenticationError, requireBusinessOwner } from "@/lib/server/auth";
+import { revalidateStations } from "@/lib/server/catalog";
 import {
   publishBusiness,
   StationNotFoundError,
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   try {
     const owner = await requireBusinessOwner();
     const business = await publishBusiness(businessId, owner.id);
+    await revalidateStations();
     return Response.json({ business });
   } catch (error) {
     if (error instanceof AuthenticationError) {

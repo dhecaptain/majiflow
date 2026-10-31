@@ -47,6 +47,8 @@ export interface BusinessProduct {
   image: string;
   /** Choices the customer picks before the item goes in the cart. */
   options?: ProductOption[];
+  /** Owner view only: hidden from the public menu. Public catalogs never include hidden products. */
+  hidden?: boolean;
 }
 
 export type Weekday =

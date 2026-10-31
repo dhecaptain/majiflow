@@ -13,13 +13,14 @@ import { JourneyLink } from "@/components/order/journey";
 import { QuantityStepper } from "@/components/order/quantity-stepper";
 import { SendWaterSummary } from "@/components/order/send-water-summary";
 import { OrderTotalsList } from "@/components/shared/order-totals";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { itemHref, resolveCart, type CartLine, type ResolvedCartLine } from "@/lib/cart";
 import { formatKES } from "@/lib/format";
 import { computeCartTotals, lineSubtotal } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 export function CartPage() {
+  const businesses = useStations();
   const { items, hydrated, updateQuantity, removeItem } = useCart();
   const { toast } = useToast();
 

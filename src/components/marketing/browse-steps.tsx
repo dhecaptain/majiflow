@@ -13,7 +13,7 @@ import {
 import { resolveCart } from "@/lib/cart";
 import { computeCartTotals, lineSubtotal, lineDeposit } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { productImage } from "@/lib/product-images";
 import { cn } from "@/lib/utils";
 import { useOptionalCartUi } from "@/components/order/cart-ui-provider";
@@ -64,6 +64,7 @@ export function BrowseOrderStep({
   onChoice: (choice: Partial<BrowseOrderChoice>) => void;
   onContinue: () => void;
 }) {
+  const businesses = useStations();
   const sizeOptions = useMemo(() => {
     if (!choice.category) return [];
     const unique = new Map<string, { name: string; unit: string }>;
@@ -75,7 +76,7 @@ export function BrowseOrderStep({
       }
     }
     return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [choice.category]);
+  }, [choice.category, businesses]);
 
   const ready = Boolean(choice.category && choice.size && choice.quantity > 0);
 

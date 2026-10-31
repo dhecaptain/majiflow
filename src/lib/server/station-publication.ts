@@ -2,8 +2,9 @@ import { and, eq } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { businesses, businessApplications, subscriptions } from "@/lib/server/db/schema";
 import { evaluateSubscriptionEligibility, type SubscriptionRecord } from "@/lib/server/subscriptions";
-import { businesses as seededBusinesses, getBusiness as getSeededBusiness } from "@/lib/data/businesses";
-import type { Business } from "@/lib/types";
+import { parseWeeklyHours } from "@/lib/business-hours";
+import { productsForStations } from "@/lib/server/station-products";
+import type { Business, BusinessProduct, WeeklyOperatingHours } from "@/lib/types";
 import bioWaterCover from "@/assets/images/business/bio-water-kasarani.webp";
 
 export class StationPublicationError extends Error {}
@@ -211,6 +212,18 @@ export async function publishBusiness(
     throw new StationPublicationError(gate.reason ?? "Station is not eligible for publication.");
   }
 
+  const visibleProducts = (await productsForStations([businessId])).get(businessId) ?? [];
+  const storefrontMissing = storefrontMissingFields({
+    openingHours: parseWeeklyHours(business.openingHours),
+    visibleProductCount: visibleProducts.length,
+  });
+  if (storefrontMissing.includes("openingHours")) {
+    throw new StationPublicationError("Add your opening hours before publishing, so customers know when you take orders.");
+  }
+  if (storefrontMissing.includes("products")) {
+    throw new StationPublicationError("Add at least one product before publishing your station.");
+  }
+
   const [updated] = await db
     .update(businesses)
     .set({
@@ -231,6 +244,9 @@ export interface ListingUpdates {
   deliveryTimeMinutes?: number | string;
   latitude?: number | string | null;
   longitude?: number | string | null;
+  /** WeeklyOperatingHours from the setup form; invalid days are dropped. */
+  openingHours?: unknown;
+  freeDeliveryAbove?: number | string;
 }
 
 /**
@@ -312,6 +328,28 @@ export async function completeBusinessListing(
       if (updatedApp) currentApp = updatedApp;
     }
 
+    const businessSet: Partial<typeof businesses.$inferInsert> = {};
+    if (updates.openingHours !== undefined) {
+      const hours = parseWeeklyHours(updates.openingHours);
+      if (!hours) throw new StationPublicationError("Add opening hours for at least one day.");
+      businessSet.openingHours = hours;
+    }
+    if (updates.freeDeliveryAbove !== undefined) {
+      const threshold = Number(updates.freeDeliveryAbove);
+      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1_000_000) {
+        throw new StationPublicationError("Free delivery threshold is invalid.");
+      }
+      businessSet.freeDeliveryAbove = threshold.toFixed(2);
+    }
+    if (Object.keys(businessSet).length > 0) {
+      const [updatedBiz] = await db
+        .update(businesses)
+        .set({ ...businessSet, updatedAt: new Date() })
+        .where(eq(businesses.id, businessId))
+        .returning();
+      if (updatedBiz) currentBiz = updatedBiz;
+    }
+
     if (updates.businessName !== undefined) {
       const name = updates.businessName.trim();
       if (name.length < 2 || name.length > 160) {
@@ -390,7 +428,7 @@ export async function unpublishBusiness(businessId: string, ownerUserId: string)
  * Throws when the database is unreachable so callers can distinguish an
  * infrastructure failure from a genuinely empty directory.
  */
-async function queryEligiblePublishedDatabaseBusinesses(now: Date) {
+export async function queryEligiblePublishedDatabaseBusinesses(now: Date) {
   const { db } = await getDatabase();
 
   const rows = await db
@@ -429,12 +467,14 @@ export async function getEligiblePublishedDatabaseBusinesses(now = new Date()) {
 }
 
 /**
- * Adapts database and application rows into the public Business interface.
+ * Adapts database rows into the Business shape the storefront uses. A new
+ * station has no reviews yet, so it carries no rating rather than a made-up one.
  */
 export function mapDatabaseBusinessToPublic(
   business: typeof businesses.$inferSelect,
   application: typeof businessApplications.$inferSelect,
-  subscription?: typeof subscriptions.$inferSelect | null
+  subscription?: typeof subscriptions.$inferSelect | null,
+  products: BusinessProduct[] = []
 ): Business {
   const estates = application.zones
     ? application.zones
@@ -450,18 +490,19 @@ export function mapDatabaseBusinessToPublic(
     tagline: application.description?.slice(0, 120) || `${business.name} refill station`,
     city: application.city,
     estates,
-    rating: 5.0,
+    rating: 0,
     reviewCount: 0,
     deliveryFee: Number(application.deliveryFee) || 0,
-    freeDeliveryAbove: 0,
+    freeDeliveryAbove: Number(business.freeDeliveryAbove) || 0,
     avgDeliveryMinutes: application.deliveryTimeMinutes || 45,
-    verified: true,
+    verified: application.status === "approved",
     paid: subscription?.status === "active" && Boolean(subscription.paymentConfirmedAt),
     acceptsMpesa: true,
     acceptsCard: false,
     subscription: subscription?.plan ?? application.plan,
     description: application.description || `${business.name} water refill and delivery.`,
-    products: [],
+    products,
+    openingHours: parseWeeklyHours(business.openingHours) ?? undefined,
     accent: "#0057E6",
     cover: bioWaterCover,
     lat: Number(application.latitude) || -1.2921,
@@ -470,87 +511,16 @@ export function mapDatabaseBusinessToPublic(
 }
 
 /**
- * Retrieves a public station by slug.
- * Excludes any database station that fails the eligibility check.
- * Preserves seeded demo stations when not found or database is unreachable.
+ * What a complete listing still needs before customers can order: opening
+ * hours (orders are refused when hours are unknown) and something to sell.
  */
-export async function getPublicStationBySlug(slug: string, now = new Date()): Promise<Business | null> {
-  try {
-    const { db } = await getDatabase();
-
-    const [record] = await db
-      .select({
-        business: businesses,
-        application: businessApplications,
-        subscription: subscriptions,
-      })
-      .from(businesses)
-      .innerJoin(businessApplications, eq(businesses.applicationId, businessApplications.id))
-      .leftJoin(subscriptions, eq(businesses.id, subscriptions.businessId))
-      .where(eq(businesses.slug, slug))
-      .limit(1);
-
-    if (record) {
-      if (
-        !record.business.isPublished ||
-        !record.business.isComplete ||
-        record.application.status !== "approved"
-      ) {
-        return null;
-      }
-      const eligibility = evaluateSubscriptionEligibility(record.subscription as SubscriptionRecord, now);
-      if (!eligibility.eligible) {
-        return null;
-      }
-      return mapDatabaseBusinessToPublic(record.business, record.application, record.subscription);
-    }
-  } catch {
-    // Database unreachable or table uninitialized - fall through to seeded stations
-  }
-
-  return getSeededBusiness(slug) ?? null;
-}
-
-/**
- * Retrieves all publicly browsable station slugs for sitemap or discovery.
- * Includes seeded stations and eligible published database stations.
- * Ineligible database stations are excluded.
- */
-export async function getPublicStationSlugs(now = new Date()): Promise<string[]> {
-  try {
-    const eligibleDb = await queryEligiblePublishedDatabaseBusinesses(now);
-    const dbSlugs = eligibleDb.map((row) => row.business.slug);
-    const seededSlugs = seededBusinesses.map((b) => b.slug);
-    return Array.from(new Set([...seededSlugs, ...dbSlugs]));
-  } catch {
-    return seededBusinesses.map((b) => b.slug);
-  }
-}
-
-/**
- * Retrieves all publicly browsable stations for the browse page.
- * Combines seeded demo stations with eligible, published database stations.
- * Ineligible database stations are excluded.
- * Distinguishes real empty results from database/service failure.
- */
-export async function getPublicStations(
-  now = new Date()
-): Promise<{ stations: Business[]; databaseAvailable: boolean }> {
-  try {
-    const eligibleDb = await queryEligiblePublishedDatabaseBusinesses(now);
-    const dbStations = eligibleDb.map(({ business, application, subscription }) =>
-      mapDatabaseBusinessToPublic(business, application, subscription)
-    );
-    const seededSlugs = new Set(seededBusinesses.map((b) => b.slug));
-    const uniqueDbStations = dbStations.filter((s) => !seededSlugs.has(s.slug));
-    return {
-      stations: [...seededBusinesses, ...uniqueDbStations],
-      databaseAvailable: true,
-    };
-  } catch {
-    return {
-      stations: [...seededBusinesses],
-      databaseAvailable: false,
-    };
-  }
+export function storefrontMissingFields(station: {
+  openingHours?: WeeklyOperatingHours | null;
+  visibleProductCount: number;
+}): string[] {
+  const missing: string[] = [];
+  const hours = station.openingHours;
+  if (!hours || !Object.values(hours).some((day) => day !== null && day !== undefined)) missing.push("openingHours");
+  if (station.visibleProductCount < 1) missing.push("products");
+  return missing;
 }

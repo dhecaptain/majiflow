@@ -16,7 +16,7 @@ import { useCart } from "@/components/order/cart-provider";
 import { useOrderSession } from "@/components/order/order-session-provider";
 import { useCustomer, type CustomerProfile } from "@/components/order/customer-provider";
 import { useToast } from "@/components/ui/toast";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { CITIES, ESTATES } from "@/lib/constants";
 import { formatKES } from "@/lib/format";
 import { computeCartTotals } from "@/lib/pricing";
@@ -122,6 +122,7 @@ export function CheckoutPage() {
 }
 
 function CheckoutForm() {
+  const businesses = useStations();
   const router = useRouter();
   const { items, clear, hydrated: cartHydrated } = useCart();
   const { profile, loggedIn, saveProfileDetails } = useCustomer();
@@ -182,7 +183,7 @@ function CheckoutForm() {
     };
   }, []);
 
-  const cart = useMemo(() => resolveCart(items, businesses), [items]);
+  const cart = useMemo(() => resolveCart(items, businesses), [items, businesses]);
   const rows = cart.orderable;
   const cartProblems = cart.problems;
 

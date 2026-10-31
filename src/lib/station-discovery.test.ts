@@ -36,7 +36,7 @@ describe("estimateEtaMinutes", () => {
 
 describe("discoverStations", () => {
   it("splits every result into delivering or nearby, never both", () => {
-    const result = discoverStations({ city: "All cities", location: NAIROBI, byDistance: true });
+    const result = discoverStations({ stations: businesses, city: "All cities", location: NAIROBI, byDistance: true });
 
     expect(result.results.length).toBeGreaterThan(0);
     expect(result.delivering.length + result.nearby.length).toBe(result.results.length);
@@ -45,7 +45,7 @@ describe("discoverStations", () => {
   });
 
   it("puts delivering stations before the ones that only deliver to themselves", () => {
-    const result = discoverStations({ city: "All cities", location: NAIROBI, byDistance: true });
+    const result = discoverStations({ stations: businesses, city: "All cities", location: NAIROBI, byDistance: true });
 
     const firstNotDelivering = result.results.findIndex((s) => !s.delivers);
     if (firstNotDelivering >= 0) {
@@ -57,7 +57,7 @@ describe("discoverStations", () => {
     const kasarani = businesses.find((b) => b.id === "bio-water-kasarani");
     if (!kasarani) throw new Error("The seeded Kasarani station is missing.");
 
-    const result = discoverStations({
+    const result = discoverStations({ stations: businesses,
       city: "All cities",
       location: { lat: kasarani.lat, lng: kasarani.lng },
       byDistance: true,
@@ -72,7 +72,7 @@ describe("discoverStations", () => {
   it("reports no delivering station for a point outside every radius", () => {
     // The Nairobi centre is inside the 40 km search window but outside the
     // radius of the stations that surround it.
-    const result = discoverStations({
+    const result = discoverStations({ stations: businesses,
       city: "All cities",
       location: NAIROBI,
       byDistance: true,
@@ -84,7 +84,7 @@ describe("discoverStations", () => {
   });
 
   it("estimates a rider time for every station with a distance", () => {
-    const result = discoverStations({ city: "All cities", location: NAIROBI, byDistance: true });
+    const result = discoverStations({ stations: businesses, city: "All cities", location: NAIROBI, byDistance: true });
     for (const station of result.results) {
       expect(station.etaMinutes).toBeGreaterThan(0);
     }
@@ -93,7 +93,7 @@ describe("discoverStations", () => {
 
 describe("deliverableStations", () => {
   it("keeps only the stations that reach the customer", () => {
-    const result = discoverStations({ city: "All cities", location: NAIROBI, byDistance: true });
+    const result = discoverStations({ stations: businesses, city: "All cities", location: NAIROBI, byDistance: true });
     expect(deliverableStations(result.results)).toEqual(result.delivering);
   });
 });

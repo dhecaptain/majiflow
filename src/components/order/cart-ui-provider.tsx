@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CartLine } from "@/lib/cart";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { useCart } from "@/components/order/cart-provider";
 
 interface PendingSwitch {
@@ -39,9 +39,12 @@ interface CartUiContextValue {
 
 const CartUiContext = createContext<CartUiContextValue | null>(null);
 
-const businessName = (id: string) => businesses.find((b) => b.id === id)?.name ?? "this station";
-
 export function CartUiProvider({ children }: { children: ReactNode }) {
+  const businesses = useStations();
+  const businessName = useCallback(
+    (id: string) => businesses.find((b) => b.id === id)?.name ?? "this station",
+    [businesses]
+  );
   const { items, addItem } = useCart();
   const [open, setOpen] = useState(false);
   const [pendingSwitch, setPendingSwitch] = useState<PendingSwitch | null>(null);
@@ -62,7 +65,7 @@ export function CartUiProvider({ children }: { children: ReactNode }) {
       }
       addItem(line);
     },
-    [items, addItem]
+    [items, addItem, businessName]
   );
 
   const confirmSwitch = useCallback(() => {

@@ -5,6 +5,12 @@ const dbState = vi.hoisted(() => ({
   applications: [] as Record<string, unknown>[],
   subscriptions: [] as Record<string, unknown>[],
   failDatabase: false,
+  visibleProducts: 1,
+}));
+
+vi.mock("@/lib/server/station-products", () => ({
+  productsForStations: async (ids: string[]) =>
+    new Map(ids.map((id) => [id, Array.from({ length: dbState.visibleProducts }, (_, i) => ({ id: `p${i}` }))])),
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -111,16 +117,12 @@ import {
   checkStationPublicationEligibility,
   completeBusinessListing,
   getEligiblePublishedDatabaseBusinesses,
-  getPublicStationBySlug,
-  getPublicStationSlugs,
-  getPublicStations,
   ListingIncompleteError,
   publishBusiness,
   StationPublicationError,
   StationUnauthorizedError,
   validateListingCompleteness,
 } from "./station-publication";
-import { businesses as seededBusinesses } from "@/lib/data/businesses";
 
 describe("Station Publication Gate and Discovery", () => {
   const baseNow = new Date("2026-10-16T12:00:00Z");
@@ -135,8 +137,10 @@ describe("Station Publication Gate and Discovery", () => {
         slug: "lake-aqua-clean",
         isComplete: true,
         isPublished: false,
+        openingHours: { monday: { open: "07:00", close: "19:00" } },
       },
     ];
+    dbState.visibleProducts = 1;
     dbState.applications = [
       {
         id: "app-1",
@@ -402,6 +406,18 @@ describe("Station Publication Gate and Discovery", () => {
       expect(updated.isPublished).toBe(true);
     });
 
+    it("refuses to publish a station with nothing to sell", async () => {
+      dbState.visibleProducts = 0;
+      await expect(publishBusiness("biz-1", "owner-1", baseNow)).rejects.toThrow(/at least one product/);
+      expect(dbState.businesses[0].isPublished).toBe(false);
+    });
+
+    it("refuses to publish a station without opening hours", async () => {
+      dbState.businesses[0].openingHours = null;
+      await expect(publishBusiness("biz-1", "owner-1", baseNow)).rejects.toThrow(/opening hours/);
+      expect(dbState.businesses[0].isPublished).toBe(false);
+    });
+
     it("prevents publishing when ineligible", async () => {
       dbState.businesses[0].isComplete = false;
       await expect(publishBusiness("biz-1", "owner-1", baseNow)).rejects.toBeInstanceOf(
@@ -435,81 +451,6 @@ describe("Station Publication Gate and Discovery", () => {
 
       const publicBusinesses = await getEligiblePublishedDatabaseBusinesses(baseNow);
       expect(publicBusinesses).toHaveLength(0);
-    });
-
-    it("getPublicStationBySlug returns null for ineligible database stations", async () => {
-      dbState.businesses[0].isPublished = false;
-      const station = await getPublicStationBySlug("lake-aqua-clean", baseNow);
-      expect(station).toBeNull();
-    });
-
-    it("getPublicStationBySlug returns the station when eligible and published", async () => {
-      dbState.businesses[0].isPublished = true;
-      dbState.businesses[0].isComplete = true;
-      const station = await getPublicStationBySlug("lake-aqua-clean", baseNow);
-      expect(station).not.toBeNull();
-      expect(station?.name).toBe("Lake Aqua Clean");
-      expect(station?.city).toBe("Kisumu");
-    });
-
-    it("getPublicStationBySlug preserves existing seeded demo stations", async () => {
-      const seeded = await getPublicStationBySlug("bio-water-kasarani", baseNow);
-      expect(seeded).not.toBeNull();
-      expect(seeded?.slug).toBe("bio-water-kasarani");
-      expect(seeded?.name).toBe("BioWater Refill Station");
-      expect(seeded?.products.length).toBeGreaterThan(0);
-    });
-
-    it("getPublicStationSlugs preserves seeded stations and includes eligible DB stations", async () => {
-      dbState.businesses[0].isPublished = true;
-      dbState.businesses[0].isComplete = true;
-      const slugs = await getPublicStationSlugs(baseNow);
-      expect(slugs).toContain("bio-water-kasarani");
-      expect(slugs).toContain("truflow-nyali");
-      expect(slugs).toContain("lake-aqua-clean");
-    });
-
-    it("getPublicStationSlugs excludes ineligible database stations", async () => {
-      dbState.businesses[0].isPublished = false;
-      const slugs = await getPublicStationSlugs(baseNow);
-      expect(slugs).toContain("bio-water-kasarani");
-      expect(slugs).not.toContain("lake-aqua-clean");
-    });
-
-    it("getPublicStations combines seeded stations with eligible published DB stations", async () => {
-      dbState.businesses[0].isPublished = true;
-      dbState.businesses[0].isComplete = true;
-      const { stations, databaseAvailable } = await getPublicStations(baseNow);
-      const slugs = stations.map((station) => station.slug);
-
-      expect(databaseAvailable).toBe(true);
-      expect(slugs).toContain("bio-water-kasarani");
-      expect(slugs).toContain("lake-aqua-clean");
-    });
-
-    it("getPublicStations excludes expired trials even when isPublished is true", async () => {
-      dbState.businesses[0].isPublished = true;
-      dbState.businesses[0].isComplete = true;
-      dbState.subscriptions[0].trialEndsAt = new Date("2026-10-15T00:00:00Z");
-      const { stations, databaseAvailable } = await getPublicStations(baseNow);
-      const slugs = stations.map((station) => station.slug);
-
-      expect(databaseAvailable).toBe(true);
-      expect(slugs).toContain("bio-water-kasarani");
-      expect(slugs).not.toContain("lake-aqua-clean");
-    });
-
-    it("getPublicStations distinguishes database failure from a genuinely empty directory", async () => {
-      dbState.failDatabase = true;
-      try {
-        const { stations, databaseAvailable } = await getPublicStations(baseNow);
-        expect(databaseAvailable).toBe(false);
-        expect(stations.map((station) => station.slug)).toEqual(
-          seededBusinesses.map((station) => station.slug)
-        );
-      } finally {
-        dbState.failDatabase = false;
-      }
     });
   });
 });

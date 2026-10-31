@@ -1,4 +1,5 @@
 import { AuthenticationError, requireBusinessOwner } from "@/lib/server/auth";
+import { revalidateStations } from "@/lib/server/catalog";
 import {
   completeBusinessListing,
   ListingIncompleteError,
@@ -72,6 +73,15 @@ export async function POST(request: Request) {
   if (payload.longitude !== undefined) {
     fields.push(["longitude", readCoordinate(payload.longitude, "Longitude")]);
   }
+  if (payload.freeDeliveryAbove !== undefined) {
+    fields.push(["freeDeliveryAbove", readNumberLike(payload.freeDeliveryAbove, "Free delivery threshold")]);
+  }
+  if (payload.openingHours !== undefined) {
+    if (!payload.openingHours || typeof payload.openingHours !== "object") {
+      return Response.json({ error: "Opening hours are invalid." }, { status: 400 });
+    }
+    updates.openingHours = payload.openingHours;
+  }
 
   for (const [key, field] of fields) {
     if (field.error) {
@@ -87,6 +97,7 @@ export async function POST(request: Request) {
       owner.id,
       Object.keys(updates).length > 0 ? updates : undefined
     );
+    await revalidateStations();
     return Response.json({ business });
   } catch (error) {
     if (error instanceof AuthenticationError) {

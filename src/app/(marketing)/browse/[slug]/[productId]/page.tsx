@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/feedback";
 import { JourneyLink, JourneyRecorder } from "@/components/order/journey";
 import { ItemPurchasePanel } from "@/components/order/item-purchase-panel";
 import { StationAvailabilityNotice, StationCartBar } from "@/components/order/station-status";
-import { businesses, getBusiness } from "@/lib/data/businesses";
+import { getStationBySlug } from "@/lib/server/catalog";
 import { itemHref, maxOrderQuantity, productRequirements } from "@/lib/cart";
 import { productImage } from "@/lib/product-images";
 import { formatKES } from "@/lib/format";
@@ -26,13 +26,9 @@ const CATEGORY_LABEL = {
   remineralised: "Remineralised",
 } as const;
 
-export async function generateStaticParams() {
-  return businesses.flatMap((b) => b.products.map((p) => ({ slug: b.slug, productId: p.id })));
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, productId } = await params;
-  const business = getBusiness(slug);
+  const business = await getStationBySlug(slug);
   const product = business?.products.find((p) => p.id === productId);
   if (!business || !product) return { title: "Item unavailable", robots: { index: false } };
   return { title: `${product.name} · ${business.name}`, description: product.description };
@@ -40,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ItemPage({ params }: PageProps) {
   const { slug, productId } = await params;
-  const business = getBusiness(slug);
+  const business = await getStationBySlug(slug);
   if (!business) notFound();
   const product = business.products.find((p) => p.id === productId);
 

@@ -2,22 +2,23 @@ import { and, eq } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { businessApplications, businesses as businessRows, users } from "@/lib/server/db/schema";
 import { businesses as catalog } from "@/lib/data/businesses";
+import { demoStationsEnabled } from "@/lib/server/catalog";
 
 /**
- * Tenant mapping. A business owner manages a catalog station once the
- * platform approves their application and links it: the `businesses` row
- * carries the station's slug, which is also the catalog station id orders
- * are stamped with. Owners never pick their station from the client.
+ * Tenant mapping. A business owner manages the stations whose `businesses`
+ * rows they own; orders are stamped with that row's id. A row linked to a
+ * seeded demo station (by slug) maps to the demo station's id instead, while
+ * demo stations are enabled. Owners never pick their station from the client.
  */
 
 export async function listOwnerStationIds(ownerUserId: string): Promise<string[]> {
   const { db } = await getDatabase();
   const rows = await db
-    .select({ slug: businessRows.slug })
+    .select({ id: businessRows.id, slug: businessRows.slug })
     .from(businessRows)
     .where(eq(businessRows.ownerUserId, ownerUserId));
-  const slugs = new Set(rows.map((row) => row.slug));
-  return catalog.filter((station) => slugs.has(station.slug)).map((station) => station.id);
+  const demoBySlug = new Map(demoStationsEnabled() ? catalog.map((station) => [station.slug, station.id]) : []);
+  return rows.map((row) => demoBySlug.get(row.slug) ?? row.id);
 }
 
 export class StationLinkError extends Error {
@@ -26,8 +27,11 @@ export class StationLinkError extends Error {
   }
 }
 
-/** Approve an owner application and link it to a catalog station (platform admin only). */
+/** Approve an owner application and link it to a seeded demo station (platform admin, demo mode only). */
 export async function approveApplicationForStation(applicationId: string, stationSlug: string) {
+  if (!demoStationsEnabled()) {
+    throw new StationLinkError("Linking to a demo station is only available while demo stations are enabled.", 422);
+  }
   const station = catalog.find((candidate) => candidate.slug === stationSlug);
   if (!station) throw new StationLinkError("Unknown station.", 422);
   const { db } = await getDatabase();

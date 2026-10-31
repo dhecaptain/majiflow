@@ -97,6 +97,30 @@ const SHORT_DAY: Record<Weekday, string> = {
 };
 
 /** The station's published hours as ready-to-render rows, Monday first. */
+export { WEEKDAYS };
+
+/**
+ * Read untrusted weekly hours (a form or a database row). Valid windows and
+ * explicit `null` (closed) days are kept; anything else is dropped. Returns
+ * null when nothing valid is left.
+ */
+export function parseWeeklyHours(input: unknown): WeeklyOperatingHours | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const raw = input as Record<string, unknown>;
+  const hours: WeeklyOperatingHours = {};
+  for (const day of WEEKDAYS) {
+    const value = raw[day];
+    if (value === null) {
+      hours[day] = null;
+    } else if (value && typeof value === "object") {
+      const window = value as Record<string, unknown>;
+      const candidate = { open: String(window.open ?? ""), close: String(window.close ?? "") };
+      if (validWindow(candidate)) hours[day] = candidate;
+    }
+  }
+  return Object.keys(hours).length > 0 ? hours : null;
+}
+
 export function weeklyHoursGrid(hours: WeeklyOperatingHours | undefined): WeeklyHoursRow[] {
   return WEEKDAYS.map((day) => {
     const window = hours?.[day];

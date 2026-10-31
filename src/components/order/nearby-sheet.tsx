@@ -76,9 +76,13 @@ export function NearbyStationCard({
                 : availability.hoursLabel
               : "Collect in person"}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <Star className="size-3 fill-warning text-warning" aria-hidden /> {business.rating}
-          </span>
+          {business.reviewCount > 0 ? (
+            <span className="inline-flex items-center gap-1">
+              <Star className="size-3 fill-warning text-warning" aria-hidden /> {business.rating}
+            </span>
+          ) : (
+            <span>New</span>
+          )}
           {delivers ? (
             <span>{formatKES(business.deliveryFee)} delivery</span>
           ) : (

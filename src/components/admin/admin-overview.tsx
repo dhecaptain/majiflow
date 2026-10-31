@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AnimatedSection, Stagger, StaggerItem } from "@/components/ui/animated-section";
 import { formatKES } from "@/lib/format";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
+import type { Business } from "@/lib/types";
 import { plans } from "@/lib/data/plans";
 import { cn } from "@/lib/utils";
 
-type PlanId = (typeof businesses)[number]["subscription"];
+type PlanId = "starter" | "growth" | "pro";
 
 const PLAN_TONE: Record<PlanId, "softAccent" | "accent" | "success"> = {
   starter: "softAccent",
@@ -25,21 +26,44 @@ const PLAN_PRICE: Record<PlanId, number> = plans.reduce(
   {} as Record<PlanId, number>
 );
 
-const ROWS = businesses.map((b) => ({
-  id: b.id,
-  name: b.name,
-  area: `${b.estates[0] ?? b.city}, ${b.city}`,
-  plan: b.subscription,
-  monthly: PLAN_PRICE[b.subscription],
-  products: b.products.length,
-  verified: b.verified,
-}));
+function stationRows(stations: readonly Business[]) {
+  return stations.map((b) => {
+    const plan = (b.subscription in PLAN_PRICE ? b.subscription : "starter") as PlanId;
+    return {
+      id: b.id,
+      name: b.name,
+      area: `${b.estates[0] ?? b.city}, ${b.city}`,
+      plan,
+      // Only paid subscriptions count as revenue; trials are not income yet.
+      monthly: b.paid ? PLAN_PRICE[plan] : 0,
+      products: b.products.length,
+      verified: b.verified,
+    };
+  });
+}
+
+/** Download the station table as a CSV file. */
+function downloadCsv(rows: ReturnType<typeof stationRows>) {
+  const cell = (value: string | number | boolean) => `"${String(value).replace(/"/g, '""')}"`;
+  const lines = [
+    ["Station", "Area", "Plan", "Monthly (KES)", "Products", "Verified"].map(cell).join(","),
+    ...rows.map((r) => [r.name, r.area, planLabel(r.plan), r.monthly, r.products, r.verified ? "yes" : "no"].map(cell).join(",")),
+  ];
+  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `majiflow-stations-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function planLabel(plan: PlanId) {
   return plan[0].toUpperCase() + plan.slice(1);
 }
 
 export function AdminOverview() {
+  const businesses = useStations();
+  const ROWS = stationRows(businesses);
   const [q, setQ] = useState("");
   const [note, setNote] = useState<string | null>(null);
 
@@ -56,7 +80,7 @@ export function AdminOverview() {
 
   const kpis = [
     { icon: Building2, label: "Active stations", value: String(active), hint: `${ROWS.length} listed on the platform` },
-    { icon: Banknote, label: "Platform MRR", value: formatKES(mrr), hint: "From active subscriptions" },
+    { icon: Banknote, label: "Platform MRR", value: formatKES(mrr), hint: "From paid subscriptions" },
     { icon: Package, label: "Products listed", value: String(productCount), hint: "Across every catalogue" },
     { icon: MapPin, label: "Cities covered", value: String(cityCount), hint: "Kenya-wide coverage" },
   ];
@@ -93,7 +117,14 @@ export function AdminOverview() {
                 <ClipboardCheck className="size-4" aria-hidden /> Applications
               </Button>
             </Link>
-            <Button className="gap-2" onClick={() => setNote("Platform report exported as CSV.")}>
+            <Button
+              className="gap-2"
+              disabled={ROWS.length === 0}
+              onClick={() => {
+                downloadCsv(ROWS);
+                setNote(`Downloaded ${ROWS.length} station${ROWS.length === 1 ? "" : "s"} as CSV.`);
+              }}
+            >
               <Download className="size-4" aria-hidden /> Export report
             </Button>
           </div>

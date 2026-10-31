@@ -11,10 +11,10 @@ import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { FulfilmentPanel } from "@/components/shared/fulfilment-panel";
 import { fetchOrder, fetchOrderLocation, type OrderLocationSnapshot } from "@/lib/orders";
 import { isActiveStatus } from "@/lib/order-status";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { CITY_COORDS, ESTATE_COORDS } from "@/lib/constants";
 import { formatKES, formatPhone } from "@/lib/format";
-import type { FulfillmentActor, Order, OrderStatus, OrderTimelineEntry } from "@/lib/types";
+import type { Business, FulfillmentActor, Order, OrderStatus, OrderTimelineEntry } from "@/lib/types";
 
 const TIMELINE_LABEL: Record<OrderStatus, string> = {
   pending: "Order placed",
@@ -48,7 +48,7 @@ function addressPoint(order: Order): MapPoint {
   return { ...coords, label: order.address.estate || "Delivery address" };
 }
 
-function stationPoint(order: Order): MapPoint | undefined {
+function stationPoint(order: Order, businesses: readonly Business[]): MapPoint | undefined {
   const station = businesses.find((b) => b.id === order.businessId);
   return station ? { lat: station.lat, lng: station.lng, label: station.name } : undefined;
 }
@@ -74,6 +74,7 @@ export function OrderDetailView({
   backLabel: string;
   actor: "station" | "admin";
 }) {
+  const businesses = useStations();
   const [order, setOrder] = useState<Order | null>(null);
   const [snapshot, setSnapshot] = useState<OrderLocationSnapshot | null>(null);
   const [fetchedAt, setFetchedAt] = useState(0);
@@ -179,7 +180,7 @@ export function OrderDetailView({
           </div>
 
           <OrderMap
-            station={stationPoint(order)}
+            station={stationPoint(order, businesses)}
             address={addressPoint(order)}
             location={live}
             history={history}

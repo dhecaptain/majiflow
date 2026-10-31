@@ -1,7 +1,7 @@
 import { planReorder } from "@/lib/account";
-import { businesses } from "@/lib/data/businesses";
 import { asCustomer, notFound } from "@/lib/server/account-http";
 import { getCustomerOrder } from "@/lib/server/order-store";
+import { getOrderableStation } from "@/lib/server/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,8 @@ export async function POST(_request: Request, ctx: Context) {
   return asCustomer("reorder", async (user) => {
     const order = await getCustomerOrder(id, user.id);
     if (!order) return notFound();
-    const plan = planReorder(order, businesses);
+    const station = await getOrderableStation(order.businessId);
+    const plan = planReorder(order, station ? [station] : []);
     if ("error" in plan) return Response.json({ error: plan.error }, { status: 409 });
     return Response.json({ plan });
   });

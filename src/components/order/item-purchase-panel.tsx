@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ShoppingCart } from "lucide-react";
 import type { Business, BusinessProduct, ProductOption } from "@/lib/types";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { maxOrderQuantity, resolveCart, unitPriceFor } from "@/lib/cart";
 import { lineDeposit, lineSubtotal } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
@@ -19,6 +19,7 @@ import { SkeletonCard } from "@/components/ui/skeleton-card";
 
 /** Quantity, line total and the next step for the item being viewed. */
 export function ItemPurchasePanel({ business, product }: { business: Business; product: BusinessProduct }) {
+  const businesses = useStations();
   const { items, hydrated, addItem, updateQuantity } = useCart();
   const cartUi = useOptionalCartUi();
   const { toast } = useToast();

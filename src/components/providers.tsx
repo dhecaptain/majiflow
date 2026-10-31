@@ -15,33 +15,37 @@ import { GeoShareEngine } from "@/components/order/geo-share-engine";
 import { ToastProvider } from "@/components/ui/toast";
 import { OfflineBanner } from "@/components/ui/offline-banner";
 import { RefillPrompt } from "@/components/shared/refill-prompt";
+import { StationsProvider } from "@/components/order/stations-provider";
+import type { Business } from "@/lib/types";
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, stations }: { children: ReactNode; stations: readonly Business[] }) {
   return (
-    <ToastProvider>
-      <CartProvider>
-        <CartUiProvider>
-          <FlyToCartProvider>
-            <CustomerProvider>
-              <SendWaterProvider>
-                <OrderSessionProvider>
-                  <BrowseContextProvider>
-                    <OrderEntryProvider>
-                      <GeoShareEngine />
-                      <OfflineBanner />
-                      {children}
-                      <FloatingCartBar />
-                      <CartDrawer />
-                      <SwitchStationDialog />
-                      <RefillPrompt />
-                    </OrderEntryProvider>
-                  </BrowseContextProvider>
-                </OrderSessionProvider>
-              </SendWaterProvider>
-            </CustomerProvider>
-          </FlyToCartProvider>
-        </CartUiProvider>
-      </CartProvider>
-    </ToastProvider>
+    <StationsProvider stations={stations}>
+      <ToastProvider>
+        <CartProvider>
+          <CartUiProvider>
+            <FlyToCartProvider>
+              <CustomerProvider>
+                <SendWaterProvider>
+                  <OrderSessionProvider>
+                    <BrowseContextProvider>
+                      <OrderEntryProvider>
+                        <GeoShareEngine />
+                        <OfflineBanner />
+                        {children}
+                        <FloatingCartBar />
+                        <CartDrawer />
+                        <SwitchStationDialog />
+                        <RefillPrompt />
+                      </OrderEntryProvider>
+                    </BrowseContextProvider>
+                  </OrderSessionProvider>
+                </SendWaterProvider>
+              </CustomerProvider>
+            </FlyToCartProvider>
+          </CartUiProvider>
+        </CartProvider>
+      </ToastProvider>
+    </StationsProvider>
   );
 }
