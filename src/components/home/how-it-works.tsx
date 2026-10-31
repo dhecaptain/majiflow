@@ -24,7 +24,7 @@ const steps = [
   {
     icon: ShoppingCart,
     title: "Checkout and pay",
-    text: "Pay with M-Pesa or card at checkout.",
+    text: "Pay on delivery by cash or M-Pesa.",
   },
   {
     icon: ClipboardList,

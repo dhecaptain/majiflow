@@ -140,6 +140,8 @@ export function cancelBlockReason(
   if (order.paymentState === "success" || order.paymentState === "refunded")
     return "This order is paid - contact support to cancel and get a refund.";
   if (SETTLED_UNPAID.includes(order.paymentState)) return null;
+  // Pay on delivery: nothing has been charged, so there is nothing to wait for.
+  if (order.payment === "cod") return null;
   const placed = Date.parse(order.placedAt);
   if (Number.isNaN(placed) || now - placed < windowMs)
     return "Your payment is still being confirmed - try again in a few minutes.";

@@ -1,5 +1,7 @@
 import {
+  applyDarajaCallback,
   applyProviderOutcome,
+  callbackTokenOk,
   devCallbacksAllowed,
   parseDarajaCallback,
   type ProviderOutcome,
@@ -9,9 +11,11 @@ import { reportFailure } from "@/lib/monitoring";
 export const dynamic = "force-dynamic";
 
 /**
- * Provider callback. Accepts genuine Daraja STK payloads, plus an explicit
- * dev-test shape that is refused in production (and refused everywhere unless
- * dev mode is active). Applying the same callback twice changes nothing.
+ * Provider callback. Genuine Daraja STK payloads must arrive on the secret
+ * callback URL (see `callbackTokenOk`) and a success is cross-checked with
+ * Daraja before any order is marked paid. The dev-test shape is refused in
+ * production and everywhere outside dev mode. Repeating a callback changes
+ * nothing.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -23,13 +27,11 @@ export async function POST(request: Request) {
 
   const daraja = parseDarajaCallback(body);
   if (daraja) {
-    const payment = await applyProviderOutcome({
-      checkoutRequestId: daraja.checkoutRequestId,
-      outcome: daraja.outcome,
-      receipt: daraja.receipt,
-      amount: daraja.amount,
-      detail: daraja.detail,
-    });
+    if (!callbackTokenOk(request)) {
+      await reportFailure("payment", "Rejected a payment callback.", { reason: "missing or wrong callback token" });
+      return Response.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    const payment = await applyDarajaCallback(daraja);
     if (!payment) return Response.json({ error: "Unknown transaction." }, { status: 404 });
     return Response.json({ ok: true, status: payment.status });
   }

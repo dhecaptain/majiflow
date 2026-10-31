@@ -25,7 +25,7 @@ const customerSteps = [
   {
     icon: ShoppingCart,
     title: "Checkout and pay",
-    text: "Pay with M-Pesa or card and get a confirmation.",
+    text: "Place the order and pay when it arrives, by cash or M-Pesa.",
   },
   {
     icon: ClipboardList,
@@ -43,13 +43,13 @@ const faqItems = [
   { q: "Is anything actually delivered?", a: "Yes. Orders are accepted and delivered by the station you choose, and you can follow every stage." },
   { q: "Is there a free-delivery minimum?", a: "Yes, each station sets its own. Some waive the delivery fee above a set amount, shown on the station page and in your cart." },
   { q: "What if something goes wrong?", a: "Open the order to see its status and contact the station, or reach support from the contact page." },
-  { q: "Can I pay cash on delivery?", a: "Orders are prepaid by M-Pesa or card at checkout." },
+  { q: "Can I pay cash on delivery?", a: "Yes. Pay the rider by cash or M-Pesa when your water arrives, or pay at the counter when you collect." },
 ];
 
 export const metadata = {
   title: "How it works",
   description:
-    "Compare refill stations, build a cart, pay with M-Pesa and follow your delivery from checkout to your door.",
+    "Compare refill stations, build a cart, pay on delivery and follow your order from checkout to your door.",
 };
 
 export default function HowItWorks() {

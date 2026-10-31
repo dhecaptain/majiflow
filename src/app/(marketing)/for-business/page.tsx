@@ -22,7 +22,7 @@ const pillars = [
   {
     icon: Coins,
     title: "Payments that settle to you",
-    text: "Customers pay by M-Pesa or card, matched to each order.",
+    text: "Customers pay on delivery by cash or M-Pesa, recorded against each order.",
   },
   {
     icon: Users,

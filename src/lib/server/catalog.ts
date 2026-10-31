@@ -11,6 +11,7 @@ import {
   storefrontMissingFields,
 } from "@/lib/server/station-publication";
 import { parseWeeklyHours } from "@/lib/business-hours";
+import { onlinePaymentAvailable } from "@/lib/server/payment-mode";
 import type { Business } from "@/lib/types";
 
 /**
@@ -56,9 +57,17 @@ async function loadDatabaseStations(now = new Date()): Promise<Business[]> {
 /** Database stations first; demo stations fill in only when enabled and never shadow a real slug. */
 async function loadStations(): Promise<Business[]> {
   const fromDatabase = await loadDatabaseStations();
-  if (!demoStationsEnabled()) return fromDatabase;
   const taken = new Set(fromDatabase.map((station) => station.slug));
-  return [...fromDatabase, ...demoStations.filter((station) => !taken.has(station.slug))];
+  const demo = demoStationsEnabled() ? demoStations.filter((station) => !taken.has(station.slug)) : [];
+  return [...fromDatabase, ...demo].map(withPaymentOptions);
+}
+
+/**
+ * What checkout may offer at a station on this deployment: pay on delivery
+ * always, M-Pesa only with a live provider, card never (it is withdrawn).
+ */
+function withPaymentOptions(station: Business): Business {
+  return { ...station, acceptsMpesa: station.acceptsMpesa && onlinePaymentAvailable(), acceptsCard: false };
 }
 
 /**
@@ -84,11 +93,11 @@ export async function getStationBySlug(slug: string): Promise<Business | null> {
 export async function getOrderableStation(id: string): Promise<Business | null> {
   if (demoStationsEnabled()) {
     const demo = demoStations.find((station) => station.id === id);
-    if (demo) return demo;
+    if (demo) return withPaymentOptions(demo);
   }
   if (!databaseConfigured() || !/^[0-9a-f-]{36}$/i.test(id)) return null;
   const station = (await loadDatabaseStations()).find((candidate) => candidate.id === id);
-  return station ?? null;
+  return station ? withPaymentOptions(station) : null;
 }
 
 /**

@@ -2,6 +2,11 @@ import { randomBytes } from "node:crypto";
 import type { Order, PaymentMethod, PaymentState } from "@/lib/types";
 import { getOrder, setOrderRefund, updateOrder } from "@/lib/server/order-store";
 import { documentStore } from "@/lib/server/doc-store";
+import { devCallbacksAllowed, providerMode, type ProviderName } from "@/lib/server/payment-mode";
+import { safeEqual } from "@/lib/server/admin";
+import { normalizeKenyanPhone } from "@/lib/phone";
+
+export { devCallbacksAllowed, providerMode, type ProviderName };
 import { payments as paymentsTable } from "@/lib/server/db/schema";
 
 /**
@@ -19,7 +24,6 @@ import { payments as paymentsTable } from "@/lib/server/db/schema";
  *   provider confirms). A refund is never displayed as complete before that.
  */
 
-export type ProviderName = "daraja" | "dev";
 
 export type PaymentRecordStatus = "pending" | "success" | "failed" | "cancelled" | "timeout";
 
@@ -94,19 +98,6 @@ function event(record: PaymentRecord, kind: string, detail?: string) {
   record.updatedAt = new Date().toISOString();
 }
 
-/** Which provider to use. Daraja only when credentials are configured. */
-export function providerMode(): ProviderName {
-  if (process.env.MF_PAYMENTS_MODE === "daraja" || process.env.MF_PAYMENTS_MODE === "dev") {
-    return process.env.MF_PAYMENTS_MODE;
-  }
-  return process.env.DARAJA_CONSUMER_KEY && process.env.DARAJA_CONSUMER_SECRET ? "daraja" : "dev";
-}
-
-/** Dev/test callbacks are only honored outside production. */
-export function devCallbacksAllowed(): boolean {
-  return providerMode() === "dev" && process.env.NODE_ENV !== "production";
-}
-
 function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
@@ -134,13 +125,23 @@ export async function initiatePayment(input: InitiateInput): Promise<InitiateRes
   const orderIds = [...new Set(input.orderIds.filter((id) => typeof id === "string" && id.trim()))];
   if (orderIds.length === 0) throw new Error("Select at least one order to pay for.");
   if (!input.idempotencyKey.trim()) throw new Error("Idempotency key is required.");
-  if (input.method !== "mpesa" && input.method !== "card") throw new Error("Choose M-Pesa or card.");
+  // Pay on delivery never goes through here, and card checkout is withdrawn.
+  if (input.method !== "mpesa") throw new Error("Choose M-Pesa to pay online.");
 
   const orders: Order[] = [];
   for (const id of orderIds) {
     const order = await getOrder(id);
     if (!order) throw new Error("An order could not be found - it may have expired.");
     orders.push(order);
+  }
+  // The STK prompt goes to a phone on the order, never to an arbitrary number,
+  // so a leaked order link cannot be used to spam someone else with prompts.
+  const phone = normalizeKenyanPhone(input.phone);
+  if (!phone) throw new Error("Use a Kenyan number, e.g. 07XX XXX XXX.");
+  for (const order of orders) {
+    if (order.payment === "cod") throw new Error(`Order ${order.orderNumber} is paid on delivery.`);
+    const onOrder = [order.customerPhone, order.address.phone].map((value) => normalizeKenyanPhone(value));
+    if (!onOrder.includes(phone)) throw new Error("Pay with the phone number on the order.");
   }
   for (const order of orders) {
     if (order.paymentState !== "pending") {
@@ -159,7 +160,7 @@ export async function initiatePayment(input: InitiateInput): Promise<InitiateRes
   const record: PaymentRecord = {
     id: newId("pay"),
     orderIds,
-    phone: input.phone,
+    phone,
     method: input.method,
     amount,
     status: "pending",
@@ -176,7 +177,7 @@ export async function initiatePayment(input: InitiateInput): Promise<InitiateRes
 
   if (created.created && mode === "daraja") {
     try {
-      const stk = await darajaStkPush({ phone: input.phone, amount, reference: created.payment.id });
+      const stk = await darajaStkPush({ phone, amount, reference: created.payment.id });
       await store.update(created.payment.id, (draft) => {
         draft.checkoutRequestId = stk.checkoutRequestId;
         draft.merchantRequestId = stk.merchantRequestId;
@@ -376,12 +377,17 @@ export async function confirmRefund(refundId: string, providerReference?: string
     if (refund.status !== "pending") return { refund: clone(refund), changed: false };
 
     if (record.provider === "daraja" && !providerReference) {
+      // Daraja accepting the reversal request is not the money moving: the
+      // refund stays pending until the reversal result arrives.
+      if (refund.providerReference) return { refund: clone(refund), changed: false };
       const result = await darajaReversal({
         amount: refund.amount,
         reference: refund.id,
         remarks: refund.reason,
       });
       refund.providerReference = result.reference;
+      event(record, "reversal-requested", `${refund.id} (${result.reference})`);
+      return { refund: clone(refund), changed: false };
     } else if (providerReference) {
       refund.providerReference = providerReference;
     } else if (record.provider === "daraja") {
@@ -396,15 +402,7 @@ export async function confirmRefund(refundId: string, providerReference?: string
   });
   if (!confirmed) return null;
 
-  if (confirmed.changed) {
-    for (const orderId of confirmed.refund.orderIds) {
-      await updateOrder(orderId, { paymentState: "refunded" });
-      const order = await getOrder(orderId);
-      if (order?.refund?.id === confirmed.refund.id) {
-        await setOrderRefund(orderId, { ...order.refund, status: "confirmed", confirmedAt: confirmed.refund.confirmedAt });
-      }
-    }
-  }
+  if (confirmed.changed) await markOrdersRefunded(confirmed.refund);
   return confirmed.refund;
 }
 
@@ -526,8 +524,8 @@ async function darajaReversal(input: { amount: number; reference: string; remark
   const shortcode = process.env.DARAJA_SHORTCODE ?? "";
   const initiator = process.env.DARAJA_INITIATOR ?? "";
   const credential = process.env.DARAJA_SECURITY_CREDENTIAL ?? "";
-  const queueTimeout = process.env.DARAJA_QUEUE_TIMEOUT_URL ?? process.env.DARAJA_CALLBACK_URL ?? "";
-  const resultUrl = process.env.DARAJA_RESULT_URL ?? process.env.DARAJA_CALLBACK_URL ?? "";
+  const queueTimeout = process.env.DARAJA_QUEUE_TIMEOUT_URL ?? process.env.DARAJA_RESULT_URL ?? "";
+  const resultUrl = process.env.DARAJA_RESULT_URL ?? "";
   if (!shortcode || !initiator || !credential || !queueTimeout || !resultUrl) {
     throw new Error("Daraja reversal is not configured - set DARAJA_INITIATOR/SECURITY_CREDENTIAL/RESULT_URL.");
   }
@@ -555,12 +553,106 @@ async function darajaReversal(input: { amount: number; reference: string; remark
   return { reference: typeof data.ConversationID === "string" ? data.ConversationID : input.reference };
 }
 
+/**
+ * Daraja calls back to a URL anyone could guess, so the URL carries a secret:
+ * `DARAJA_CALLBACK_URL=https://…/api/payments/callback?token=<MF_PAYMENTS_CALLBACK_TOKEN>`
+ * (and the same token on DARAJA_RESULT_URL). Without a configured token every
+ * provider callback is refused.
+ */
+export function callbackTokenOk(request: Request): boolean {
+  const configured = process.env.MF_PAYMENTS_CALLBACK_TOKEN?.trim();
+  if (!configured) return false;
+  const token = new URL(request.url).searchParams.get("token") ?? "";
+  return safeEqual(token, configured);
+}
+
+/**
+ * Apply a Daraja STK callback. A success only counts when it states the amount
+ * and Daraja's own status query agrees; anything less is recorded and left
+ * pending, so reconciliation (or a genuine callback) settles it later.
+ */
+export async function applyDarajaCallback(
+  callback: NonNullable<ReturnType<typeof parseDarajaCallback>>,
+  query: (checkoutRequestId: string) => Promise<ProviderOutcome | "pending"> = darajaStkQuery
+): Promise<PaymentRecord | null> {
+  const [record] = await store.find({ checkoutRequestId: callback.checkoutRequestId });
+  if (!record) return null;
+  if (callback.outcome === "success") {
+    if (typeof callback.amount !== "number") {
+      return store.update(record.id, (draft) => {
+        event(draft, "callback-unverified", "Success callback without an amount - waiting for reconciliation.");
+        return clone(draft);
+      });
+    }
+    let confirmed: ProviderOutcome | "pending" | "error";
+    try {
+      confirmed = await query(callback.checkoutRequestId);
+    } catch {
+      confirmed = "error";
+    }
+    if (confirmed !== "success") {
+      return store.update(record.id, (draft) => {
+        event(draft, "callback-unverified", `Success callback not confirmed by Daraja (${confirmed}).`);
+        return clone(draft);
+      });
+    }
+  }
+  return applyProviderOutcome({
+    paymentId: record.id,
+    outcome: callback.outcome,
+    receipt: callback.receipt,
+    amount: callback.amount,
+    detail: callback.detail,
+  });
+}
+
+/** Parse a Daraja reversal result. Returns null when the body is not one. */
+export function parseReversalResult(body: unknown): { conversationId: string; success: boolean; detail?: string } | null {
+  const result = (body as { Result?: Record<string, unknown> } | null)?.Result;
+  if (!result || typeof result.ConversationID !== "string") return null;
+  return {
+    conversationId: result.ConversationID,
+    success: result.ResultCode === 0 || result.ResultCode === "0",
+    detail: typeof result.ResultDesc === "string" ? result.ResultDesc : undefined,
+  };
+}
+
+/**
+ * Settle a refund once Daraja reports the reversal's outcome. Until then the
+ * refund stays pending, and the order is never shown as refunded.
+ */
+export async function applyReversalResult(result: { conversationId: string; success: boolean; detail?: string }) {
+  const candidates = await store.find({ status: "success" });
+  const owner = candidates.find((r) => r.refunds.some((f) => f.providerReference === result.conversationId));
+  if (!owner) return null;
+  const settled = await store.update(owner.id, (record) => {
+    const refund = record.refunds.find((f) => f.providerReference === result.conversationId);
+    if (!refund || refund.status !== "pending") return refund ? { refund: clone(refund), changed: false } : null;
+    refund.status = result.success ? "confirmed" : "failed";
+    if (result.success) refund.confirmedAt = new Date().toISOString();
+    event(record, result.success ? "refund-confirmed" : "refund-failed", `${refund.id}: ${result.detail ?? ""}`.trim());
+    return { refund: clone(refund), changed: true };
+  });
+  if (settled?.changed && settled.refund.status === "confirmed") await markOrdersRefunded(settled.refund);
+  return settled?.refund ?? null;
+}
+
+async function markOrdersRefunded(refund: RefundRecord) {
+  for (const orderId of refund.orderIds) {
+    await updateOrder(orderId, { paymentState: "refunded" });
+    const order = await getOrder(orderId);
+    if (order?.refund?.id === refund.id) {
+      await setOrderRefund(orderId, { ...order.refund, status: "confirmed", confirmedAt: refund.confirmedAt });
+    }
+  }
+}
+
 /** Refund endpoints are server-to-server: callers must present the admin key. */
 export function adminKeyOk(request: Request): boolean {
   const configured = process.env.MF_ADMIN_KEY;
   if (!configured) return false;
-  const header = request.headers.get("authorization");
-  return header === `Bearer ${configured}`;
+  const header = request.headers.get("authorization") ?? "";
+  return safeEqual(header, `Bearer ${configured}`);
 }
 
 /** Parse a Daraja STK callback body into an outcome. Returns null when not a Daraja payload. */

@@ -23,7 +23,7 @@ export const faqs: Faq[] = [
     group: "customers",
     question: "Can I pay with M-Pesa?",
     answer:
-      "Yes. You can pay with M-Pesa at checkout and receive a confirmation on your phone once the payment goes through. Card payment is available for stations that accept it.",
+      "Yes. Pay the rider (or the station counter on pickup) by cash or M-Pesa when your order is handed over. Where M-Pesa checkout is available you can also pay up front and get a confirmation on your phone.",
   },
   {
     id: "f4",

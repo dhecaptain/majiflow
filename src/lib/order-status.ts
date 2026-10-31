@@ -90,7 +90,7 @@ export function transitionBlockReason(order: Order, to: OrderStatus, actor: Fulf
     return `An order that is ${STATUS_LABEL[order.status].toLowerCase()} cannot move to ${STATUS_LABEL[to].toLowerCase()}.`;
   }
   if (!actors.includes(actor)) return "You are not allowed to make this change.";
-  if (to === "accepted" && order.paymentState !== "success") {
+  if (to === "accepted" && order.payment !== "cod" && order.paymentState !== "success") {
     return "Payment has not been confirmed yet - accept the order once M-Pesa confirms it.";
   }
   if (to === "rider_assigned" && !order.rider) return "Assign a rider with a name and phone number first.";

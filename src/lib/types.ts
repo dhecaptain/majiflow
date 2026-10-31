@@ -80,7 +80,12 @@ export type OrderStatus =
   | "rejected"
   | "cancelled";
 
-export type PaymentMethod = "mpesa" | "card";
+/**
+ * How the customer pays. `cod` is pay on delivery (cash or M-Pesa to the rider,
+ * or at the counter on pickup). `card` is no longer offered; it only appears on
+ * orders placed before card checkout was withdrawn.
+ */
+export type PaymentMethod = "mpesa" | "cod" | "card";
 
 /** How the customer receives the order: a rider delivers it, or they collect it. */
 export type FulfillmentMethod = "delivery" | "pickup";
