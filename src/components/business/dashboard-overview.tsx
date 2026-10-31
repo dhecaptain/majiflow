@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, BadgeCheck, Boxes, CheckCircle2, Package, RefreshCw, Repeat, TrendingUp, Users } from "lucide-react";
 import { OrderStatusBadge } from "@/components/ui/order-status-badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { ButtonLoader } from "@/components/ui/button-loader";
 import { formatKES } from "@/lib/format";
@@ -116,9 +116,7 @@ export function DashboardOverview() {
           title="No orders in the last 7 days"
           description="Once a customer checks out on your public page, their order shows up here within a second."
           action={
-            <Link href={`/browse/${business.slug}`}>
-              <Button variant="secondary">View your public page</Button>
-            </Link>
+            <Link href={`/browse/${business.slug}`} className={buttonVariants({ variant: "secondary" })}>View your public page</Link>
           }
         />
       )}
@@ -131,10 +129,8 @@ export function DashboardOverview() {
               <h2 className="font-display text-lg text-foreground">Revenue, last 7 days</h2>
               <p className="text-sm text-muted-foreground">Goods subtotal · M-Pesa and card orders</p>
             </div>
-            <Link href="/business/analytics">
-              <Button variant="secondary" size="sm" className="group gap-1.5">
-                Analytics
-              </Button>
+            <Link href="/business/analytics" className={buttonVariants({ variant: "secondary", size: "sm", className: "group gap-1.5" })}>
+              Analytics
             </Link>
           </div>
           {stats.buckets.length === 0 ? (
@@ -149,7 +145,7 @@ export function DashboardOverview() {
                       style={{ height: `${(c.revenue / maxRevenue) * 100}%` }}
                       title={formatKES(c.revenue)}
                     />
-                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 font-mono text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 font-mono text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                       {formatKES(c.revenue)}
                     </span>
                   </div>
@@ -166,10 +162,8 @@ export function DashboardOverview() {
             <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
               <AlertTriangle className="size-5 text-foreground" aria-hidden /> Stock alerts
             </h2>
-            <Link href="/business/products">
-              <Button variant="secondary" size="sm" className="group gap-1.5">
-                Manage
-              </Button>
+            <Link href="/business/products" className={buttonVariants({ variant: "secondary", size: "sm", className: "group gap-1.5" })}>
+              Manage
             </Link>
           </div>
           {stats.stockAlerts.length === 0 ? (
@@ -204,10 +198,8 @@ export function DashboardOverview() {
         <section className="rounded-2xl border border-border bg-card shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
             <h2 className="font-display text-lg text-foreground">Latest orders</h2>
-            <Link href="/business/orders">
-              <Button variant="secondary" size="sm" className="group gap-1.5">
-                All orders
-              </Button>
+            <Link href="/business/orders" className={buttonVariants({ variant: "secondary", size: "sm", className: "group gap-1.5" })}>
+              All orders
             </Link>
           </div>
           {actionError && (
@@ -259,10 +251,8 @@ export function DashboardOverview() {
             <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
               <BadgeCheck className="size-5 text-foreground" aria-hidden /> Best sellers
             </h2>
-            <Link href="/business/analytics">
-              <Button variant="secondary" size="sm" className="group gap-1.5">
-                Analytics
-              </Button>
+            <Link href="/business/analytics" className={buttonVariants({ variant: "secondary", size: "sm", className: "group gap-1.5" })}>
+              Analytics
             </Link>
           </div>
           {stats.topProducts.length === 0 ? (
@@ -372,7 +362,7 @@ function KpiCard({
         {!positive && <ArrowDownRight className="size-3 text-muted-foreground" aria-hidden />}
         {delta}
       </p>
-      <p className="mt-1 text-[11px] text-muted-foreground/70">{hint}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
     </div>
   );
 }

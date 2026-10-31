@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import type { BrowseOrderChoice, BrowseWaterCategory } from "@/components/order/browse-context";
+import { WATER_CATEGORY_LABELS } from "@/lib/categories";
 
 const ORDER_CATEGORIES: {
   id: BrowseWaterCategory;
@@ -33,10 +34,10 @@ const ORDER_CATEGORIES: {
   description: string;
   image: string;
 }[] = [
-  { id: "refills", title: "Refill a can", description: "Top up a container you already own.", image: "can" },
-  { id: "new-bottles", title: "New bottle", description: "Choose a sealed, ready-to-use bottle.", image: "bottle" },
-  { id: "bottled-packs", title: "Bottle packs", description: "Small bottles and multipacks for home.", image: "glass" },
-  { id: "dispensers", title: "Dispensers", description: "Find a dispenser for your home or office.", image: "dispenser" },
+  { id: "refills", title: WATER_CATEGORY_LABELS.refills, description: "Top up a container you already own.", image: "can" },
+  { id: "new-bottles", title: WATER_CATEGORY_LABELS["new-bottles"], description: "Choose a sealed, ready-to-use bottle.", image: "bottle" },
+  { id: "bottled-packs", title: WATER_CATEGORY_LABELS["bottled-packs"], description: "Small bottles and multipacks for home.", image: "glass" },
+  { id: "dispensers", title: WATER_CATEGORY_LABELS.dispensers, description: "Find a dispenser for your home or office.", image: "dispenser" },
 ];
 
 function matchesCategory(product: BusinessProduct, category: BrowseWaterCategory): boolean {
@@ -83,7 +84,7 @@ export function BrowseOrderStep({
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
       <div className="max-w-2xl">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Step 1 · Order</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Step 1 · Order</p>
         <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
           What would you like?
         </h1>
@@ -147,7 +148,7 @@ export function BrowseOrderStep({
                     )}
                   >
                     <span>{size.name}</span>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-medium uppercase text-muted-foreground">{size.unit}</span>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[11px] font-medium uppercase text-muted-foreground">{size.unit}</span>
                   </button>
                 );
               })}
@@ -201,7 +202,7 @@ export function BrowseLocationStep({
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
       <div className="max-w-2xl">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Step 2 · Map/Location</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Step 2 · Map/Location</p>
         <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">Where should we deliver?</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
           Search for an address, choose a saved place, or move the pin to your exact location.
@@ -290,7 +291,7 @@ export function BrowseCartStep({
     <section className="mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Step 4 · Add to Cart</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Step 4 · Add to Cart</p>
           <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">{station.name}</h1>
           <p className="mt-2 text-sm text-muted-foreground">Choose products from this station. Your order stays saved as you move between steps.</p>
         </div>
@@ -386,15 +387,15 @@ function BrowseProductCard({
           sizes="(min-width: 1536px) 18rem, (min-width: 768px) 30vw, 92vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        {product.popular ? <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-foreground shadow-soft">Popular</span> : null}
-        {baseMax === 0 ? <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-danger shadow-soft">Out of stock</span> : null}
+        {product.popular ? <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-soft">Popular</span> : null}
+        {baseMax === 0 ? <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-danger shadow-soft">Out of stock</span> : null}
       </div>
       <div className="flex flex-1 flex-col items-center p-4 text-center sm:p-5">
         <h2 className="line-clamp-2 min-h-11 text-base font-bold leading-snug text-foreground">{product.name}</h2>
         <p className="mt-1 line-clamp-2 min-h-10 text-xs leading-relaxed text-muted-foreground">{product.description}</p>
         <div className="mt-3 flex items-baseline justify-center gap-2">
           <span className="text-lg font-bold tracking-tight text-foreground">{formatKES(product.price)}</span>
-          <span className="font-mono text-[10px] uppercase text-muted-foreground">/ {product.unit}</span>
+          <span className="font-mono text-[11px] uppercase text-muted-foreground">/ {product.unit}</span>
         </div>
         <div className="mt-4 flex w-full flex-col items-center gap-2">
           {lines.length ? (
@@ -403,7 +404,7 @@ function BrowseProductCard({
               const max = maxOrderQuantity(product, option);
               return (
                 <div key={cartLineKey(line)} className="flex w-full flex-col items-center gap-1">
-                  {lines.length > 1 && option ? <span className="text-[10px] text-muted-foreground">{option.label}</span> : null}
+                  {lines.length > 1 && option ? <span className="text-[11px] text-muted-foreground">{option.label}</span> : null}
                   <QuantityStepper
                     value={line.quantity}
                     onChange={(quantity) => updateQuantity(line, quantity)}
@@ -427,7 +428,7 @@ function BrowseProductCard({
             </Button>
           )}
           {hasOptions && lines.length === 0 && !unavailable ? (
-            <span className="text-[10px] text-muted-foreground">Choose a product option after tapping</span>
+            <span className="text-[11px] text-muted-foreground">Choose a product option after tapping</span>
           ) : null}
         </div>
       </div>

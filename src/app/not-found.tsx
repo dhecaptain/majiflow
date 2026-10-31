@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Droplets } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
@@ -15,15 +15,11 @@ export default function NotFound() {
         The link may be broken or the page moved. Let us get you back to the water.
       </p>
       <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-        <Link href="/">
-          <Button size="lg" className="w-full sm:w-auto">
-            Back home
-          </Button>
+        <Link href="/" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>
+          Back home
         </Link>
-        <Link href="/browse">
-          <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-            Browse stations
-          </Button>
+        <Link href="/browse" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
+          Browse stations
         </Link>
       </div>
     </Container>

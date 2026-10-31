@@ -1,7 +1,7 @@
 import { PageHero } from "@/components/shared/page-hero";
 import { Container } from "@/components/ui/container";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Stagger, StaggerItem } from "@/components/ui/animated-section";
 import { MapPin, Store, PackagePlus, ShoppingCart, ClipboardList } from "lucide-react";
 import Link from "next/link";
@@ -45,6 +45,7 @@ export const metadata = {
   title: "How it works",
   description:
     "Compare refill stations, build a cart, pay on delivery and follow your order from checkout to your door.",
+  alternates: { canonical: "/how-it-works" },
 };
 
 export default function HowItWorks() {
@@ -61,15 +62,11 @@ export default function HowItWorks() {
         description="Compare stations, place an order and follow it to your door."
       >
         <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <Link href="/browse">
-            <Button size="lg" variant="secondary" className="group w-full sm:w-auto">
-              Browse stations
-            </Button>
+          <Link href="/browse" className={buttonVariants({ variant: "secondary", size: "lg", className: "group w-full sm:w-auto" })}>
+            Browse stations
           </Link>
-          <Link href="/business">
-            <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-              Open the dashboard
-            </Button>
+          <Link href="/business" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
+            Open the dashboard
           </Link>
         </div>
       </PageHero>

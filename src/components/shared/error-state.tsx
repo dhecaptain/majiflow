@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { LifeBuoy, RotateCcw } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 interface RouteErrorProps {
   error: Error & { digest?: string };
@@ -26,17 +26,15 @@ export function RouteError({ error, reset }: RouteErrorProps) {
           We hit an unexpected error loading this page. Give it another try, or head back and start fresh.
         </p>
         {error.digest && (
-          <p className="mt-3 font-mono text-xs text-muted-foreground/70">Ref: {error.digest}</p>
+          <p className="mt-3 font-mono text-xs text-muted-foreground">Ref: {error.digest}</p>
         )}
       </div>
       <div className="mt-2 flex flex-col gap-3 sm:flex-row">
         <Button size="lg" onClick={reset} className="w-full gap-2 sm:w-auto">
           <RotateCcw className="size-4" aria-hidden /> Try again
         </Button>
-        <Link href="/">
-          <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-            Back home
-          </Button>
+        <Link href="/" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
+          Back home
         </Link>
       </div>
     </Container>

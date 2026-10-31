@@ -45,6 +45,7 @@ import { LocationModal } from "@/components/order/location-modal";
 import { useBrowseContext } from "@/components/order/browse-context";
 import { BrowseCartStep, BrowseLocationStep, BrowseOrderStep } from "@/components/marketing/browse-steps";
 import { useStations } from "@/components/order/stations-provider";
+import { WATER_CATEGORY_LABELS, type WaterCategoryId } from "@/lib/categories";
 
 const StationMap = dynamic(() => import("@/components/ui/station-map").then((m) => m.StationMap), {
   ssr: false,
@@ -57,7 +58,6 @@ const StationMap = dynamic(() => import("@/components/ui/station-map").then((m) 
 
 type LocationMode = "manual" | "current";
 
-type WaterCategoryId = "refills" | "new-bottles" | "bottled-packs" | "dispensers";
 
 const WATER_CATEGORIES: readonly {
   id: WaterCategoryId;
@@ -65,10 +65,10 @@ const WATER_CATEGORIES: readonly {
   detail: string;
   icon: typeof MapPin;
 }[] = [
-  { id: "refills", label: "Refill a can", detail: "Use your own container", icon: Droplets },
-  { id: "new-bottles", label: "New bottle", detail: "Sealed and ready to go", icon: GlassWater },
-  { id: "bottled-packs", label: "Bottle packs", detail: "Small bottles for home", icon: Package },
-  { id: "dispensers", label: "Dispensers", detail: "Water close at hand", icon: Store },
+  { id: "refills", label: WATER_CATEGORY_LABELS.refills, detail: "Use your own container", icon: Droplets },
+  { id: "new-bottles", label: WATER_CATEGORY_LABELS["new-bottles"], detail: "Sealed and ready to go", icon: GlassWater },
+  { id: "bottled-packs", label: WATER_CATEGORY_LABELS["bottled-packs"], detail: "Small bottles for home", icon: Package },
+  { id: "dispensers", label: WATER_CATEGORY_LABELS.dispensers, detail: "Water close at hand", icon: Store },
 ];
 
 function isWaterCategory(value: string): value is WaterCategoryId {
@@ -357,7 +357,7 @@ export function BrowsePage({
         freeOnly={freeOnly}
         onFreeOnlyChange={setFreeOnly}
       />
-      <main className="min-w-0">
+      <section aria-label="Stations" className="min-w-0">
       {currentStep === "order" && (
         <BrowseOrderStep
           choice={orderChoice}
@@ -391,7 +391,7 @@ export function BrowsePage({
         <Container className="py-5 sm:py-7">
           <div className="flex flex-wrap items-end justify-between gap-5">
             <div className="max-w-2xl">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Stations / Find nearby</p>
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Stations / Find nearby</p>
               <h1 className="mt-1.5 font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
                 {currentStep === "station" ? "Stations" : "Choose a water station"}
               </h1>
@@ -400,7 +400,7 @@ export function BrowsePage({
               </p>
             </div>
             <div className="hidden min-w-48 rounded-xl border border-border bg-white px-4 py-3 shadow-soft md:block">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Your location</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Your location</p>
               <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-foreground">
                 <span className="relative flex size-2.5">
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-35" />
@@ -495,7 +495,7 @@ export function BrowsePage({
         <Container>
           <div className="flex items-center gap-4">
             <div className="hidden shrink-0 sm:block">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Shop by</p>
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Shop by</p>
               <p className="text-sm font-semibold text-foreground">Water type</p>
             </div>
             <nav className="flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Station categories">
@@ -550,7 +550,7 @@ export function BrowsePage({
 
           {(query.trim() || city !== "All cities" || locationMode === "current") && (
             <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Active filters">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 Filters
               </span>
               {query.trim() && (
@@ -780,7 +780,7 @@ export function BrowsePage({
       </section>
       </>
       )}
-      </main>
+      </section>
       <LocationModal
         open={stepLocationOpen}
         onClose={() => setStepLocationOpen(false)}

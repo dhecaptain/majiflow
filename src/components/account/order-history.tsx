@@ -7,7 +7,7 @@ import { Container } from "@/components/ui/container";
 import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   AccountError,
   AccountPageHeader,
@@ -97,9 +97,7 @@ export function OrderHistoryPage() {
           title={EMPTY_COPY[filter].title}
           description={EMPTY_COPY[filter].description}
           action={
-            <Link href="/browse">
-              <Button>Start an order</Button>
-            </Link>
+            <Link href="/browse" className={buttonVariants()}>Start an order</Link>
           }
         />
       ) : (

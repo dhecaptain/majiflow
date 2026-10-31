@@ -1,6 +1,12 @@
 import { ContentPage, ProseList, ProseSection } from "@/components/shared/content-page";
 import { LEGAL_UPDATED } from "@/lib/constants";
 
+export const metadata = {
+  title: "Terms of Service",
+  description: "The terms for ordering water and listing a station on MajiFlow.",
+  alternates: { canonical: "/terms" },
+};
+
 export default function Terms() {
   return (
     <ContentPage

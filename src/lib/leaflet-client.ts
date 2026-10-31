@@ -85,7 +85,7 @@ function dot(color: string, size: number, glow?: string) {
 }
 
 /**
- * Teardrop pin with an optional short label in the head, KFC/Maps style.
+ * Teardrop pin with an optional short label in the head.
  * The tip sits on the coordinate, so the anchor is the bottom point.
  */
 function teardrop(

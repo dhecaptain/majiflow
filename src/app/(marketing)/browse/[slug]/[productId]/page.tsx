@@ -31,7 +31,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const business = await getStationBySlug(slug);
   const product = business?.products.find((p) => p.id === productId);
   if (!business || !product) return { title: "Item unavailable", robots: { index: false } };
-  return { title: `${product.name} · ${business.name}`, description: product.description };
+  return {
+    title: `${product.name} · ${business.name}`,
+    description: product.description,
+    alternates: { canonical: `/browse/${business.slug}/${product.id}` },
+  };
 }
 
 export default async function ItemPage({ params }: PageProps) {

@@ -11,7 +11,7 @@ export function BrandMark({
   className?: string;
   dark?: boolean;
   showTagline?: boolean;
-  /** Tighter icon and wordmark for the fixed header, matching kfc.ke's proportions. */
+  /** Tighter icon and wordmark sized for the fixed header. */
   compact?: boolean;
 }) {
   return (
@@ -45,7 +45,7 @@ export function BrandMark({
         {showTagline && (
           <span
             className={cn(
-              "mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em]",
+              "mt-0.5 text-[11px] font-medium uppercase tracking-[0.18em]",
               dark ? "text-background/50" : "text-muted-foreground"
             )}
           >

@@ -22,7 +22,7 @@ export interface CenterPinMapProps {
 }
 
 /**
- * Uber-style location picker: a pin pinned to the centre of the viewport stays
+ * Centre-pin location picker: a pin pinned to the centre of the viewport stays
  * put while the map moves underneath it. When the pan settles we reverse-geocode
  * the centre and report it up.
  */

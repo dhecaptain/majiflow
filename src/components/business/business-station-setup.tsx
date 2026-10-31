@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { plans } from "@/lib/data/plans";
@@ -174,7 +174,7 @@ export function BusinessStationSetup() {
         message={error}
         action={
           error.includes("required") ? (
-            <Link href="/login"><Button>Sign in</Button></Link>
+            <Link href="/login" className={buttonVariants()}>Sign in</Link>
           ) : (
             <Button onClick={() => void load()}><RefreshCw className="size-4" aria-hidden /> Try again</Button>
           )

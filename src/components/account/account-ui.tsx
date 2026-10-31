@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { RefreshCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/feedback";
 import { useCart } from "@/components/order/cart-provider";
 import { useToast } from "@/components/ui/toast";
@@ -63,9 +63,7 @@ export function AccountError({ message, code, onRetry }: { message: string; code
       message={message}
       action={
         code === 401 ? (
-          <Link href="/login">
-            <Button>Sign in again</Button>
-          </Link>
+          <Link href="/login" className={buttonVariants()}>Sign in again</Link>
         ) : (
           <Button variant="secondary" onClick={onRetry}>
             <RefreshCcw className="size-4" aria-hidden /> Try again

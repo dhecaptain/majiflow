@@ -65,7 +65,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
         />
       ))}
 
-      <p className="px-3 pb-1 pt-5 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground">
+      <p className="px-3 pb-1 pt-5 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground">
         Shop
       </p>
       {SHOP.map((item) => (
@@ -85,7 +85,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
         badge={count > 0 ? String(count) : undefined}
       />
 
-      <p className="px-3 pb-1 pt-5 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground">
+      <p className="px-3 pb-1 pt-5 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground">
         Help
       </p>
       {HELP.map((item) => (
@@ -140,7 +140,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-radial-glow"
         />
 
-        <main className="relative flex-1 p-4 pb-10 sm:p-6 lg:pb-6">
+        <main id="main-content" tabIndex={-1} className="relative flex-1 p-4 pb-10 outline-none sm:p-6 lg:pb-6">
           <PageTransition>{children}</PageTransition>
         </main>
 
@@ -198,7 +198,7 @@ function SidebarLink({
       <Icon className={cn("size-4.5", active && "text-[var(--brand)]")} aria-hidden />
       {label}
       {badge && (
-        <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+        <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">
           {badge}
         </span>
       )}

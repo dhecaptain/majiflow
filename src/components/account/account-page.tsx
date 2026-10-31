@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Bell, Clock, MapPin, PackageCheck, Plus, Recycle, RotateCcw, Wallet } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusBadge } from "@/components/ui/order-status-badge";
 import { EmptyState } from "@/components/ui/feedback";
@@ -81,9 +81,7 @@ export function AccountPage() {
                 </Button>
               </Link>
             )}
-            <Link href="/browse">
-              <Button>Order water</Button>
-            </Link>
+            <Link href="/browse" className={buttonVariants()}>Order water</Link>
           </div>
         </div>
       </section>
@@ -130,9 +128,7 @@ export function AccountPage() {
                   <h2 id="recent-orders" className="font-display text-xl text-foreground">
                     Recent orders
                   </h2>
-                  <Link href="/account/orders">
-                    <Button variant="secondary" size="sm">View all</Button>
-                  </Link>
+                  <Link href="/account/orders" className={buttonVariants({ variant: "secondary", size: "sm" })}>View all</Link>
                 </div>
                 {!summary ? (
                   <div className="mt-4 space-y-3" role="status" aria-label="Loading orders">
@@ -147,9 +143,7 @@ export function AccountPage() {
                       title="No orders yet"
                       description="Once you place your first order it shows up here with live tracking."
                       action={
-                        <Link href="/browse">
-                          <Button>Find your station</Button>
-                        </Link>
+                        <Link href="/browse" className={buttonVariants()}>Find your station</Link>
                       }
                     />
                   </div>
@@ -170,9 +164,7 @@ export function AccountPage() {
                 <h2 id="saved-addresses" className="font-display text-xl text-foreground">
                   Saved addresses
                 </h2>
-                <Link href="/account/addresses">
-                  <Button variant="secondary" size="sm">Manage</Button>
-                </Link>
+                <Link href="/account/addresses" className={buttonVariants({ variant: "secondary", size: "sm" })}>Manage</Link>
               </div>
               <div className="mt-4 flex flex-col gap-3">
                 {!summary ? (
@@ -184,7 +176,7 @@ export function AccountPage() {
                   >
                     <Plus className="size-6 text-[var(--brand)]" aria-hidden />
                     <p className="text-sm font-medium text-muted-foreground">No saved addresses yet</p>
-                    <p className="text-xs text-muted-foreground/70">Save your estate and building for one-tap reordering.</p>
+                    <p className="text-xs text-muted-foreground">Save your estate and building for one-tap reordering.</p>
                   </Link>
                 ) : (
                   <>

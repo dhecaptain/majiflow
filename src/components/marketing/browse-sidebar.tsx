@@ -151,7 +151,7 @@ function BrowseStepItem({
     mobile ? "min-h-14 border-b-2 px-1 text-sm" : "min-h-8 border-b-2 pb-1 text-base",
     done ? "border-transparent font-semibold text-foreground hover:text-brand" : "",
     current ? "border-brand font-bold text-brand" : "",
-    future ? "border-transparent font-medium text-muted-foreground/60" : "",
+    future ? "border-transparent font-medium text-muted-foreground" : "",
   ].join(" ");
   const content = (
     <>
