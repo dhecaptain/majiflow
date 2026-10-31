@@ -5,6 +5,11 @@ stations. Customers browse stations near them, build a cart with a per-station
 delivery fee, check out, and track the delivery; stations get a storefront and a
 dashboard to take orders, manage their catalogue and see their numbers.
 
+Customers sign in with their phone number (a one-time code by SMS) or, for
+existing accounts, email and password. The header keeps the current order type
+visible everywhere: delivery to a saved or pinned address, pickup from the
+station, or sending water to someone else.
+
 Business identity and onboarding data is prepared for hosted Neon PostgreSQL.
 Orders remain in the existing JSON store until a separate order migration is
 planned.
@@ -12,14 +17,20 @@ planned.
 ## Features
 
 ### Customers
-- Browse and search refill stations by city, estate or name.
-- Station pages with products, prices, delivery fee, opening hours and live
-  open/closed status.
-- A cart that groups items by station and charges each station's own delivery
-  fee and free-delivery minimum.
-- Checkout with M-Pesa or card, a saved profile and delivery addresses, and
-  optional live-location sharing for the rider.
+- Phone-first sign-in with a 6-digit SMS code, plus the original email and
+  password for existing accounts.
+- Browse stations near you on a map, search by city, estate or name, and see
+  which stations deliver to you (with ETA and any nearby discount).
+- Station pages with products, prices, options (empty-can swap or new can with
+  a refundable deposit), delivery fee, opening hours and live open/closed
+  status.
+- One station per cart, with that station's delivery fee and free-delivery
+  minimum, plus delivery or pickup.
+- Checkout with M-Pesa or card, a saved profile and delivery addresses, or a
+  pinned location for a rider; optional live-location sharing.
 - Order tracking from placed through accepted, out for delivery and delivered.
+- A local cart and order context that survive reloads, and an offline banner
+  instead of a failed page.
 
 ### Stations
 - A dashboard with an overview, orders, products, customers, analytics,
@@ -82,6 +93,20 @@ All variables are optional; without them the app runs and logs to stderr.
 | `MF_ADMIN_KEY` | Signs admins in at `/admin` and authorizes admin APIs (refunds, linking an approved owner to a station via `POST /api/admin/applications/[id]/approve`). Without it, admin access is disabled. |
 | `NEXT_PUBLIC_SITE_URL` | Absolute site URL used for metadata. Defaults to `http://localhost:3000`. |
 | `DATABASE_URL` | Neon PostgreSQL connection string. Keep it in `.env.local` or your deployment provider's secret manager. |
+| `MF_OTP_SECRET` | HMAC key for hashing phone sign-in codes at rest. Set a random value in every deployed environment. |
+| `MF_SMS_PROVIDER` | `dev` (log the code), `africastalking` or `twilio`. Inferred from the credentials below when unset. |
+| `MF_SMS_DEV_ECHO` | Set to `0` to stop logging dev codes to the server console. |
+| `MF_SMS_WEBHOOK_URL` | Generic SMS provider: receives `{ to, message }`. |
+| `MF_SMS_AT_USERNAME`, `MF_SMS_AT_API_KEY`, `MF_SMS_SENDER` | Africa's Talking credentials and sender id. |
+| `MF_SMS_TWILIO_ACCOUNT_SID`, `MF_SMS_TWILIO_AUTH_TOKEN`, `MF_SMS_TWILIO_FROM` | Twilio credentials and sender. |
+
+### Phone sign-in and SMS
+
+Phone sign-in is on by default. Without SMS credentials the code is written to
+the server console and returned as `devCode` in development, so the flow stays
+testable. Set `MF_OTP_SECRET` (and a provider, directly or through credentials)
+before going live. Codes last 10 minutes, allow five attempts, and can be
+re-requested after 60 seconds; only one code is live per number and purpose.
 
 ### Neon database setup
 
@@ -91,6 +116,8 @@ All variables are optional; without them the app runs and logs to stderr.
    file or its value.
 3. Generate migrations after schema changes with `pnpm db:generate`.
 4. Apply committed migrations to the configured database with `pnpm db:migrate`.
+   `0007` adds phone sign-in and saved order preferences; `0008` adds the
+   notify-me list for stations that do not deliver to an area yet.
 
 The Drizzle CLI loads `DATABASE_URL` from `.env.local` when it is not already
 set in the environment. The database client is server-only. Neon credentials
@@ -136,7 +163,9 @@ admin sessions fail closed and `/admin` stays behind the key prompt.
 
 ## Data
 
-Orders are persisted as JSON in `MF_DATA_DIR` (default `.data/orders.json`).
+Stations, products, customers, addresses, preferences and phone codes live in
+Neon PostgreSQL. Orders are persisted as JSON in `MF_DATA_DIR`
+(default `.data/orders.json`).
 Reads and writes are serialized through a single queue, and orders are validated
 server-side (totals are recomputed, never trusted from the client). Tests point
 `MF_DATA_DIR` at a fresh temporary directory so they never touch real orders.
@@ -183,6 +212,9 @@ offline fallback. The worker is registered in production builds only.
 
 - Path alias `@/*` → `./src/*`.
 - No em-dashes; JSX uses `&apos;` for apostrophes.
+- The order context (delivery/pickup, address, last station) is this device's
+  `mf:orderSession`; signed-in customers also sync it to
+  `/api/account/preferences` so a new device resumes where they left off.
 - Tests use `vi.useFakeTimers({ toFake: ["Date"] })` with `vi.setSystemTime`,
   because the order guard reads the wall clock.
 - `AGENTS.md` is generated by `next dev`; do not hand-edit it.

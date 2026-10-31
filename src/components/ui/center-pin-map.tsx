@@ -11,6 +11,8 @@ import "leaflet/dist/leaflet.css";
 export interface CenterPinMapProps {
   /** Initial centre; defaults to Nairobi. */
   center?: { lat: number; lng: number } | null;
+  /** A point to pan to. Change `nonce` to force a re-pan to the same point. */
+  focus?: { lat: number; lng: number; nonce?: number } | null;
   zoom?: number;
   /** Called with the settled coordinate (debounced reverse-geocode already applied). */
   onChange: (point: { lat: number; lng: number }) => void;
@@ -26,6 +28,7 @@ export interface CenterPinMapProps {
  */
 export function CenterPinMap({
   center,
+  focus,
   zoom = 16,
   onChange,
   onAddress,
@@ -37,6 +40,7 @@ export function CenterPinMap({
   const geocodeSeq = useRef(0);
   const onChangeRef = useRef(onChange);
   const onAddressRef = useRef(onAddress);
+  const focusRef = useRef(focus);
   const [locating, setLocating] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -44,6 +48,15 @@ export function CenterPinMap({
     onChangeRef.current = onChange;
     onAddressRef.current = onAddress;
   });
+
+  useEffect(() => {
+    focusRef.current = focus;
+    const map = mapRef.current;
+    if (!map || !focus) return;
+    const c = map.getCenter();
+    if (Math.abs(c.lat - focus.lat) < 1e-5 && Math.abs(c.lng - focus.lng) < 1e-5) return;
+    map.setView([focus.lat, focus.lng], map.getZoom(), { animate: true });
+  }, [focus]);
 
   useEffect(() => {
     let disposed = false;
@@ -63,6 +76,9 @@ export function CenterPinMap({
       });
       mapRef.current = map;
       map.whenReady(() => map.invalidateSize());
+
+      const initialFocus = focusRef.current;
+      if (initialFocus) map.setView([initialFocus.lat, initialFocus.lng], zoom, { animate: false });
 
       const settle = () => {
         window.clearTimeout(debounce);

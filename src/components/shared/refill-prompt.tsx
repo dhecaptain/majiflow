@@ -41,7 +41,7 @@ export function RefillPrompt() {
         role="dialog"
         aria-live="polite"
       >
-        <div className="relative overflow-hidden rounded-2xl border border-orange-300 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-700 p-5 shadow-[0_8px_30px_-6px_rgb(249,115,22)]">
+        <div className="relative overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-[var(--brand-bright)] via-[var(--brand)] to-[var(--brand-deep)] p-5 shadow-accent">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Cpath d=%22M50 0 L100 50 L50 100 L0 50 Z%22 fill=%22white%22 fill-opacity=%220.05%22/%3E%3C/svg%3E')]" aria-hidden />
           
           <button
@@ -53,16 +53,16 @@ export function RefillPrompt() {
           </button>
 
           <div className="relative flex items-start gap-3">
-            <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]">
+            <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
               <Truck className="size-5" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="font-display text-lg text-foreground">Need a refill?</h3>
-              <p className="mt-1 text-sm text-foreground/80">
+              <h3 className="font-display text-lg text-white">Need a refill?</h3>
+              <p className="mt-1 text-sm text-white/80">
                 Stations near you deliver in under 60 minutes.
               </p>
               <div className="mt-3 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-1 font-mono text-[11px] font-semibold text-orange-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 font-mono text-[11px] font-semibold text-white">
                   <Zap className="size-3" aria-hidden /> Live tracking
                 </span>
               </div>
@@ -72,7 +72,7 @@ export function RefillPrompt() {
           <div className="mt-4 flex gap-2">
               <Button
                 size="md"
-                className="group flex-1 bg-orange-500 hover:bg-orange-600 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)]"
+                className="group flex-1 bg-white text-[var(--brand)] hover:bg-white/90"
                 onClick={() => { router.push("/browse"); dismiss(true); }}
               >
                 Order water
@@ -80,7 +80,7 @@ export function RefillPrompt() {
               <Button
                 size="md"
                 variant="ghost"
-                className="flex-1 text-foreground/70 hover:text-foreground"
+                className="flex-1 text-white/80 hover:bg-white/10 hover:text-white"
                 onClick={() => dismiss(false)}
               >
                 Not now

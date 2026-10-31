@@ -7,10 +7,16 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ city?: string; q?: string }>;
+  searchParams: Promise<{ city?: string; q?: string; category?: string }>;
 }
 
 export default async function Browse({ searchParams }: PageProps) {
-  const { city, q } = await searchParams;
-  return <BrowsePage initialCity={typeof city === "string" ? city : ""} initialQuery={typeof q === "string" ? q.slice(0, 80) : ""} />;
+  const { city, q, category } = await searchParams;
+  return (
+    <BrowsePage
+      initialCity={typeof city === "string" ? city : ""}
+      initialQuery={typeof q === "string" ? q.slice(0, 80) : ""}
+      initialCategory={typeof category === "string" ? category : ""}
+    />
+  );
 }

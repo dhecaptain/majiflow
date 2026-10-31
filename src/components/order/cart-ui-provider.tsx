@@ -16,6 +16,8 @@ interface PendingSwitch {
   line: CartLine;
   /** Name of the station the incoming item belongs to. */
   businessName: string;
+  /** Name of the station the cart currently holds items from. */
+  currentBusinessName: string;
 }
 
 interface CartUiContextValue {
@@ -25,10 +27,12 @@ interface CartUiContextValue {
   setOpen: (next: boolean) => void;
   /**
    * Add a line, asking first when the cart already holds items from a different
-   * station. Keeps the multi-station cart but avoids accidental mixing.
+   * station. One order is one station, so the customer picks between keeping
+   * the current order and starting a new one.
    */
   requestAdd: (line: CartLine) => void;
   pendingSwitch: PendingSwitch | null;
+  /** Replace the current order with the incoming item's station. */
   confirmSwitch: () => void;
   cancelSwitch: () => void;
 }
@@ -47,11 +51,13 @@ export function CartUiProvider({ children }: { children: ReactNode }) {
 
   const requestAdd = useCallback(
     (line: CartLine) => {
-      const otherStations = new Set(
-        items.filter((i) => i.businessId !== line.businessId).map((i) => i.businessId)
-      );
-      if (otherStations.size > 0) {
-        setPendingSwitch({ line, businessName: businessName(line.businessId) });
+      const otherStation = items.find((i) => i.businessId !== line.businessId);
+      if (otherStation) {
+        setPendingSwitch({
+          line,
+          businessName: businessName(line.businessId),
+          currentBusinessName: businessName(otherStation.businessId),
+        });
         return;
       }
       addItem(line);
@@ -61,6 +67,7 @@ export function CartUiProvider({ children }: { children: ReactNode }) {
 
   const confirmSwitch = useCallback(() => {
     if (!pendingSwitch) return;
+    // Starting a new order replaces the old cart: one order, one station.
     addItem(pendingSwitch.line);
     setPendingSwitch(null);
   }, [pendingSwitch, addItem]);

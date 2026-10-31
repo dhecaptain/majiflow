@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Check, Eye, EyeOff } from "lucide-react";
 import { Field, Input, Select } from "@/components/ui/field";
 import { MajiMark } from "@/components/layout/maji-mark";
 import { Button } from "@/components/ui/button";
@@ -14,17 +14,17 @@ import { postLoginPath } from "@/lib/auth-navigation";
 
 const perks = [
   "Browse verified stations around you",
-  "See each station's delivery fee in the cart",
+  "See the delivery fee before you pay",
   "Follow an order from placed to delivered",
   "Save your details for one-tap checkout",
 ];
 
 export function AuthShell({
-  title,
+  mode,
   subtitle,
   children,
 }: {
-  title: string;
+  mode: "login" | "register";
   subtitle: string;
   children: React.ReactNode;
 }) {
@@ -35,7 +35,7 @@ export function AuthShell({
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-60" />
           <div
             aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-transparent/25 blur-[100px]"
+            className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-aqua/25 blur-[100px]"
           />
 
           <div className="relative">
@@ -45,12 +45,12 @@ export function AuthShell({
             <h2 className="mt-8 font-display text-3xl leading-[1.15] text-white">
               Clean water, delivered simply
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">{subtitle}</p>
+            <p className="mt-3 text-sm leading-relaxed text-white/70">{subtitle}</p>
           </div>
 
           <ul className="relative space-y-3">
             {perks.map((p) => (
-              <li key={p} className="flex items-start gap-2.5 text-sm text-slate-200">
+              <li key={p} className="flex items-start gap-2.5 text-sm text-white/85">
                 <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
                   <Check className="size-3" strokeWidth={3} aria-hidden />
                 </span>
@@ -63,21 +63,23 @@ export function AuthShell({
         <div className="p-7 sm:p-10">{children}</div>
       </div>
 
-      {title.includes("Sign in") ? (
-        <p className="mt-6 text-center text-sm text-white/70">
-          New here?{" "}
-          <Link href="/register" className="font-semibold text-white hover:underline">
-            Create an account
-          </Link>
-        </p>
-      ) : (
-        <p className="mt-6 text-center text-sm text-white/70">
-          Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-white hover:underline">
-            Sign in
-          </Link>
-        </p>
-      )}
+      <p className="mt-6 text-center text-sm text-white/70">
+        {mode === "login" ? (
+          <>
+            New here?{" "}
+            <Link href="/register" className="font-semibold text-white hover:underline">
+              Create an account
+            </Link>
+          </>
+        ) : (
+          <>
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold text-white hover:underline">
+              Sign in
+            </Link>
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -124,11 +126,15 @@ export function RegisterForm() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-foreground sm:text-3xl">Create your profile</h1>
+      <h1 className="font-display text-2xl text-foreground sm:text-3xl">Create your account</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Create an account to order water, track deliveries and manage your saved addresses.
+        Order water, track deliveries and save your addresses - all from one account.
       </p>
-      {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
+        </p>
+      )}
 
       <form onSubmit={submit} className="mt-8 space-y-5">
         <Field label="Full name" required>
@@ -175,7 +181,7 @@ export function RegisterForm() {
               type="button"
               onClick={() => setShowPassword((s) => !s)}
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-1.5 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {showPassword ? <EyeOff className="size-4.5" aria-hidden /> : <Eye className="size-4.5" aria-hidden />}
             </button>
@@ -200,7 +206,7 @@ export function RegisterForm() {
           </Field>
         </div>
         <Button type="submit" size="lg" className="w-full" disabled={sending}>
-          {sending ? "Saving…" : "Save profile"}
+          {sending ? "Creating your account…" : "Create account"}
         </Button>
         <p className="text-center text-xs leading-relaxed text-muted-foreground">
           By continuing you agree to our{" "}
@@ -223,6 +229,7 @@ export function LoginForm() {
   const { login } = useCustomer();
   const router = useRouter();
   const [sending, setSending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
 
@@ -260,9 +267,13 @@ export function LoginForm() {
     <div>
       <h1 className="font-display text-2xl text-foreground sm:text-3xl">Sign in</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Sign in with the phone number and password you registered with.
+        Sign in with your email and password.
       </p>
-      {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
+        </p>
+      )}
 
       <form onSubmit={submit} className="mt-8 space-y-5">
         <Field label="Email" required>
@@ -275,21 +286,35 @@ export function LoginForm() {
             autoComplete="email"
           />
         </Field>
-        <Field label="Password" required hint="Enter your password">
-          <Input
-            required
-            type="password"
-            placeholder="Your password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            autoComplete="current-password"
-          />
+        <Field label="Password" required>
+          <div className="relative">
+            <Input
+              required
+              type={showPassword ? "text" : "password"}
+              placeholder="Your password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              autoComplete="current-password"
+              className="pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="size-4.5" aria-hidden /> : <Eye className="size-4.5" aria-hidden />}
+            </button>
+          </div>
         </Field>
         <Button type="submit" size="lg" className="w-full" disabled={sending}>
           {sending ? "Signing in…" : "Sign in"}
         </Button>
         <p className="text-center text-sm">
-          <span className="text-muted-foreground">Forgot your password</span>
+          <span className="text-muted-foreground">Trouble signing in? </span>
+          <Link href="/contact" className="font-semibold text-[var(--brand)] hover:underline">
+            Contact support
+          </Link>
         </p>
       </form>
     </div>

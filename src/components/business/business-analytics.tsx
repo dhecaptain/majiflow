@@ -185,7 +185,7 @@ function Header({
             onClick={() => setRangeId(r.id)}
             className={cn(
               "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-              rangeId === r.id ? "bg-transparent/8 text-[var(--brand)]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              rangeId === r.id ? "bg-brand/10 text-[var(--brand)]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
             aria-pressed={rangeId === r.id}
           >
@@ -210,7 +210,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-white p-5 shadow-card">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-transparent/10 text-[var(--brand)]">
+      <span className="flex size-9 items-center justify-center rounded-lg bg-brand/10 text-[var(--brand)]">
         <Icon className="size-4.5" aria-hidden />
       </span>
       <p className="mt-3 font-display text-2xl text-foreground">{value}</p>

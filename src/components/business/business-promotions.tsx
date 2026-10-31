@@ -39,7 +39,7 @@ export function BusinessPromotions() {
       </div>
 
       {note && (
-        <div role="status" className="flex items-center justify-between rounded-xl border border-[var(--brand)]/25 bg-transparent/5 px-4 py-3 text-sm text-[var(--brand)]">
+        <div role="status" className="flex items-center justify-between rounded-xl border border-[var(--brand)]/25 bg-brand/5 px-4 py-3 text-sm text-[var(--brand)]">
           {note}
           <button onClick={() => setNote(null)} className="font-semibold" aria-label="Dismiss">
             Dismiss
@@ -72,7 +72,7 @@ export function BusinessPromotions() {
             </div>
             <button
               onClick={() => toggle(p.id)}
-              className="mt-4 w-full rounded-xl border border-[var(--brand)]/30 py-2 text-sm font-semibold text-[var(--brand)] transition-colors hover:bg-transparent/5"
+              className="mt-4 w-full rounded-xl border border-[var(--brand)]/30 py-2 text-sm font-semibold text-[var(--brand)] transition-colors hover:bg-brand/5"
             >
               {p.active ? "Pause" : "Reactivate"}
             </button>

@@ -16,7 +16,7 @@ interface QuantityStepperProps {
   className?: string;
 }
 
-/** Quantity control with 40px+ touch targets that never exceeds what the station can fill. */
+/** Quantity control with 44px touch targets that never exceeds what the station can fill. */
 export function QuantityStepper({
   value,
   onChange,
@@ -29,7 +29,7 @@ export function QuantityStepper({
 }: QuantityStepperProps) {
   const button = cn(
     "flex items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted hover:text-[var(--brand)] focus-visible:outline-2 focus-visible:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground",
-    size === "sm" ? "size-9" : "size-10"
+    size === "sm" ? "size-10" : "size-11"
   );
   return (
     <div

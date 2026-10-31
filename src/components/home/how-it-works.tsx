@@ -19,7 +19,7 @@ const steps = [
   {
     icon: PackagePlus,
     title: "Add to the cart",
-    text: "One cart, with delivery totalled per station.",
+    text: "One station per order, with its delivery fee shown up front.",
   },
   {
     icon: ShoppingCart,

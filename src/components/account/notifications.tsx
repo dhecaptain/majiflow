@@ -169,7 +169,7 @@ export function NotificationsPage() {
                           unread ? "border-[var(--brand)]/40" : "border-border"
                         )}
                       >
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-black">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
                           <Icon className="size-5" aria-hidden />
                         </span>
                         <div className="min-w-0 flex-1">

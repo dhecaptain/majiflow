@@ -83,7 +83,7 @@ export function AdminOrders() {
           </Link>
           <h1 className="mt-2 flex items-center gap-3 font-display text-3xl text-foreground sm:text-4xl">
             Live orders
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-transparent-soft px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-success">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-success">
               <Radio className="size-3 animate-pulse-dot" aria-hidden /> {inFlight} in flight
             </span>
           </h1>
@@ -102,7 +102,7 @@ export function AdminOrders() {
             className={cn(
               "shrink-0 rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
               tab === t.id
-                ? "border-[var(--brand)] bg-transparent/8 text-[var(--brand)]"
+                ? "border-[var(--brand)] bg-brand/10 text-[var(--brand)]"
                 : "border-border bg-white text-muted-foreground hover:text-foreground"
             )}
             aria-pressed={tab === t.id}
@@ -141,7 +141,7 @@ export function AdminOrders() {
                     <p className="truncate text-sm font-semibold text-foreground">
                       {o.customerName}
                       <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">{o.orderNumber}</span>
-                      <span className="ml-2 rounded-full bg-transparent/8 px-2 py-0.5 text-[11px] font-medium text-[var(--brand)]">
+                      <span className="ml-2 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-[var(--brand)]">
                         {o.businessName}
                       </span>
                     </p>
@@ -170,7 +170,7 @@ export function AdminOrders() {
                   <OrderStatusBadge status={o.status} />
                   <Link
                     href={`/admin/orders/${o.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--brand)]/30 bg-transparent/5 px-3 py-2 text-xs font-semibold text-[var(--brand)] hover:bg-transparent/10"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--brand)]/30 bg-brand/5 px-3 py-2 text-xs font-semibold text-[var(--brand)] hover:bg-brand/10"
                     aria-label={`Track order ${o.orderNumber}`}
                   >
                     Track

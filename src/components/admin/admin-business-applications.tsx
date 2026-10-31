@@ -100,7 +100,7 @@ export function AdminBusinessApplications() {
         <h1 className="mt-2 font-display text-3xl text-foreground sm:text-4xl">Business applications</h1>
         <p className="mt-2 text-sm text-muted-foreground">Review submitted applications and record the decision.</p>
       </div>
-      {notice && <p role="status" className="mt-6 rounded-xl border border-success/25 bg-transparent-soft px-4 py-3 text-sm text-success">{notice}</p>}
+      {notice && <p role="status" className="mt-6 rounded-xl border border-success/25 bg-success-soft px-4 py-3 text-sm text-success">{notice}</p>}
       {error && <div className="mt-6"><ErrorState title={errorTitle} message={error} action={<Button onClick={() => void load()}><RefreshCw className="size-4" aria-hidden /> Try again</Button>} /></div>}
       {!error && applications === null && <LoadingState label="Loading applications…" />}
       {!error && applications?.length === 0 && <EmptyState className="mt-8" icon={<ClipboardCheck className="size-6" aria-hidden />} title="No applications yet" description="Submitted applications will appear here." />}

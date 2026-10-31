@@ -37,21 +37,22 @@ const notes = [
 
 export default function Contact() {
   const { toast } = useToast();
-  const [sending, setSending] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", topic: topics[0], message: "" });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSending(true);
-    window.setTimeout(() => {
-      setSending(false);
-      toast({
-        kind: "success",
-        title: "Message sent",
-        message: "Thanks for reaching out. Our team will reply within one business day.",
-      });
-      setForm({ name: "", email: "", phone: "", topic: topics[0], message: "" });
-    }, 900);
+    // There is no messages API yet, so be honest: hand the composed note to
+    // the visitor's own email client instead of faking a send.
+    const subject = encodeURIComponent(`[${form.topic}] Enquiry from ${form.name}`);
+    const body = encodeURIComponent(
+      `Name: ${form.name}\nPhone: ${form.phone}\nEmail: ${form.email}\n\n${form.message}`
+    );
+    window.location.href = `mailto:support@majiflow.co.ke?subject=${subject}&body=${body}`;
+    toast({
+      kind: "success",
+      title: "Opening your email app",
+      message: "Your message is drafted - hit send in your email app and we will reply within one business day.",
+    });
   };
 
   return (
@@ -79,7 +80,7 @@ export default function Contact() {
               <div className="mt-8 flex flex-col gap-4">
                 {notes.map((n) => (
                   <div key={n.label} className="flex items-start gap-3.5 rounded-2xl border border-border bg-white p-5 shadow-card">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-black shadow-accent">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)] shadow-accent">
                       <n.icon className="size-5" aria-hidden />
                     </span>
                     <div>
@@ -151,8 +152,8 @@ export default function Contact() {
                   </Field>
                 </div>
               </div>
-              <Button type="submit" size="lg" className="mt-6 w-full group" disabled={sending}>
-                {sending ? "Sending…" : "Send message"}
+              <Button type="submit" size="lg" className="mt-6 w-full group">
+                Email us
               </Button>
               <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />

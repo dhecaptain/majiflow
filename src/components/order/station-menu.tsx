@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Droplets } from "lucide-react";
 import type { Business, BusinessProduct } from "@/lib/types";
 import { ProductCard } from "@/components/shared/product-card";
@@ -11,6 +11,7 @@ import { StationAvailabilityNotice } from "@/components/order/station-status";
 import { EmptyState } from "@/components/ui/feedback";
 import { Badge } from "@/components/ui/badge";
 import { JourneyLink } from "@/components/order/journey";
+import { useOrderSession } from "@/components/order/order-session-provider";
 import { formatKES } from "@/lib/format";
 
 const CATEGORY_ORDER = ["refill", "bottled", "dispenser", "remineralised"] as const;
@@ -28,6 +29,12 @@ const CATEGORY_LABELS: Record<string, string> = {
  */
 export function StationMenu({ business }: { business: Business }) {
   const [openProduct, setOpenProduct] = useState<BusinessProduct | null>(null);
+  const { setStationId } = useOrderSession();
+
+  // Remember the station so the next visit (or another device) can continue here.
+  useEffect(() => {
+    setStationId(business.id);
+  }, [business.id, setStationId]);
 
   const groups = useMemo(() => {
     const present = new Set(business.products.map((p) => p.category));

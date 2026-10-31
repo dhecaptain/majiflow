@@ -50,11 +50,19 @@ describe("validateProfileInput", () => {
     });
   });
 
-  it("refuses email changes and bad input", () => {
-    const result = validateProfileInput({ name: "J", phone: "123", email: "x@y.z" });
+  it("refuses bad input", () => {
+    const result = validateProfileInput({ name: "J", phone: "123" });
     expect(result).toHaveProperty("errors.name");
     expect(result).toHaveProperty("errors.phone");
-    expect(result).toHaveProperty("errors.email");
+  });
+
+  it("takes an email for a phone-first customer and refuses a broken one", () => {
+    expect(validateProfileInput({ name: "Jane Wanjiku", phone: "0712345678", email: "Jane@Example.com" })).toEqual({
+      profile: { name: "Jane Wanjiku", phone: "0712345678", email: "jane@example.com" },
+    });
+    expect(validateProfileInput({ name: "Jane Wanjiku", phone: "0712345678", email: "nope" })).toHaveProperty(
+      "errors.email"
+    );
   });
 });
 

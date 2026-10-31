@@ -59,7 +59,7 @@ export function BusinessStaff() {
             <li className="flex justify-between"><span>Owner</span><span className="font-mono text-xs">everything incl. billing</span></li>
           </ul>
         </div>
-        <div className="rounded-2xl border border-warning/25 bg-transparent/10 p-5">
+        <div className="rounded-2xl border border-warning/25 bg-warning/10 p-5">
           <div className="flex items-start gap-3">
             <Clock4 className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
             <div className="text-sm leading-relaxed text-foreground/85">

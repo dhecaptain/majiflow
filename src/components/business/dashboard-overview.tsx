@@ -357,7 +357,7 @@ function KpiCard({
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
       <div className="flex items-center justify-between">
-        <span className="flex size-9 items-center justify-center rounded-lg bg-neutral-100 text-black">
+        <span className="flex size-9 items-center justify-center rounded-lg bg-cta-soft text-[var(--brand)]">
           <Icon className="size-4.5" aria-hidden />
         </span>
         {positive && (

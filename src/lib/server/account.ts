@@ -24,7 +24,13 @@ export class AccountConflictError extends Error {
 type AddressRow = typeof customerAddresses.$inferSelect;
 
 
-const DEFAULT_PREFERENCES: CustomerPreferences = { orderUpdates: true, marketing: false, notificationsReadAt: null };
+const DEFAULT_PREFERENCES: CustomerPreferences = {
+  orderUpdates: true,
+  marketing: false,
+  notificationsReadAt: null,
+  fulfilment: null,
+  lastStationId: null,
+};
 
 export function toSavedAddress(row: AddressRow): SavedAddress {
   return {
@@ -183,17 +189,35 @@ export async function getProfile(userId: string): Promise<CustomerAccountProfile
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  return user ? { name: user.name, email: user.email, phone: user.phone ?? "" } : null;
+  return user ? { name: user.name, email: user.email ?? "", phone: user.phone ?? "" } : null;
 }
 
 export async function updateProfile(userId: string, input: ProfileInput): Promise<CustomerAccountProfile | null> {
   const { db } = await getDatabase();
+  const values: { name: string; phone: string | null; email?: string; updatedAt: Date } = {
+    name: input.name,
+    phone: input.phone,
+    updatedAt: new Date(),
+  };
+  if (input.email) {
+    // Phone-first customers have no email yet, so they may add one. Once an
+    // email is set it is the sign-in identity and stays fixed.
+    const [current] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (current?.email) {
+      throw new AccountConflictError("Your email is your sign-in and can't be changed here.", "email");
+    }
+    values.email = input.email;
+  }
   const [user] = await db
     .update(users)
-    .set({ name: input.name, phone: input.phone, updatedAt: new Date() })
+    .set(values)
     .where(eq(users.id, userId))
     .returning({ name: users.name, email: users.email, phone: users.phone });
-  return user ? { name: user.name, email: user.email, phone: user.phone ?? "" } : null;
+  return user ? { name: user.name, email: user.email ?? "", phone: user.phone ?? "" } : null;
 }
 
 export async function getPreferences(userId: string): Promise<CustomerPreferences> {
@@ -204,12 +228,20 @@ export async function getPreferences(userId: string): Promise<CustomerPreference
     orderUpdates: row.orderUpdates,
     marketing: row.marketing,
     notificationsReadAt: row.notificationsReadAt?.toISOString() ?? null,
+    fulfilment: row.fulfilment === "delivery" || row.fulfilment === "pickup" ? row.fulfilment : null,
+    lastStationId: row.lastStationId ?? null,
   };
 }
 
 async function upsertPreferences(
   userId: string,
-  values: Partial<{ orderUpdates: boolean; marketing: boolean; notificationsReadAt: Date }>
+  values: Partial<{
+    orderUpdates: boolean;
+    marketing: boolean;
+    notificationsReadAt: Date;
+    fulfilment: string | null;
+    lastStationId: string | null;
+  }>
 ): Promise<CustomerPreferences> {
   const { db } = await getDatabase();
   const updatedAt = new Date();
@@ -222,6 +254,8 @@ async function upsertPreferences(
     orderUpdates: row.orderUpdates,
     marketing: row.marketing,
     notificationsReadAt: row.notificationsReadAt?.toISOString() ?? null,
+    fulfilment: row.fulfilment === "delivery" || row.fulfilment === "pickup" ? row.fulfilment : null,
+    lastStationId: row.lastStationId ?? null,
   };
 }
 

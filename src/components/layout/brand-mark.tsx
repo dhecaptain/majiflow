@@ -6,10 +6,13 @@ export function BrandMark({
   className,
   dark,
   showTagline = false,
+  compact = false,
 }: {
   className?: string;
   dark?: boolean;
   showTagline?: boolean;
+  /** Tighter icon and wordmark for the fixed header, matching kfc.ke's proportions. */
+  compact?: boolean;
 }) {
   return (
     <Link
@@ -20,13 +23,19 @@ export function BrandMark({
         className
       )}
     >
-      <span className="flex size-9 items-center justify-center overflow-hidden rounded-xl shadow-accent transition-transform duration-300 group-hover:scale-105">
+      <span
+        className={cn(
+          "flex items-center justify-center overflow-hidden shadow-accent transition-transform duration-300 group-hover:scale-105",
+          compact ? "size-8 rounded-lg" : "size-9 rounded-xl"
+        )}
+      >
         <MajiMark />
       </span>
       <span className="flex flex-col leading-none">
         <span
           className={cn(
-            "font-display text-lg font-semibold tracking-tight",
+            "font-display font-semibold tracking-tight",
+            compact ? "text-base" : "text-lg",
             dark ? "text-background" : "text-foreground"
           )}
         >

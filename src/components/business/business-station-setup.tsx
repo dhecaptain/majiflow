@@ -235,7 +235,7 @@ export function BusinessStationSetup() {
                 className={`mt-4 rounded-xl p-3 text-sm ${
                   message.kind === "error"
                     ? "bg-danger/10 text-danger"
-                    : "bg-transparent/5 text-foreground"
+                    : "bg-brand/5 text-foreground"
                 }`}
               >
                 {message.text}

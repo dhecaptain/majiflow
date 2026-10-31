@@ -250,7 +250,7 @@ export function AddressesPage() {
       <AccountPageHeader
         eyebrow={
           <>
-            <MapPin className="size-3.5 text-black" aria-hidden /> Saved addresses
+            <MapPin className="size-3.5 text-[var(--brand)]" aria-hidden /> Saved addresses
           </>
         }
         title="Delivery locations"
@@ -302,7 +302,7 @@ export function AddressesPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <MapPin className="size-4 text-black" aria-hidden />
+                          <MapPin className="size-4 text-[var(--brand)]" aria-hidden />
                           <p className="font-semibold text-foreground">
                             {a.label} · {a.estate}
                           </p>

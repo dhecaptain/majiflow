@@ -162,7 +162,7 @@ export function OrderDetailView({
             </h2>
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-widest ${
-                liveFresh ? "bg-transparent-soft text-success" : "bg-muted text-muted-foreground"
+                liveFresh ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"
               }`}
             >
               <Radio className={`size-3 ${liveFresh ? "animate-pulse-dot" : ""}`} aria-hidden />
@@ -210,9 +210,12 @@ export function OrderDetailView({
             <h2 className="font-display text-lg text-foreground">Order details</h2>
             <ul className="mt-4 space-y-2.5">
               {order.items.map((item) => (
-                <li key={item.productId} className="flex items-center justify-between gap-3 text-sm">
+                <li key={`${item.productId}-${item.optionId ?? ""}`} className="flex items-center justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate text-muted-foreground">
                     {item.quantity} × {item.name}
+                    {item.optionLabel && (
+                      <span className="block text-xs font-medium text-[var(--brand)]">{item.optionLabel}</span>
+                    )}
                   </span>
                   <span className="shrink-0 font-semibold text-foreground">
                     {formatKES(item.unitPrice * item.quantity)}
@@ -226,9 +229,17 @@ export function OrderDetailView({
                 <dd className="text-foreground">{formatKES(order.subtotal)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Delivery</dt>
+                <dt className="text-muted-foreground">
+                  {order.fulfilment === "pickup" ? "Collection" : "Delivery"}
+                </dt>
                 <dd className="text-foreground">{order.deliveryFee === 0 ? "Free" : formatKES(order.deliveryFee)}</dd>
               </div>
+              {order.deposit ? (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Refundable deposit</dt>
+                  <dd className="text-foreground">{formatKES(order.deposit)}</dd>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between border-t border-border pt-2">
                 <dt className="font-semibold text-foreground">Total</dt>
                 <dd className="font-display text-xl text-foreground">{formatKES(order.total)}</dd>

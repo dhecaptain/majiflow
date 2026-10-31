@@ -6,12 +6,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { DeliveryAddress, FulfillmentMethod } from "@/lib/types";
-import { PICKUP_ENABLED } from "@/config/fulfilment";
+import { orderSessionLabel } from "@/lib/order-context";
+import { accountApi } from "@/lib/account-client";
 import { useCustomer } from "@/components/order/customer-provider";
+
+export { orderSessionLabel };
 
 /**
  * The browsing/ordering context the customer should never lose: how they want
@@ -22,6 +26,8 @@ import { useCustomer } from "@/components/order/customer-provider";
 export interface OrderSession {
   fulfilment: FulfillmentMethod;
   address: DeliveryAddress | null;
+  /** The station the customer last opened, so the next visit can resume there. */
+  stationId: string | null;
   /** True once the persisted session has been read, so UIs don't flash empty. */
   hydrated: boolean;
 }
@@ -29,6 +35,7 @@ export interface OrderSession {
 interface OrderSessionContextValue extends OrderSession {
   setFulfilment: (method: FulfillmentMethod) => void;
   setAddress: (address: DeliveryAddress | null) => void;
+  setStationId: (stationId: string | null) => void;
   /** One-tap: use the signed-in customer's saved default address. */
   useDefaultAddress: () => void;
 }
@@ -40,37 +47,34 @@ const STORAGE_KEY = "mf:orderSession";
 interface StoredSession {
   fulfilment?: FulfillmentMethod;
   address?: DeliveryAddress | null;
-}
-
-function oneLine(a: DeliveryAddress | null | undefined): string {
-  if (!a) return "";
-  return [a.street, a.estate, a.city].filter(Boolean).join(", ") || a.label || "";
-}
-
-export function orderSessionLabel(session: Pick<OrderSession, "fulfilment" | "address">): string {
-  if (session.fulfilment === "pickup") return "Pickup from station";
-  return oneLine(session.address) || "Set your delivery address";
+  stationId?: string | null;
 }
 
 export function OrderSessionProvider({ children }: { children: ReactNode }) {
-  const { profile, hydrated: profileHydrated } = useCustomer();
+  const { profile, hydrated: profileHydrated, loggedIn, accountSynced } = useCustomer();
   const [fulfilment, setFulfilmentState] = useState<FulfillmentMethod>("delivery");
   const [address, setAddressState] = useState<DeliveryAddress | null>(null);
+  const [stationId, setStationIdState] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const hadStoredSession = useRef(false);
+  const seededFromAccount = useRef(false);
+  const lastSyncedContext = useRef<string | null>(null);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- hydrate the order session from localStorage after mount */
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
+      hadStoredSession.current = Boolean(raw);
       if (raw) {
         const parsed = JSON.parse(raw) as StoredSession;
-        // A saved pickup choice is ignored while pickup is off, so nobody is
-        // left in a mode the order pipeline cannot complete.
-        if (parsed.fulfilment === "delivery" || (PICKUP_ENABLED && parsed.fulfilment === "pickup")) {
+        if (parsed.fulfilment === "delivery" || parsed.fulfilment === "pickup") {
           setFulfilmentState(parsed.fulfilment);
         }
         if (parsed.address && typeof parsed.address === "object") {
           setAddressState(parsed.address);
+        }
+        if (typeof parsed.stationId === "string" && parsed.stationId) {
+          setStationIdState(parsed.stationId);
         }
       }
     } catch {
@@ -90,25 +94,69 @@ export function OrderSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fulfilment, address } satisfies StoredSession));
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ fulfilment, address, stationId } satisfies StoredSession)
+      );
     } catch {
       /* noop */
     }
-  }, [fulfilment, address, hydrated]);
+  }, [fulfilment, address, stationId, hydrated]);
 
-  const setFulfilment = useCallback(
-    (method: FulfillmentMethod) => setFulfilmentState(PICKUP_ENABLED ? method : "delivery"),
-    []
-  );
+  // A signed-in customer on a device with no saved session resumes the
+  // fulfilment and station the server remembers from their last visit.
+  useEffect(() => {
+    if (!hydrated || !profileHydrated || !accountSynced || !loggedIn) return;
+    if (seededFromAccount.current || hadStoredSession.current) return;
+    seededFromAccount.current = true;
+    void (async () => {
+      const result = await accountApi.preferences();
+      if (!result.ok) return;
+      const saved = result.data.preferences;
+      if (saved.fulfilment === "delivery" || saved.fulfilment === "pickup") {
+        setFulfilmentState(saved.fulfilment);
+      }
+      if (saved.lastStationId) setStationIdState(saved.lastStationId);
+    })();
+  }, [hydrated, profileHydrated, accountSynced, loggedIn]);
+
+  // Keep the account in step with this device, quietly and after the initial
+  // echo so loading a page doesn't cause a write.
+  useEffect(() => {
+    if (!hydrated || !loggedIn) return;
+    const payload = JSON.stringify({ fulfilment, lastStationId: stationId });
+    if (lastSyncedContext.current === null) {
+      lastSyncedContext.current = payload;
+      return;
+    }
+    if (lastSyncedContext.current === payload) return;
+    const timer = setTimeout(() => {
+      lastSyncedContext.current = payload;
+      void accountApi.updateOrderContext({ fulfilment, lastStationId: stationId });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [fulfilment, stationId, hydrated, loggedIn]);
+
+  const setFulfilment = useCallback((method: FulfillmentMethod) => setFulfilmentState(method), []);
   const setAddress = useCallback((next: DeliveryAddress | null) => setAddressState(next), []);
+  const setStationId = useCallback((next: string | null) => setStationIdState(next), []);
   const useDefaultAddress = useCallback(() => {
     const saved = profile.addresses[profile.defaultAddressIndex] ?? profile.addresses[0] ?? null;
     if (saved) setAddressState(saved);
   }, [profile.addresses, profile.defaultAddressIndex]);
 
   const value = useMemo<OrderSessionContextValue>(
-    () => ({ fulfilment, address, hydrated, setFulfilment, setAddress, useDefaultAddress }),
-    [fulfilment, address, hydrated, setFulfilment, setAddress, useDefaultAddress]
+    () => ({
+      fulfilment,
+      address,
+      stationId,
+      hydrated,
+      setFulfilment,
+      setAddress,
+      setStationId,
+      useDefaultAddress,
+    }),
+    [fulfilment, address, stationId, hydrated, setFulfilment, setAddress, setStationId, useDefaultAddress]
   );
 
   return <OrderSessionContext.Provider value={value}>{children}</OrderSessionContext.Provider>;

@@ -18,6 +18,21 @@ export interface Plan {
   audience: string;
 }
 
+/**
+ * A choice the customer makes about a product, e.g. handing back an empty can
+ * for a refund. Options are priced by the catalog, never by the client.
+ */
+export interface ProductOption {
+  id: string;
+  label: string;
+  /** Added to (or taken off) the product's base price. */
+  priceDelta: number;
+  /** Refundable deposit collected with the order and returned on the swap. */
+  deposit?: number;
+  /** Stock for this option alone; falls back to the product's own stock. */
+  stock?: number;
+}
+
 export interface BusinessProduct {
   id: string;
   name: string;
@@ -30,6 +45,8 @@ export interface BusinessProduct {
   stockLow: number;
   popular?: boolean;
   image: string;
+  /** Choices the customer picks before the item goes in the cart. */
+  options?: ProductOption[];
 }
 
 export type Weekday =
@@ -80,6 +97,12 @@ export interface OrderItem {
   name: string;
   quantity: number;
   unitPrice: number;
+  /** The chosen product option, when the product offers a choice. */
+  optionId?: string;
+  /** Label of the chosen option, kept so the order still reads after a catalog edit. */
+  optionLabel?: string;
+  /** Refundable deposit charged per unit of this line. */
+  deposit?: number;
 }
 
 export interface DeliveryAddress {
@@ -159,6 +182,8 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
+  /** Refundable deposits collected with the order (can swaps, container hire). */
+  deposit?: number;
   total: number;
   /** Delivery by a rider, or collection from the station. Defaults to delivery. */
   fulfilment?: FulfillmentMethod;
@@ -173,9 +198,18 @@ export interface Order {
    */
   pricingSnapshot?: {
     verifiedAt: string;
-    items: { productId: string; name: string; quantity: number; unitPrice: number }[];
+    items: {
+      productId: string;
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      optionId?: string;
+      optionLabel?: string;
+      deposit?: number;
+    }[];
     subtotal: number;
     deliveryFee: number;
+    deposit?: number;
     total: number;
   };
   address: DeliveryAddress;
@@ -208,6 +242,10 @@ export interface Business {
   deliveryFee: number;
   freeDeliveryAbove: number;
   avgDeliveryMinutes: number;
+  /** How far the station delivers, in km from the station. */
+  deliveryRadiusKm?: number;
+  /** Discount (%) for customers who collect in person instead of delivery. */
+  nearbyDiscountPercent?: number;
   verified: boolean;
   /** True once the business has approved status AND an active paid subscription. */
   paid: boolean;

@@ -187,7 +187,7 @@ export function BusinessOrders() {
       )}
 
       {note && (
-        <div role="status" className="flex items-center justify-between rounded-xl border border-success/25 bg-transparent/5 px-4 py-3 text-sm text-success">
+        <div role="status" className="flex items-center justify-between rounded-xl border border-success/25 bg-success/5 px-4 py-3 text-sm text-success">
           <span className="flex items-center gap-2">
             <Check className="size-4" aria-hidden /> {note}
           </span>
@@ -206,7 +206,7 @@ export function BusinessOrders() {
             className={cn(
               "shrink-0 rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
               tab === t.id
-                ? "border-[var(--brand)] bg-transparent/8 text-[var(--brand)]"
+                ? "border-[var(--brand)] bg-brand/10 text-[var(--brand)]"
                 : "border-border bg-white text-muted-foreground hover:text-foreground"
             )}
             aria-pressed={tab === t.id}
@@ -293,7 +293,7 @@ export function BusinessOrders() {
                   ) : o.status === "preparing" ? (
                     <Link
                       href={`/business/orders/${o.id}`}
-                      className="inline-flex h-9 items-center rounded-md border border-border bg-white px-3.5 text-sm font-medium text-foreground hover:bg-slate-50"
+                      className="inline-flex h-9 items-center rounded-md border border-border bg-white px-3.5 text-sm font-medium text-foreground hover:bg-muted"
                     >
                       Assign rider
                     </Link>

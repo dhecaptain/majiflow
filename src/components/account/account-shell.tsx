@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   Bell,
   CreditCard,
@@ -10,18 +9,13 @@ import {
   Headphones,
   LayoutDashboard,
   MapPin,
-  Menu,
   MessageCircle,
-  MoreHorizontal,
   Package,
-  Search,
   ShoppingCart,
   User,
 } from "lucide-react";
-import { BrandMark } from "@/components/layout/brand-mark";
+import { SiteHeader } from "@/components/layout/site-header";
 import { BlurImage } from "@/components/ui/blur-image";
-import { WaterDrawer } from "@/components/ui/water-drawer";
-import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { PageTransition } from "@/components/layout/page-transition";
 import waterLiquid from "@/assets/images/backdrops/water-liquid.webp";
 import { useCart } from "@/components/order/cart-provider";
@@ -53,27 +47,11 @@ const HELP: NavItem[] = [
 
 export function AccountShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const { count } = useCart();
-  const { profile, logout } = useCustomer();
+  const { profile } = useCustomer();
 
   const name = profile.name || "";
   const initial = name ? name.trim().slice(0, 1).toUpperCase() : "U";
-
-  const signOut = async () => {
-    setLoggingOut(true);
-    try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (!response.ok) throw new Error("Could not sign out.");
-      logout();
-      router.replace("/login");
-      router.refresh();
-    } catch {
-      setLoggingOut(false);
-    }
-  };
 
   const nav = (
     <nav aria-label="Account" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
@@ -84,7 +62,6 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           label={item.label}
           icon={item.icon}
           active={pathname === item.href || (item.href !== "/account" && pathname.startsWith(`${item.href}/`))}
-          onClick={() => setOpen(false)}
         />
       ))}
 
@@ -98,7 +75,6 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           label={item.label}
           icon={item.icon}
           active={pathname === item.href}
-          onClick={() => setOpen(false)}
         />
       ))}
       <SidebarLink
@@ -107,7 +83,6 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
         icon={ShoppingCart}
         active={pathname === "/cart"}
         badge={count > 0 ? String(count) : undefined}
-        onClick={() => setOpen(false)}
       />
 
       <p className="px-3 pb-1 pt-5 font-mono text-[10px] uppercase tracking-[0.2em] text-foreground">
@@ -119,7 +94,6 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           href={item.href}
           label={item.label}
           icon={item.icon}
-          onClick={() => setOpen(false)}
         />
       ))}
 
@@ -138,76 +112,16 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
     </nav>
   );
 
-  const header = (
-    <>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="flex size-10 items-center justify-center rounded-xl border border-border bg-white lg:hidden"
-          onClick={() => setOpen(true)}
-          aria-label="Open dashboard menu"
-        >
-          <Menu className="size-5" aria-hidden />
-        </button>
-        <div className="relative hidden items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 md:flex">
-          <Search className="size-4 text-black" aria-hidden />
-          <input
-            className="w-44 bg-white text-sm text-foreground outline-none placeholder:text-foreground"
-            placeholder="Search orders, stations…"
-            aria-label="Search your account"
-          />
-        </div>
-      </div>
-
-      <div className="ml-auto flex items-center gap-2">
-        <Link
-          href="/account/notifications"
-          aria-label="Notifications"
-          className="relative flex size-10 items-center justify-center rounded-xl border border-border bg-white text-foreground transition-colors hover:text-[var(--brand)]"
-        >
-          <Bell className="size-4.5" aria-hidden />
-        </Link>
-        <Link
-          href="/cart"
-          aria-label={`Cart, ${count} items`}
-          className="relative flex size-10 items-center justify-center rounded-xl border border-border bg-white text-foreground hover:text-foreground"
-        >
-          <ShoppingCart className="size-4.5" aria-hidden />
-          {count > 0 && (
-            <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-foreground text-[11px] font-bold text-white shadow-accent ring-2 ring-white">
-              {count}
-            </span>
-          )}
-        </Link>
-        <button
-          type="button"
-          onClick={signOut}
-          disabled={loggingOut}
-          className="rounded-xl bg-foreground px-3 py-2 text-sm font-semibold text-white shadow-accent disabled:opacity-50"
-        >
-          {loggingOut ? "Signing out…" : "Log out"}
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="min-h-screen bg-muted/40">
+      <SiteHeader />
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-white lg:flex">
-        <div className="flex h-16 shrink-0 items-center border-b border-border px-5">
-          <BrandMark className="scale-90" />
-        </div>
+      <aside className="fixed bottom-0 left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 hidden w-64 flex-col border-r border-border bg-white lg:top-[calc(90px+env(safe-area-inset-top))] lg:flex">
         {nav}
       </aside>
 
-      {/* Mobile drawer */}
-      <WaterDrawer open={open} onClose={() => setOpen(false)}>
-        {nav}
-      </WaterDrawer>
-
       {/* Content column */}
-      <div className="relative flex min-h-screen flex-col lg:pl-64">
+      <div className="relative flex min-h-[calc(100svh-4rem)] flex-col md:min-h-[calc(100svh-5.625rem)] lg:pl-64">
         <div
           aria-hidden
           className="pointer-events-none fixed inset-y-0 left-0 right-0 z-0 lg:left-64"
@@ -226,16 +140,12 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-radial-glow"
         />
 
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-white/80 px-4 backdrop-blur-md sm:px-6">
-          {header}
-        </header>
-
-        <main className="relative flex-1 p-4 pb-24 sm:p-6 lg:pb-6">
+        <main className="relative flex-1 p-4 pb-10 sm:p-6 lg:pb-6">
           <PageTransition>{children}</PageTransition>
         </main>
 
         <footer className="relative border-t border-border bg-white/60">
-          <div className="mx-auto flex max-w-[80rem] flex-wrap items-center justify-between gap-4 px-4 pb-24 pt-3 text-xs text-foreground sm:px-6 lg:pb-3">
+          <div className="mx-auto flex max-w-[80rem] flex-wrap items-center justify-between gap-4 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-xs text-foreground sm:px-6 lg:pb-3">
             <p>MajiFlow - Water refill, delivered.</p>
             <nav className="flex items-center gap-4" aria-label="Footer">
               <Link href="/" className="hover:underline">
@@ -254,16 +164,6 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           </div>
         </footer>
       </div>
-
-      <MobileTabBar
-        items={[
-          { href: "/account", label: "Overview", icon: LayoutDashboard },
-          { href: "/account/orders", label: "Orders", icon: Package },
-          { href: "/account/addresses", label: "Addresses", icon: MapPin },
-          { href: "/browse", label: "Browse", icon: Droplets },
-          { label: "More", icon: MoreHorizontal, onClick: () => setOpen(true) },
-        ]}
-      />
     </div>
   );
 }
@@ -289,9 +189,9 @@ function SidebarLink({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
         active
-          ? "bg-white/8 text-[var(--brand)]"
+          ? "bg-cta-soft text-[var(--brand)]"
           : "text-foreground hover:bg-muted hover:text-foreground"
       )}
     >

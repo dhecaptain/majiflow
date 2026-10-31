@@ -111,7 +111,7 @@ export function HeroSlider({ slides, interval = 7000 }: HeroSliderProps) {
       onBlurCapture={() => setPaused(false)}
       className="absolute inset-0 z-0 overflow-hidden"
     >
-      <div className="absolute inset-x-0 top-0 h-[270px] lg:inset-0 lg:h-full">
+      <div className="absolute inset-0">
         <div
           ref={trackRef}
           className="flex h-full cursor-grab active:cursor-grabbing select-none touch-pan-y"
@@ -212,17 +212,17 @@ function ArrowButton({
 
 function SlideCopy({ slide }: { slide: HeroSlide }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 px-5 pb-5 sm:px-8 lg:inset-y-0 lg:bottom-auto lg:left-auto lg:right-12 lg:top-1/2 lg:w-[21rem] lg:-translate-y-1/2 lg:px-0 lg:pb-0 xl:w-[25rem]">
+    <div className="absolute inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] mx-auto w-full max-w-[34rem] px-5 sm:px-8 lg:inset-y-0 lg:bottom-auto lg:left-auto lg:right-12 lg:mx-0 lg:top-1/2 lg:w-[21rem] lg:max-w-none lg:-translate-y-1/2 lg:px-0 xl:w-[25rem]">
       <div className="relative">
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-x-8 -inset-y-10"
+          className="pointer-events-none absolute -inset-x-8 -top-10 bottom-0 lg:-bottom-10"
           style={{
             background:
               "radial-gradient(130% 160% at 50% 50%, rgba(2,18,40,0.93) 0%, rgba(2,18,40,0.88) 40%, rgba(2,18,40,0.62) 72%, rgba(2,18,40,0) 100%)",
           }}
         />
-        <div className="relative">
+        <div className="relative py-4 text-left">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
             <span className="size-1.5 rounded-full bg-[var(--aqua)]" aria-hidden />
             {slide.eyebrow}

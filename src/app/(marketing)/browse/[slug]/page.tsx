@@ -6,7 +6,6 @@ import { Container } from "@/components/ui/container";
 import { StationBadge } from "@/components/shared/station-badge";
 import { BusinessAvailability } from "@/components/shared/business-availability";
 import { JourneyLink, JourneyRecorder } from "@/components/order/journey";
-import { OrderTypeBar } from "@/components/order/order-type-bar";
 import { StationMenu } from "@/components/order/station-menu";
 import { getBusiness, businesses } from "@/lib/data/businesses";
 import { formatKES } from "@/lib/format";
@@ -39,7 +38,6 @@ export default async function BusinessProfile({ params }: PageProps) {
   return (
     <div>
       <JourneyRecorder step="station" href={`/browse/${business.slug}`} />
-      <OrderTypeBar />
       {/* Banner */}
       <section className="relative overflow-hidden bg-ink">
         <div aria-hidden className="absolute inset-0">

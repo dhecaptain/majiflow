@@ -20,7 +20,7 @@ const customerSteps = [
   {
     icon: PackagePlus,
     title: "Build your cart",
-    text: "Cans, bottles and dispensers in one cart, delivery totalled per station.",
+    text: "Cans, bottles and dispensers from one station, with its delivery fee shown up front.",
   },
   {
     icon: ShoppingCart,
@@ -41,7 +41,7 @@ const customerSteps = [
 
 const faqItems = [
   { q: "Is anything actually delivered?", a: "Yes. Orders are accepted and delivered by the station you choose, and you can follow every stage." },
-  { q: "Is there a free-delivery minimum?", a: "Yes, per station. Some waive the delivery fee above a set amount, shown on the station page." },
+  { q: "Is there a free-delivery minimum?", a: "Yes, each station sets its own. Some waive the delivery fee above a set amount, shown on the station page and in your cart." },
   { q: "What if something goes wrong?", a: "Open the order to see its status and contact the station, or reach support from the contact page." },
   { q: "Can I pay cash on delivery?", a: "Orders are prepaid by M-Pesa or card at checkout." },
 ];
@@ -86,7 +86,7 @@ export default function HowItWorks() {
               <StaggerItem key={s.title}>
                 <div className="group flex h-full flex-col rounded-2xl border border-border bg-card p-7 shadow-card">
                   <div className="flex items-center justify-between">
-                    <span className="flex size-12 items-center justify-center rounded-xl bg-neutral-100 text-black">
+                    <span className="flex size-12 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
                       <s.icon className="size-5" aria-hidden />
                     </span>
                     <span className="font-mono text-sm font-bold text-[var(--brand)]/40">0{i + 1}</span>

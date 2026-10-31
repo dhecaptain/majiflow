@@ -33,7 +33,7 @@ export function ElevatedCard({ className, ...props }: HTMLAttributes<HTMLDivElem
 /** Gradient-border wrapper used on featured pricing / highlighted cards. Paints a 1px gradient ring. */
 export function GradientBorderCard({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-2xl bg-transparent p-px shadow-layered", className)}>
+    <div className={cn("rounded-2xl bg-brand-gradient p-px shadow-layered", className)}>
       <div className="flex h-full flex-col rounded-[calc(1rem-1px)] bg-white" {...props} />
     </div>
   );

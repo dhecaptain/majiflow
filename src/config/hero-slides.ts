@@ -1,5 +1,8 @@
 import type { StaticImageData } from "next/image";
 import waterCansBg from "@/assets/images/hero/water-cans-bg.webp";
+import waterGlass from "@/assets/images/business/aqua-spring-kisumu.webp";
+import clearWater from "@/assets/images/business/pure-blue-nakuru.webp";
+import waterDrop from "@/assets/images/backdrops/water-liquid.webp";
 
 export interface HeroSlide {
   id: string;
@@ -19,8 +22,8 @@ export const HERO_SLIDES: HeroSlide[] = [
     eyebrow: "MajiFlow",
     headline: "Fresh water, just a tap away.",
     body: "Order clean water from refill stations near you and get it delivered to your door.",
-    image: waterCansBg,
-    alt: "Clean water refill containers ready for delivery",
+    image: waterGlass,
+    alt: "Fresh water being poured into a glass",
   },
   {
     id: "majiflow-door",
@@ -28,24 +31,24 @@ export const HERO_SLIDES: HeroSlide[] = [
     headline: "Majiflow, straight to your door.",
     body: "Fast, reliable doorstep delivery across Nairobi and beyond.",
     image: waterCansBg,
-    alt: "Water delivery at the door",
+    alt: "Refill containers ready to be delivered",
   },
   {
-    id: "skip-walk",
-    eyebrow: "Convenient",
-    headline: "Skip the walk, keep it fresh.",
-    body: "Order in seconds and track your delivery in real time.",
-    image: waterCansBg,
-    alt: "Easy water ordering",
+    id: "nearby-refill",
+    eyebrow: "Nearby",
+    headline: "Your next refill is close by.",
+    body: "Find trusted local stations, compare options, and order from your phone.",
+    image: clearWater,
+    alt: "Clear blue water rippling in the light",
   },
   {
     id: "pure-easy",
     eyebrow: "Pure & easy",
     headline: "Pure water, the easy way.",
     body: "Affordable refills from trusted local stations, paid your way.",
-    image: waterCansBg,
-    alt: "Pure water delivered",
+    image: waterDrop,
+    alt: "A clear drop falling into rippling water",
   },
 ];
 
-export const HERO_SLIDE_INTERVAL = 7000;
+export const HERO_SLIDE_INTERVAL = 3000;

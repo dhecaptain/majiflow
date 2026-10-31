@@ -2,16 +2,36 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import bottle from "@/assets/images/products/bottle.webp";
-import can from "@/assets/images/products/can.webp";
-import glass from "@/assets/images/products/glass.webp";
-import dispenser from "@/assets/images/products/dispenser.webp";
 
 const CATEGORIES = [
-  { id: "refills", label: "Refills", href: "/browse?category=refills", image: bottle },
-  { id: "new-bottles", label: "New bottles", href: "/browse?category=new-bottles", image: can },
-  { id: "bottled-packs", label: "Bottled packs", href: "/browse?category=bottled-packs", image: glass },
-  { id: "dispensers", label: "Dispensers", href: "/browse?category=dispensers", image: dispenser },
+  {
+    id: "refills",
+    label: "Refills",
+    href: "/browse?category=refills",
+    image: "/categories/refills.jpg",
+    alt: "Reusable bottle being filled at a filtered water tap",
+  },
+  {
+    id: "new-bottles",
+    label: "New bottles",
+    href: "/browse?category=new-bottles",
+    image: "/categories/new-bottles.jpg",
+    alt: "Three clear water bottles filled with drinking water",
+  },
+  {
+    id: "bottled-packs",
+    label: "Bottled packs",
+    href: "/browse?category=bottled-packs",
+    image: "/categories/bottled-packs.jpg",
+    alt: "Rows of blue-capped bottled water grouped together",
+  },
+  {
+    id: "dispensers",
+    label: "Dispensers",
+    href: "/browse?category=dispensers",
+    image: "/categories/dispensers.jpg",
+    alt: "A clear bottle fitted to a water dispenser",
+  },
 ];
 
 export function BrowseCategories() {
@@ -26,7 +46,13 @@ export function BrowseCategories() {
             className="group relative overflow-hidden rounded-2xl bg-muted"
           >
             <div className="relative aspect-[4/3]">
-              <Image src={cat.image} alt={cat.label} fill className="object-cover transition duration-300 group-hover:scale-105" sizes="(min-width: 1024px) 25vw, 50vw" />
+              <Image
+                src={cat.image}
+                alt={cat.alt}
+                fill
+                className="object-cover transition duration-300 group-hover:scale-105"
+                sizes="(min-width: 1024px) 25vw, 50vw"
+              />
             </div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
               <p className="text-sm font-semibold text-white">{cat.label}</p>
