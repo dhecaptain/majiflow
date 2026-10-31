@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { AlertCircle, Check, CreditCard, Smartphone } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatKES } from "@/lib/format";
 import { plans } from "@/lib/data/plans";
@@ -71,14 +72,18 @@ export function BusinessBilling() {
                   </li>
                 ))}
               </ul>
-              <Button
-                variant={isCurrent ? "secondary" : "default"}
-                className="mt-6 w-full"
-                disabled
-                title="Plan changes are managed by MajiFlow billing"
-              >
-                {isCurrent ? "Current plan" : `Switch to ${p.name}`}
-              </Button>
+              {isCurrent ? (
+                <Button variant="secondary" className="mt-6 w-full" disabled>
+                  Current plan
+                </Button>
+              ) : (
+                <Link
+                  href={`/contact?topic=plan&plan=${p.id}`}
+                  className={buttonVariants({ variant: "outline", className: "mt-6 w-full" })}
+                >
+                  Ask to switch to {p.name}
+                </Link>
+              )}
             </article>
           );
         })}
@@ -92,8 +97,8 @@ export function BusinessBilling() {
         </div>
         <div className="p-6">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            No invoices yet. Your first invoice appears here once your free trial ends, and you can
-            download it as a PDF at any time.
+            No invoices yet. When your free trial ends, our team contacts you to set up billing for
+            your plan, and your invoices are listed here.
           </p>
           <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <Smartphone className="size-3.5" aria-hidden /> Customer payments from your orders appear

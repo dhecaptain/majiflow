@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Clock, MapPin, Save, Smartphone, Store, Truck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Clock, MapPin, Pencil, Smartphone, Store, Truck } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { formatKES } from "@/lib/format";
@@ -11,48 +11,14 @@ import { useBusiness } from "@/components/business/business-provider";
 import { cn } from "@/lib/utils";
 
 /**
- * Settings shows the station's published record and how orders reach you.
- * Notification preferences are saved per browser.
+ * Settings shows the station's record as customers see it. Changes are made
+ * in Station setup (listing, hours, delivery) and Products, where they are
+ * validated and saved on the server.
  */
-
-const NOTIFY_KEY = "mf:notifications";
-
-interface NotifyPrefs {
-  orders: boolean;
-  sms: boolean;
-  daily: boolean;
-  stock: boolean;
-}
-
-const DEFAULT_NOTIFY: NotifyPrefs = { orders: true, sms: false, daily: true, stock: true };
-
-function readNotify(): NotifyPrefs {
-  try {
-    const raw = window.localStorage.getItem(NOTIFY_KEY);
-    if (!raw) return DEFAULT_NOTIFY;
-    const parsed = JSON.parse(raw) as Partial<NotifyPrefs>;
-    return { ...DEFAULT_NOTIFY, ...parsed };
-  } catch {
-    return DEFAULT_NOTIFY;
-  }
-}
 
 export function BusinessSettings() {
   const { business } = useBusiness();
-  const [notify, setNotify] = useState<NotifyPrefs>(readNotify);
   const hours = weeklyHoursGrid(business.openingHours);
-
-  const setPref = (key: keyof NotifyPrefs) => {
-    setNotify((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      try {
-        window.localStorage.setItem(NOTIFY_KEY, JSON.stringify(next));
-      } catch {
-        /* noop */
-      }
-      return next;
-    });
-  };
 
   return (
     <div className="space-y-6">
@@ -64,13 +30,9 @@ export function BusinessSettings() {
             you.
           </p>
         </div>
-        <Button
-          className="gap-2"
-          disabled
-          title="Station details are managed by MajiFlow support"
-        >
-          <Save className="size-4" aria-hidden /> Save changes
-        </Button>
+        <Link href="/business/applications" className={buttonVariants({ className: "gap-2" })}>
+          <Pencil className="size-4" aria-hidden /> Edit in station setup
+        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
@@ -80,7 +42,7 @@ export function BusinessSettings() {
             <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
               <Store className="size-5 text-[var(--brand)]" aria-hidden /> Business profile
             </h2>
-            <Badge variant="muted">Read only</Badge>
+
           </div>
           <div className="mt-5 space-y-5">
             <Field label="Business name">
@@ -102,8 +64,8 @@ export function BusinessSettings() {
             </Field>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            These details come from your station record and are shown to customers on your page.
-            Contact support to update them.
+            These details are shown to customers on your page. Change them in station setup; your
+            address and city come from your approved application, so contact support to change those.
           </p>
         </section>
 
@@ -128,49 +90,6 @@ export function BusinessSettings() {
             </p>
           </section>
 
-          {/* Notifications */}
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
-              <Bell className="size-5 text-[var(--brand)]" aria-hidden /> Notifications
-            </h2>
-            <ul className="mt-4 space-y-3">
-              {(
-                [
-                  { key: "orders", label: "New order alerts", desc: "Sound + banner on every order" },
-                  { key: "sms", label: "SMS to customers", desc: "Accepted, on the way, delivered" },
-                  { key: "daily", label: "Daily summary", desc: "7am revenue + orders digest" },
-                  { key: "stock", label: "Low stock reminders", desc: "When inventory dips below threshold" },
-                ] as const
-              ).map((n) => (
-                <li key={n.key} className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{n.label}</p>
-                    <p className="text-xs text-muted-foreground">{n.desc}</p>
-                  </div>
-                  <button
-                    role="switch"
-                    aria-checked={notify[n.key]}
-                    aria-label={n.label}
-                    onClick={() => setPref(n.key)}
-                    className={cn(
-                      "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-                      notify[n.key] ? "bg-foreground" : "bg-muted-foreground/30"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-                        notify[n.key] ? "translate-x-[22px]" : "translate-x-0.5"
-                      )}
-                    />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Choose which updates you receive. These preferences are saved to your account.
-            </p>
-          </section>
         </div>
       </div>
 

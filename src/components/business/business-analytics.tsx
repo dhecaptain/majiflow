@@ -143,8 +143,7 @@ export function BusinessAnalytics() {
             </ul>
           )}
           <p className="mt-6 rounded-xl bg-muted/50 p-4 text-xs leading-relaxed text-muted-foreground">
-            Counted from orders that were not rejected or cancelled. Hourly heatmaps, delivery zones
-            and staff performance are coming soon.
+            Counted from orders that were not rejected or cancelled.
           </p>
         </section>
       </div>

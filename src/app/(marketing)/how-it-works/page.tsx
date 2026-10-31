@@ -3,7 +3,7 @@ import { Container } from "@/components/ui/container";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Button } from "@/components/ui/button";
 import { Stagger, StaggerItem } from "@/components/ui/animated-section";
-import { MapPin, Store, PackagePlus, ShoppingCart, ClipboardList, Bell } from "lucide-react";
+import { MapPin, Store, PackagePlus, ShoppingCart, ClipboardList } from "lucide-react";
 import Link from "next/link";
 
 const customerSteps = [
@@ -31,11 +31,6 @@ const customerSteps = [
     icon: ClipboardList,
     title: "Follow the order",
     text: "Track it from pending to delivered.",
-  },
-  {
-    icon: Bell,
-    title: "Recurring orders, coming soon",
-    text: "A refill schedule with reminders is on the roadmap.",
   },
 ];
 

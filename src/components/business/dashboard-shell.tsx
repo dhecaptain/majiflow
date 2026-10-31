@@ -5,11 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Boxes,
-  CircleUser,
   ClipboardCheck,
   CreditCard,
   LayoutDashboard,
-  Megaphone,
   Package,
   Settings,
   Users,
@@ -30,8 +28,6 @@ const NAV: NavItem[] = [
   { href: "/business/products", label: "Products", icon: Boxes },
   { href: "/business/customers", label: "Customers", icon: Users },
   { href: "/business/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/business/promotions", label: "Promotions", icon: Megaphone },
-  { href: "/business/staff", label: "Staff", icon: CircleUser },
 ];
 
 const LOWER: NavItem[] = [
