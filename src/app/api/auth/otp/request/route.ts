@@ -44,6 +44,12 @@ export async function POST(request: Request) {
 
   try {
     const existing = await findUserByPhone(phone);
+    if (existing?.disabledAt) {
+      return Response.json(
+        { error: "This account has been disabled. Contact MajiFlow support." },
+        { status: 403 }
+      );
+    }
     const purpose = existing ? "login" : "register";
     const issued = await issueOtp(phone, purpose);
     const sent = await sendSms({

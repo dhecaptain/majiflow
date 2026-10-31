@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt as nodeScrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDatabase } from "@/lib/server/db";
 import { sessions, users } from "@/lib/server/db/schema";
@@ -113,7 +113,7 @@ export async function findUserByPhone(phone: string) {
   if (!local) return null;
   const { db } = await getDatabase();
   const [user] = await db
-    .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role })
+    .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, role: users.role, disabledAt: users.disabledAt })
     .from(users)
     .where(eq(users.phone, local))
     .limit(1);
@@ -150,6 +150,9 @@ export async function authenticatePhone(phone: string) {
   if (!user) {
     throw new AuthenticationError("We could not find an account for that number.");
   }
+  if (user.disabledAt) {
+    throw new AuthenticationError(DISABLED_MESSAGE);
+  }
   // A code sent by SMS is enough for a customer, but not for station or
   // operations staff: a SIM swap must not hand over a business account.
   if (user.role !== "customer") {
@@ -157,6 +160,8 @@ export async function authenticatePhone(phone: string) {
   }
   return publicUser(user);
 }
+
+const DISABLED_MESSAGE = "This account has been disabled. Contact MajiFlow support.";
 
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString("hex");
@@ -195,6 +200,9 @@ export async function authenticateUser(email: string, password: string) {
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     throw new AuthenticationError("Invalid email or password.");
   }
+  if (user.disabledAt) {
+    throw new AuthenticationError(DISABLED_MESSAGE);
+  }
   return publicUser(user);
 }
 
@@ -213,7 +221,7 @@ export async function getCurrentUser() {
   })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
+    .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt)))
     .limit(1);
   return result?.user ?? null;
 }
@@ -240,7 +248,7 @@ export async function renewSession(): Promise<AuthenticatedUser | null> {
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
+    .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date()), isNull(users.disabledAt)))
     .limit(1);
   if (!row) return null;
 
