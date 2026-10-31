@@ -37,6 +37,8 @@ type Row = {
   total: number;
   status: OrderStatus;
   paid: boolean;
+  /** Paid up front, or paid on delivery: either way the station may accept it now. */
+  acceptable: boolean;
   time: string;
   min: string;
 };
@@ -52,6 +54,7 @@ function toRow(o: Order): Row {
     total: o.total,
     status: o.status,
     paid: o.paymentState === "success",
+    acceptable: o.paymentState === "success" || o.payment === "cod",
     time: new Date(o.placedAt).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" }),
     min: formatRelativeTime(o.placedAt),
   };
@@ -276,7 +279,7 @@ export function BusinessOrders() {
                       <X className="size-3.5" aria-hidden /> Reject
                     </Button>
                   )}
-                  {o.status === "pending" && !o.paid ? (
+                  {o.status === "pending" && !o.acceptable ? (
                     <span className="text-xs text-warning" title="Accept once M-Pesa confirms the payment">
                       Awaiting payment
                     </span>

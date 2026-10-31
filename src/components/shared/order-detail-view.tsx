@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Clock, MapPin, Phone, Radio, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
+import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { FulfilmentPanel } from "@/components/shared/fulfilment-panel";
@@ -250,8 +250,8 @@ export function OrderDetailView({
               <span className="text-xs text-muted-foreground">
                 Paid via {order.payment === "mpesa" ? "M-Pesa" : "Card"}
               </span>
-              <Badge variant={PAYMENT_STATE_META[order.paymentState].tone}>
-                {PAYMENT_STATE_META[order.paymentState].label}
+              <Badge variant={paymentMeta(order).tone}>
+                {paymentMeta(order).label}
               </Badge>
             </div>
           </section>

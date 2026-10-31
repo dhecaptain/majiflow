@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { OrderStatus, PaymentState } from "@/lib/types";
+import type { Order, OrderStatus, PaymentState } from "@/lib/types";
 import { isActiveStatus } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
 
@@ -41,3 +41,11 @@ export const PAYMENT_STATE_META: Record<PaymentState, { label: string; tone: "wa
   timeout: { label: "Payment timed out", tone: "danger" },
   refunded: { label: "Refunded", tone: "success" },
 };
+
+/** How an order's payment reads to people: an unpaid pay-on-delivery order is not "pending payment". */
+export function paymentMeta(order: Pick<Order, "payment" | "paymentState">) {
+  if (order.payment === "cod" && order.paymentState === "pending") {
+    return { label: "Pay on delivery", tone: "warning" as const };
+  }
+  return PAYMENT_STATE_META[order.paymentState];
+}

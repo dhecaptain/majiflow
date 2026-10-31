@@ -237,7 +237,7 @@ export function DashboardOverview() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-display text-base text-foreground">{formatKES(o.total)}</span>
-                    {o.status === "pending" && o.paymentState !== "success" ? (
+                    {o.status === "pending" && o.paymentState !== "success" && o.payment !== "cod" ? (
                       <span className="text-xs text-warning">Awaiting payment</span>
                     ) : o.status === "pending" ? (
                       <Button size="sm" onClick={() => void accept(o)} disabled={busyId === o.id}>

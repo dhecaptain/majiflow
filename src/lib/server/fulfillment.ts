@@ -227,6 +227,8 @@ export interface RiderOrderView {
   address: Order["address"];
   items: Order["items"];
   riderName: string;
+  /** Amount to collect at the door: set only for an unpaid pay-on-delivery order. */
+  collectAmount: number | null;
 }
 
 export function riderView(order: Order): RiderOrderView {
@@ -241,6 +243,7 @@ export function riderView(order: Order): RiderOrderView {
     address: order.address,
     items: order.items,
     riderName: order.rider?.name ?? "",
+    collectAmount: order.payment === "cod" && order.paymentState === "pending" ? order.total : null,
   };
 }
 
