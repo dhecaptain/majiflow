@@ -150,6 +150,11 @@ export async function authenticatePhone(phone: string) {
   if (!user) {
     throw new AuthenticationError("We could not find an account for that number.");
   }
+  // A code sent by SMS is enough for a customer, but not for station or
+  // operations staff: a SIM swap must not hand over a business account.
+  if (user.role !== "customer") {
+    throw new AuthenticationError("This account signs in with email and password.");
+  }
   return publicUser(user);
 }
 

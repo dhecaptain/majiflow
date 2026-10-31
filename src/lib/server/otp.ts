@@ -8,7 +8,7 @@
  */
 
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { authOtpCodes } from "@/lib/server/db/schema";
 
@@ -48,7 +48,12 @@ export function otpErrorMessage(code: OtpErrorCode): string {
 
 function secret(): string {
   // A stable secret keeps codes valid across restarts and instances.
-  return process.env.MF_OTP_SECRET?.trim() || "majiflow-development-otp-secret";
+  const configured = process.env.MF_OTP_SECRET?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("MF_OTP_SECRET must be set in production.");
+  }
+  return "majiflow-development-otp-secret";
 }
 
 export function hashOtpCode(code: string, phone: string): string {
@@ -216,7 +221,10 @@ export async function pruneOtpCodes(now = new Date()): Promise<number> {
     .limit(500);
   if (!stale.length) return 0;
   await db.delete(authOtpCodes).where(
-    and(...stale.map((row) => eq(authOtpCodes.id, row.id)))
+    inArray(
+      authOtpCodes.id,
+      stale.map((row) => row.id)
+    )
   );
   return stale.length;
 }

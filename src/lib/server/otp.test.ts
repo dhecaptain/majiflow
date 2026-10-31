@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkOtpRequestRate,
   generateOtpCode,
@@ -55,5 +55,25 @@ describe("otp constants", () => {
     expect(OTP_TTL_MS).toBe(10 * 60 * 1000);
     expect(OTP_RESEND_COOLDOWN_MS).toBe(60 * 1000);
     expect(OTP_MAX_ATTEMPTS).toBe(5);
+  });
+});
+
+describe("otp secret", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("refuses to hash with the development secret in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("MF_OTP_SECRET", "");
+
+    expect(() => hashOtpCode("123456", "0712345678")).toThrow("MF_OTP_SECRET");
+  });
+
+  it("uses the configured secret in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("MF_OTP_SECRET", "a".repeat(64));
+
+    expect(hashOtpCode("123456", "0712345678")).toMatch(/^[0-9a-f]{64}$/);
   });
 });
