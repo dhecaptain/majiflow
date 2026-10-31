@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { clampQuantity, sanitizeCartLines, type CartLine } from "@/lib/cart";
+import { cartLineKey, clampQuantity, sanitizeCartLines, type CartLine } from "@/lib/cart";
 
 export type { CartLine };
 
@@ -19,9 +19,13 @@ interface CartContextValue {
   count: number;
   /** False until the saved cart has been read, so pages don't flash an empty state. */
   hydrated: boolean;
+  /**
+   * Add a line. The cart holds one station at a time: adding from a different
+   * station starts a new order and replaces what was there.
+   */
   addItem: (line: CartLine) => void;
-  updateQuantity: (businessId: string, productId: string, quantity: number) => void;
-  removeItem: (businessId: string, productId: string) => void;
+  updateQuantity: (line: CartLine, quantity: number) => void;
+  removeItem: (line: CartLine) => void;
   clear: () => void;
 }
 
@@ -59,36 +63,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const quantity = clampQuantity(line.quantity);
       if (quantity <= 0) return prev;
-      const existing = prev.find(
-        (i) => i.businessId === line.businessId && i.productId === line.productId
-      );
+      // One station per order: an item from another station starts a new
+      // order, so the cart never mixes two stations' items.
+      const sameStation = prev.every((i) => i.businessId === line.businessId);
+      const base = sameStation ? prev : [];
+      const key = cartLineKey(line);
+      const existing = base.find((i) => cartLineKey(i) === key);
       if (existing) {
-        return prev.map((i) =>
+        return base.map((i) =>
           i === existing ? { ...i, quantity: clampQuantity(i.quantity + quantity) } : i
         );
       }
-      return [...prev, { businessId: line.businessId, productId: line.productId, quantity }];
+      return [...base, { ...line, quantity }];
     });
   }, []);
 
-  const updateQuantity = useCallback(
-    (businessId: string, productId: string, next: number) => {
-      const quantity = clampQuantity(next);
-      setItems((prev) =>
-        quantity <= 0
-          ? prev.filter((i) => !(i.businessId === businessId && i.productId === productId))
-          : prev.map((i) =>
-              i.businessId === businessId && i.productId === productId ? { ...i, quantity } : i
-            )
-      );
-    },
-    []
-  );
-
-  const removeItem = useCallback((businessId: string, productId: string) => {
+  const updateQuantity = useCallback((line: CartLine, next: number) => {
+    const quantity = clampQuantity(next);
+    const key = cartLineKey(line);
     setItems((prev) =>
-      prev.filter((i) => !(i.businessId === businessId && i.productId === productId))
+      quantity <= 0
+        ? prev.filter((i) => cartLineKey(i) !== key)
+        : prev.map((i) => (cartLineKey(i) === key ? { ...i, quantity } : i))
     );
+  }, []);
+
+  const removeItem = useCallback((line: CartLine) => {
+    const key = cartLineKey(line);
+    setItems((prev) => prev.filter((i) => cartLineKey(i) !== key));
   }, []);
 
   const clear = useCallback(() => setItems([]), []);

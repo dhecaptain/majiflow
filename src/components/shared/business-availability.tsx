@@ -27,15 +27,15 @@ export function useBusinessAvailability(hours: WeeklyOperatingHours | undefined)
 }
 
 const stateStyles = {
-  open: "bg-emerald-50 text-emerald-700",
-  closed: "bg-rose-50 text-rose-700",
-  unknown: "bg-amber-50 text-amber-800",
+  open: "bg-success-soft text-success",
+  closed: "bg-danger-soft text-danger",
+  unknown: "bg-warning-soft text-warning",
 };
 
 const stateText = {
-  open: "text-emerald-600",
-  closed: "text-rose-600",
-  unknown: "text-amber-700",
+  open: "text-success",
+  closed: "text-danger",
+  unknown: "text-warning",
 };
 
 export function BusinessAvailability({

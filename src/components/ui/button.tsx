@@ -18,11 +18,11 @@ const buttonVariants = cva(
         default:
           "bg-[var(--brand)] text-white shadow-accent hover:shadow-[0_16px_44px_-10px_rgba(0,87,230,0.6)] hover:-translate-y-0.5 active:translate-y-0",
         secondary:
-          "border border-border bg-white text-foreground shadow-card hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5",
+          "border border-border bg-card text-foreground shadow-card hover:border-border hover:bg-muted hover:-translate-y-0.5",
         outline:
-          "border border-[var(--brand)]/40 text-[var(--brand)] bg-transparent hover:border-[var(--brand)] hover:bg-transparent/5",
+          "border border-[var(--brand)]/40 text-[var(--brand)] bg-transparent hover:border-[var(--brand)] hover:bg-brand/5",
         danger:
-          "bg-red-600 text-white shadow-soft hover:bg-[#991b1b] hover:-translate-y-0.5 active:translate-y-0",
+          "bg-danger text-white shadow-soft hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0",
         ghost: "text-foreground hover:bg-muted",
         dark: "bg-white text-ink hover:bg-slate-100 hover:-translate-y-0.5 shadow-card",
         link: "text-[var(--brand)] underline-offset-4 hover:underline",

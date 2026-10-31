@@ -118,7 +118,7 @@ export function BusinessCustomers() {
               onClick={() => setTab(t.id)}
               className={cn(
                 "shrink-0 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors",
-                tab === t.id ? "bg-transparent/8 text-[var(--brand)]" : "text-muted-foreground hover:text-foreground"
+                tab === t.id ? "bg-brand/10 text-[var(--brand)]" : "text-muted-foreground hover:text-foreground"
               )}
               aria-pressed={tab === t.id}
             >
@@ -182,7 +182,7 @@ export function BusinessCustomers() {
       </section>
 
       {filtered.some((c) => c.status === "dormant") && (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/25 bg-transparent/10 p-5">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/25 bg-warning/10 p-5">
           <Users className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
           <p className="text-sm leading-relaxed text-foreground/85">
             {filtered.filter((c) => c.status === "dormant").length} of these customers last ordered more than{" "}

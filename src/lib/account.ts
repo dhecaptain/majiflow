@@ -1,4 +1,11 @@
-import type { Business, DeliveryAddress, Order, OrderStatus, PaymentState } from "@/lib/types";
+import type {
+  Business,
+  DeliveryAddress,
+  FulfillmentMethod,
+  Order,
+  OrderStatus,
+  PaymentState,
+} from "@/lib/types";
 import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 
 /**
@@ -26,6 +33,10 @@ export interface CustomerPreferences {
   /** Consent to offers and refill reminders; stored for when they ship. */
   marketing: boolean;
   notificationsReadAt: string | null;
+  /** Delivery or pickup, so the next visit resumes the same choice. */
+  fulfilment: FulfillmentMethod | null;
+  /** Station the customer ordered from last, so we can preselect it. */
+  lastStationId: string | null;
 }
 
 export interface CustomerAccountProfile {
@@ -139,6 +150,8 @@ export interface ReorderLine {
   businessId: string;
   productId: string;
   quantity: number;
+  /** The option the original order used, so the reorder keeps the same choice. */
+  optionId?: string;
 }
 
 export interface ReorderPlan {
@@ -179,10 +192,21 @@ export function planReorder(order: Order, catalog: Business[], now = new Date())
     if (quantity < item.quantity) {
       skipped.push({ name: product.name, reason: `Only ${product.stock} available` });
     }
-    if (Math.abs(product.price - item.unitPrice) > 0.001) {
-      priceChanges.push({ name: product.name, from: item.unitPrice, to: product.price });
+    // Re-pricing keeps the choice the customer made, so a can swap is compared
+    // against the same option's price today.
+    const option = item.optionId
+      ? product.options?.find((candidate) => candidate.id === item.optionId)
+      : undefined;
+    const currentPrice = product.price + (option?.priceDelta ?? 0);
+    if (Math.abs(currentPrice - item.unitPrice) > 0.001) {
+      priceChanges.push({ name: product.name, from: item.unitPrice, to: currentPrice });
     }
-    lines.push({ businessId: business.id, productId: product.id, quantity });
+    lines.push({
+      businessId: business.id,
+      productId: product.id,
+      quantity,
+      ...(item.optionId ? { optionId: item.optionId } : {}),
+    });
   }
 
   if (lines.length === 0) return { error: "None of the items from this order are available right now." };

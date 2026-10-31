@@ -7,7 +7,7 @@ import type {
   ReorderPlan,
   SavedAddress,
 } from "@/lib/account";
-import type { DeliveryAddress, Order } from "@/lib/types";
+import type { DeliveryAddress, FulfillmentMethod, Order } from "@/lib/types";
 
 /**
  * Browser client for `/api/account/*`. Every call resolves to a result the
@@ -102,6 +102,9 @@ export const accountApi = {
     request<{ events: AccountEvent[]; unread: number; preferences: CustomerPreferences }>("/notifications"),
   updatePreferences: (input: Partial<Pick<CustomerPreferences, "orderUpdates" | "marketing">>) =>
     request<{ preferences: CustomerPreferences }>("/notifications", json("PATCH", input)),
+  preferences: () => request<{ preferences: CustomerPreferences }>("/preferences"),
+  updateOrderContext: (input: { fulfilment?: FulfillmentMethod; lastStationId?: string | null }) =>
+    request<{ preferences: CustomerPreferences }>("/preferences", json("PATCH", input)),
   markNotificationsRead: () => request<{ preferences: CustomerPreferences }>("/notifications/read", json("POST")),
 
   deleteAccount: (password: string) => request<{ deleted: true }>("", json("DELETE", { password })),

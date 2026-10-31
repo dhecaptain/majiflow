@@ -72,7 +72,7 @@ export default function About() {
               <SectionHeading align="left" label="Why we exist" title="Local water, better tools." />
               <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground">
                 We build what a refill station needs: a page for products and prices, a cart that
-                totals delivery per station, and a dashboard for orders and analytics.
+                shows the delivery fee of that station, and a dashboard for orders and analytics.
               </p>
               <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
                 MajiFlow connects customers with independent stations across Kenya, so the water you
@@ -83,7 +83,7 @@ export default function About() {
               {values.map((v) => (
                 <StaggerItem key={v.title}>
                   <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-6 shadow-card">
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-neutral-100 text-black">
+                    <span className="flex size-10 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
                       <v.icon className="size-5" aria-hidden />
                     </span>
                     <h3 className="mt-4 font-semibold text-foreground">{v.title}</h3>
@@ -111,7 +111,7 @@ export default function About() {
               <StaggerItem key={t.marker}>
                 <div className="relative flex gap-6 pb-14 last:pb-0">
                   <div className="flex flex-col items-center">
-                    <span className="z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 font-mono text-[11px] font-bold text-black">
+                    <span className="z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-cta-soft font-mono text-[11px] font-bold text-[var(--brand)]">
                       {t.marker}
                     </span>
                     {t !== timeline[timeline.length - 1] && (

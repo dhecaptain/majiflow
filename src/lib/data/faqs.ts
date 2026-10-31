@@ -9,14 +9,14 @@ export const faqs: Faq[] = [
     group: "customers",
     question: "How do I order water?",
     answer:
-      "Choose your location, pick a refill station, add cans or bottles to your cart and continue to checkout. You see the delivery fee for each station before you pay, and your order can be tracked from placed to delivered.",
+      "Choose your location, pick a refill station, add cans or bottles to your cart and continue to checkout. You see the delivery fee before you pay, and your order can be tracked from placed to delivered.",
   },
   {
     id: "f2",
     group: "customers",
     question: "What does delivery cost?",
     answer:
-      "Each station sets its own delivery fee and free-delivery minimum, and both are shown on the station page and in your cart before you order. A cart with items from two stations is charged each station's fee separately, and each station's minimum applies to its own items only.",
+      "Each station sets its own delivery fee and free-delivery minimum, and both are shown on the station page and in your cart before you order. You order from one station at a time, so the fee and the minimum that apply are the ones shown for that station.",
   },
   {
     id: "f3",

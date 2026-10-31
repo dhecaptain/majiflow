@@ -22,7 +22,7 @@ export function StationAvailabilityNotice({ business, className }: { business: B
       role="status"
       className={cn(
         "flex items-start gap-3 rounded-2xl border p-4 text-sm",
-        closed ? "border-rose-200 bg-rose-50 text-rose-900" : "border-amber-200 bg-amber-50 text-amber-900",
+        closed ? "border-danger/25 bg-danger-soft text-danger" : "border-warning/25 bg-warning-soft text-warning",
         className
       )}
     >
@@ -47,11 +47,11 @@ export function StationCartBar({ business }: { business: Business }) {
   const here = cart.orderable.filter((l) => l.business?.id === business.id);
   if (here.length === 0) return null;
   const count = here.reduce((n, l) => n + l.line.quantity, 0);
-  const subtotal = here.reduce((sum, l) => sum + lineSubtotal(l.product!.price, l.line.quantity), 0);
+  const subtotal = here.reduce((sum, l) => sum + lineSubtotal(l.unitPrice, l.line.quantity), 0);
   const otherStations = new Set(cart.orderable.map((l) => l.business?.id).filter((id) => id !== business.id)).size;
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3 lg:bottom-6">
+    <div className="fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 px-3 lg:bottom-6">
       <div
         role="region"
         aria-label="Your cart from this station"

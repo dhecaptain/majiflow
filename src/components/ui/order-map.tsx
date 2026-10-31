@@ -140,9 +140,9 @@ function applyCustomer(
       .bindTooltip("Customer · live", { direction: "top", offset: [0, -10] });
     const circle = L.circle(latlng, {
       radius: location.accuracy ?? 25,
-      color: "#16A34A",
+      color: "var(--success)",
       weight: 1,
-      fillColor: "#16A34A",
+      fillColor: "var(--success)",
       fillOpacity: 0.12,
     }).addTo(map);
     customerRef.current = { marker, circle };

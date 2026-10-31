@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import type { BusinessProduct, WeeklyOperatingHours } from "@/lib/types";
 import { formatKES } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useMotionSafe } from "@/lib/motion";
 import { BlurImage } from "@/components/ui/blur-image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,7 @@ export function ProductCard({ product, businessId, businessSlug, openingHours, c
   const { items, addItem, updateQuantity } = useCart();
   const cartUi = useOptionalCartUi();
   const { toast } = useToast();
+  const { reduce } = useMotionSafe();
   const availability = useBusinessAvailability(openingHours);
   const fly = useFlyToCart();
   const [flying, setFlying] = useState(false);
@@ -51,12 +54,19 @@ export function ProductCard({ product, businessId, businessSlug, openingHours, c
   const href = itemHref(businessSlug, product.id);
   const max = maxOrderQuantity(product);
   const soldOut = max === 0;
+  // A product with choices is always opened in the sheet: the customer picks
+  // the option there, so a quick tap can never add the wrong one.
+  const hasOptions = (product.options?.length ?? 0) > 0;
   const closed = availability.state !== "open";
   const closedLabel =
     availability.state === "closed" ? "Station closed" : "Hours unavailable";
 
   const handleAdd = () => {
     if (closed || soldOut) return;
+    if (hasOptions) {
+      onOpen?.(product);
+      return;
+    }
     const add = () => {
       const line = { businessId, productId: product.id, quantity: 1 };
       if (cartUi) cartUi.requestAdd(line);
@@ -156,35 +166,74 @@ export function ProductCard({ product, businessId, businessSlug, openingHours, c
             onClick={() => onOpen?.(product)}
             className="text-xs font-semibold text-[var(--brand)] hover:underline"
           >
-            View options
+            {hasOptions ? "Choose an option" : "View options"}
           </button>
 
+          <AnimatePresence mode="wait" initial={false}>
           {soldOut ? (
-            <span className="text-xs font-medium text-muted-foreground">Out of stock</span>
+            <Swap key="sold-out" reduce={reduce} className="text-xs font-medium text-muted-foreground">
+              Out of stock
+            </Swap>
           ) : closed ? (
-            <span className="text-xs font-medium text-muted-foreground">{closedLabel}</span>
+            <Swap key="closed" reduce={reduce} className="text-xs font-medium text-muted-foreground">
+              {closedLabel}
+            </Swap>
           ) : cartItem ? (
-            <QuantityStepper
-              value={cartItem.quantity}
-              min={0}
-              max={max}
-              label={product.name}
-              size="sm"
-              onChange={(n) => updateQuantity(businessId, product.id, n)}
-            />
+            hasOptions ? (
+              <Swap key="in-order" reduce={reduce} className="text-xs font-semibold text-[var(--brand)]">
+                {cartItem.quantity} in order
+              </Swap>
+            ) : (
+              <Swap key="stepper" reduce={reduce} inline={false}>
+                <QuantityStepper
+                  value={cartItem.quantity}
+                  min={0}
+                  max={max}
+                  label={product.name}
+                  size="sm"
+                  onChange={(n) => updateQuantity(cartItem, n)}
+                />
+              </Swap>
+            )
           ) : (
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={flying}
-              aria-label={`Add ${product.name} to order`}
-              className="flex size-11 items-center justify-center rounded-full bg-[var(--brand)] text-white shadow-accent transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
-            >
-              <Plus className="size-6" aria-hidden />
-            </button>
+            <Swap key="plus" reduce={reduce} inline={false}>
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={flying}
+                aria-label={`Add ${product.name} to order`}
+                className="flex size-11 items-center justify-center rounded-full bg-[var(--brand)] text-white shadow-accent transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
+              >
+                <Plus className="size-6" aria-hidden />
+              </button>
+            </Swap>
           )}
+          </AnimatePresence>
         </div>
       </div>
     </Card>
   );
+}
+
+/** One state of the add/stepper slot; AnimatePresence cross-fades between states. */
+function Swap({
+  reduce,
+  inline = true,
+  className,
+  children,
+}: {
+  reduce: boolean;
+  inline?: boolean;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const hidden = reduce ? undefined : { opacity: 0, scale: 0.85 };
+  const props = {
+    initial: reduce ? false : hidden,
+    animate: { opacity: 1, scale: 1 },
+    exit: hidden ?? { opacity: 0 },
+    transition: reduce ? { duration: 0 } : { duration: 0.18 },
+    className: cn("inline-flex items-center", className),
+  };
+  return inline ? <motion.span {...props}>{children}</motion.span> : <motion.div {...props}>{children}</motion.div>;
 }

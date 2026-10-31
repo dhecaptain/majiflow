@@ -141,7 +141,7 @@ export function RiderDelivery({ token }: { token: string }) {
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <a
               href={`tel:${order.customerPhone}`}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-slate-50"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-muted"
               aria-label={`Call ${order.customerName} on ${formatPhone(order.customerPhone)}`}
             >
               <Phone className="size-4" aria-hidden /> Call customer
@@ -150,7 +150,7 @@ export function RiderDelivery({ token }: { token: string }) {
               href={mapsUrl(order)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-slate-50"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-muted"
             >
               <Navigation className="size-4" aria-hidden /> Directions
             </a>

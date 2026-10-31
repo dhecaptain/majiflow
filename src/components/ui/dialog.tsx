@@ -69,7 +69,7 @@ export function Dialog({ open, onClose, title, description, children, className 
           transition={overlayTransition}
         >
           <div
-            className="absolute inset-0 bg-transparent/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
             onClick={onClose}
             aria-hidden
           />

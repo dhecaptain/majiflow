@@ -194,6 +194,162 @@ describe("validateOrder", () => {
   });
 });
 
+describe("validateOrder - product options", () => {
+  /** BioWater's refill: 350 base, swapping the empty can costs 50 less. */
+  const swapEmpty = { productId: "bw-refill-20", name: "Refill - 20L can", quantity: 2, optionId: "swap-empty", unitPrice: 300 };
+
+  it("prices the chosen option from the catalog and keeps its label", () => {
+    const { order, errors } = validateOrder(
+      validPayload({ items: [swapEmpty], subtotal: 600, deliveryFee: 120, total: 720 })
+    );
+    expect(errors).toBeUndefined();
+    expect(order?.items[0]).toMatchObject({
+      productId: "bw-refill-20",
+      unitPrice: 300,
+      optionId: "swap-empty",
+      optionLabel: "Hand back your empty can",
+      deposit: 0,
+    });
+    expect(order?.subtotal).toBe(600);
+    expect(order?.total).toBe(720);
+  });
+
+  it("collects the refundable deposit of the chosen option and adds it to the total", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [
+          {
+            productId: "bw-refill-20",
+            name: "Refill - 20L can",
+            quantity: 1,
+            optionId: "new-can",
+            unitPrice: 350,
+          },
+        ],
+        subtotal: 350,
+        deposit: 350,
+        deliveryFee: 120,
+        total: 820,
+      })
+    );
+    expect(errors).toBeUndefined();
+    expect(order?.deposit).toBe(350);
+    expect(order?.items[0]).toMatchObject({ optionId: "new-can", deposit: 350 });
+    expect(order?.total).toBe(820);
+  });
+
+  it("rejects a deposit that doesn't match the catalog", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [
+          {
+            productId: "bw-refill-20",
+            name: "Refill - 20L can",
+            quantity: 1,
+            optionId: "new-can",
+            unitPrice: 350,
+          },
+        ],
+        subtotal: 350,
+        deposit: 1,
+        deliveryFee: 120,
+        total: 471,
+      })
+    );
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("deposit");
+  });
+
+  it("rejects a choice the station doesn't offer", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [
+          {
+            productId: "bw-refill-20",
+            name: "Refill - 20L can",
+            quantity: 1,
+            optionId: "not-a-real-option",
+            unitPrice: 350,
+          },
+        ],
+        subtotal: 350,
+        total: 470,
+      })
+    );
+    expect(order).toBeUndefined();
+    expect(errors?.items).toMatch(/no longer available/);
+  });
+
+  it("rejects a quantity above the stock of the chosen option", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        items: [
+          {
+            productId: "bw-dispenser",
+            name: "Dispenser rental",
+            quantity: 9,
+            optionId: "with-can",
+            unitPrice: 950,
+          },
+        ],
+        subtotal: 8550,
+        total: 8670,
+      })
+    );
+    expect(order).toBeUndefined();
+    expect(errors?.items).toMatch(/Only 6/);
+  });
+});
+
+describe("validateOrder - fulfilment", () => {
+  it("charges nothing to collect and uses the station's own address", () => {
+    const { order, errors } = validateOrder(
+      validPayload({ fulfilment: "pickup", deliveryFee: 0, total: 700, address: undefined })
+    );
+    expect(errors).toBeUndefined();
+    expect(order?.fulfilment).toBe("pickup");
+    expect(order?.deliveryFee).toBe(0);
+    expect(order?.total).toBe(700);
+    expect(order?.address.estate).toBe("BioWater Refill Station");
+    expect(order?.address.phone).toBe("0712345678");
+  });
+
+  it("rejects a delivery fee on a collected order", () => {
+    const { order, errors } = validateOrder(validPayload({ fulfilment: "pickup", deliveryFee: 120, total: 820 }));
+    expect(order).toBeUndefined();
+    expect(errors).toHaveProperty("deliveryFee");
+  });
+
+  it("rejects an unknown fulfilment method", () => {
+    const { errors } = validateOrder(validPayload({ fulfilment: "drone" }));
+    expect(errors?.fulfilment).toMatch(/delivery or pickup/i);
+  });
+
+  it("accepts a delivery order pinned on the map without an area name", () => {
+    const { order, errors } = validateOrder(
+      validPayload({
+        address: { label: "Map pin", phone: "0712345678", lat: -1.2833, lng: 36.8167 },
+      })
+    );
+    expect(errors).toBeUndefined();
+    expect(order?.address.estate).toBe("Pinned location");
+    expect(order?.address.lat).toBe(-1.2833);
+  });
+
+  it("accepts a free-text area name for delivery", () => {
+    const { order, errors } = validateOrder(
+      validPayload({ address: { label: "Home", estate: "Kibera 2", phone: "0712345678" } })
+    );
+    expect(errors).toBeUndefined();
+    expect(order?.address.estate).toBe("Kibera 2");
+  });
+
+  it("asks for an area or a pin when neither is given", () => {
+    const { errors } = validateOrder(validPayload({ address: { label: "Home", phone: "0712345678" } }));
+    expect(errors?.estate).toMatch(/area or drop a pin/);
+  });
+});
+
 describe("createOrder idempotency", () => {
   it("returns the existing order for a duplicate submit instead of a second order", async () => {
     const { order } = validateOrder(validPayload());

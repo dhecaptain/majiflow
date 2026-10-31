@@ -114,7 +114,7 @@ export function AdminOverview() {
         {kpis.map((k) => (
           <StaggerItem key={k.label}>
             <div className="h-full rounded-2xl border border-border bg-card p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-layered">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-neutral-100 text-black">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-cta-soft text-[var(--brand)]">
                 <k.icon className="size-4.5" aria-hidden />
               </span>
               <p className="mt-3 font-display text-2xl text-foreground">{k.value}</p>

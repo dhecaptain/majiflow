@@ -1,7 +1,6 @@
-import Link from "next/link";
 import Image from "next/image";
 import waterCansBg from "@/assets/images/hero/water-cans-bg.webp";
-import { Button } from "@/components/ui/button";
+import { SendWaterTrigger } from "@/components/order/send-water-trigger";
 
 export function GiftBanner() {
   return (
@@ -15,11 +14,9 @@ export function GiftBanner() {
           <p className="max-w-[520px] text-white/90">
             Send fresh water to someone’s door. A simple, thoughtful way to care for family and friends.
           </p>
-          <Link href="/browse">
-            <Button size="lg" className="rounded-full" style={{ backgroundColor: "var(--brand)" }}>
-              Send water
-            </Button>
-          </Link>
+          <SendWaterTrigger size="lg" className="rounded-full" style={{ backgroundColor: "var(--brand)" }}>
+            Send water
+          </SendWaterTrigger>
         </div>
       </div>
     </section>

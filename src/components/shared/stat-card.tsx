@@ -45,7 +45,7 @@ export function StatCard({
     >
       <div
         className={cn(
-          "flex size-11 items-center justify-center rounded-xl bg-transparent text-black shadow-accent",
+          "flex size-11 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)] shadow-soft",
           "transition-transform duration-300 group-hover:scale-110"
         )}
       >
@@ -68,7 +68,7 @@ export function StatCard({
           <p
             className={cn(
               "text-sm",
-              tone === "light" ? "text-muted-foreground" : "text-slate-400"
+              tone === "light" ? "text-muted-foreground" : "text-white/60"
             )}
           >
             {label}

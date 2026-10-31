@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono, Pacifico, Poppins } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { Footer } from "@/components/footer/site-footer";
 import { PwaRegister } from "@/components/pwa-register";
 import { SplashLoader } from "@/components/motion/splash-loader";
 import { TopProgressBar } from "@/components/motion/top-progress-bar";
@@ -26,6 +27,21 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
   weight: ["500", "600"],
+});
+
+const wordmark = Poppins({
+  variable: "--font-wordmark",
+  subsets: ["latin"],
+  display: "swap",
+  weight: "800",
+  style: "italic",
+});
+
+const script = Pacifico({
+  variable: "--font-script",
+  subsets: ["latin"],
+  display: "swap",
+  weight: "400",
 });
 
 
@@ -104,7 +120,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${inter.variable} ${fraunces.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${fraunces.variable} ${jetbrainsMono.variable} ${wordmark.variable} ${script.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: splashGateScript }} />
@@ -142,6 +158,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
         <Providers>{children}</Providers>
+        <Footer />
         <PwaRegister />
         <TopProgressBar />
         <SplashLoader />

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import { ROUTE_PROGRESS } from "@/config/loader";
+import { usePrefersReducedMotion } from "@/lib/motion";
 
 type Phase = "idle" | "run" | "done" | "hide";
 
@@ -38,12 +39,20 @@ const variants: Variants = {
   },
 };
 
+const reducedVariants: Variants = {
+  idle: { scaleX: 0, opacity: 0 },
+  run: { scaleX: 1, opacity: 1, transition: { duration: 0 } },
+  done: { scaleX: 1, opacity: 1, transition: { duration: 0 } },
+  hide: { scaleX: 1, opacity: 0, transition: { duration: 0 } },
+};
+
 /**
  * Thin brand-coloured progress bar pinned to the top of the viewport, the way
  * YouTube and GitHub signal that a route is loading.
  */
 export function TopProgressBar() {
   const pathname = usePathname();
+  const reduce = usePrefersReducedMotion();
   const [phase, setPhase] = useState<Phase>("idle");
   const phaseRef = useRef<Phase>("idle");
   const timersRef = useRef<number[]>([]);
@@ -105,7 +114,7 @@ export function TopProgressBar() {
     <motion.div
       className="pointer-events-none fixed inset-x-0 top-0 z-[150] origin-left"
       style={{ height: ROUTE_PROGRESS.heightPx }}
-      variants={variants}
+      variants={reduce ? reducedVariants : variants}
       initial="idle"
       animate={phase}
       aria-hidden

@@ -1,10 +1,18 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { FulfillmentActor, Order, OrderConsent, OrderLocation, OrderStatus } from "@/lib/types";
+import type {
+  FulfillmentActor,
+  FulfillmentMethod,
+  Order,
+  OrderConsent,
+  OrderLocation,
+  OrderStatus,
+} from "@/lib/types";
 import { isActiveStatus, isTerminalStatus } from "@/lib/order-status";
 import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 import { computeCartTotals } from "@/lib/pricing";
 import { businesses } from "@/lib/data/businesses";
+import { normalizeKenyanPhone } from "@/lib/phone";
 
 /**
  * File-backed order store.
@@ -97,13 +105,7 @@ function cleanName(v: unknown): string | null {
 
 /** Normalize a Kenyan phone (+254…, 0…, 07…, bare 7…) to a canonical form. */
 export function normalizePhone(v: unknown): string | null {
-  if (typeof v !== "string") return null;
-  const digits = v.replace(/[\s()\-.]/g, "");
-  let local = digits;
-  if (local.startsWith("+254")) local = "0" + local.slice(4);
-  else if (local.startsWith("254")) local = "0" + local.slice(3);
-  if (!/^0\d{9}$/.test(local)) return null;
-  return local;
+  return normalizeKenyanPhone(v);
 }
 
 interface ValidationResult {
@@ -154,6 +156,17 @@ export function validateOrder(input: unknown): ValidationResult {
   if (typeof o.placedAt !== "string" || Number.isNaN(Date.parse(o.placedAt)))
     errors.placedAt = "Invalid order time.";
 
+  // Delivery or collection. A collected order is collected at the station, so
+  // it is never charged a delivery fee.
+  let fulfilment: FulfillmentMethod = "delivery";
+  if (o.fulfilment !== undefined && o.fulfilment !== null) {
+    if (o.fulfilment === "delivery" || o.fulfilment === "pickup") {
+      fulfilment = o.fulfilment;
+    } else {
+      errors.fulfilment = "Choose delivery or pickup.";
+    }
+  }
+
   // Items - verified against the authoritative station catalog, never trusted.
   if (!Array.isArray(o.items) || o.items.length === 0) {
     errors.items = "Add at least one item to your order.";
@@ -181,19 +194,41 @@ export function validateOrder(input: unknown): ValidationResult {
         break;
       }
       const quantity = Math.round(item.quantity);
-      if (quantity > catalog.stock) {
+      // The option is part of the product: the catalog decides the price, the
+      // deposit and how many of that choice are in stock. A request that names
+      // no option is priced as the plain product, so an older cart still works.
+      const optionId = typeof item.optionId === "string" ? item.optionId.trim() : "";
+      const option = optionId
+        ? catalog.options?.find((candidate) => candidate.id === optionId)
+        : undefined;
+      if (optionId && !option) {
+        errors.items = `That choice for ${catalog.name} is no longer available - refresh your cart.`;
+        break;
+      }
+      const optionStock = option?.stock ?? catalog.stock;
+      if (quantity > optionStock) {
         errors.items =
-          catalog.stock <= 0
-            ? `${catalog.name} is out of stock right now.`
-            : `Only ${catalog.stock} × ${catalog.name} left - lower the quantity.`;
+          optionStock <= 0
+            ? option
+              ? `That choice of ${catalog.name} is out of stock right now.`
+              : `${catalog.name} is out of stock right now.`
+            : `Only ${optionStock} × ${catalog.name} left - lower the quantity.`;
         break;
       }
       // The client echoes a price for display, but the catalog decides.
-      if (!isFiniteNumber(item.unitPrice) || Math.abs(item.unitPrice - catalog.price) > 0.001) {
+      const unitPrice = catalog.price + (option?.priceDelta ?? 0);
+      if (!isFiniteNumber(item.unitPrice) || Math.abs(item.unitPrice - unitPrice) > 0.001) {
         errors.items = `The price of ${catalog.name} changed - refresh your cart to continue.`;
         break;
       }
-      items.push({ productId: catalog.id, name: catalog.name, quantity, unitPrice: catalog.price });
+      const deposit = option?.deposit ?? 0;
+      items.push({
+        productId: catalog.id,
+        name: catalog.name,
+        quantity,
+        unitPrice,
+        ...(option ? { optionId: option.id, optionLabel: option.label, deposit } : {}),
+      });
     }
   }
 
@@ -202,63 +237,100 @@ export function validateOrder(input: unknown): ValidationResult {
   // carts, fee tampering, and cross-station mixing out.
   const authoritative = business
     ? computeCartTotals(
-        items.map((line) => ({ businessId: business.id, quantity: line.quantity, unitPrice: line.unitPrice })),
-        [{ id: business.id, deliveryFee: business.deliveryFee, freeDeliveryAbove: business.freeDeliveryAbove }]
+        items.map((line) => ({
+          businessId: business.id,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          deposit: line.deposit,
+        })),
+        [
+          {
+            id: business.id,
+            // A collected order is collected at the station: no delivery fee.
+            deliveryFee: fulfilment === "pickup" ? 0 : business.deliveryFee,
+            freeDeliveryAbove: fulfilment === "pickup" ? 0 : business.freeDeliveryAbove,
+          },
+        ]
       )
     : null;
   const subtotal = authoritative?.subtotal ?? 0;
   const fee = authoritative?.deliveryFee ?? 0;
+  const depositTotal = authoritative?.deposit ?? 0;
   const total = authoritative?.total ?? 0;
   if (!authoritative || !isFiniteNumber(o.subtotal) || Math.abs(o.subtotal - subtotal) > 0.001)
     errors.subtotal = "Subtotal doesn't match the current catalog - refresh and retry.";
   if (!isFiniteNumber(o.deliveryFee) || Math.abs((o.deliveryFee as number) - fee) > 0.001)
     errors.deliveryFee = "Delivery fee is set by the station - refresh and retry.";
+  if (o.deposit !== undefined && (!isFiniteNumber(o.deposit) || Math.abs((o.deposit as number) - depositTotal) > 0.001))
+    errors.deposit = "The refundable deposit doesn't match the catalog - refresh and retry.";
   if (!isFiniteNumber(o.total) || Math.abs(o.total - total) > 0.001)
     errors.total = "Total doesn't match - refresh and retry.";
 
-  // Address
-  if (typeof o.address !== "object" || o.address === null) {
-    errors.address = "Delivery address is required.";
-  }
+  // Address. A collected order is collected at the station, so the station's
+  // own address is used; a delivered order needs the area the customer gave
+  // us - free text or a pinned spot, whichever they chose.
   let address: Order["address"] | undefined;
-  if (typeof o.address === "object" && o.address !== null) {
-    const a = o.address as Record<string, unknown>;
-    const estate = typeof a.estate === "string" ? a.estate.trim() : "";
-    const phone = normalizePhone(a.phone);
-    if (!estate) errors.estate = "Choose a recognised estate - riders use these to navigate.";
-    if (!phone) errors.phone = "Enter the phone the rider should call.";
-    if (estate.length > MAX_LEN.estate) errors.estate = "That estate name is too long.";
-    address = {
-      label: typeof a.label === "string" && a.label.trim() ? a.label.slice(0, 40) : "Delivery",
-      estate,
-      street: typeof a.street === "string" ? a.street.slice(0, MAX_LEN.estate) : undefined,
-      city:
-        typeof a.city === "string" && a.city.trim()
-          ? a.city.trim().slice(0, MAX_LEN.city)
-          : undefined,
-      landmark:
-        typeof a.landmark === "string" && a.landmark.trim()
-          ? a.landmark.trim().slice(0, MAX_LEN.landmark)
-          : undefined,
-      building:
-        typeof a.building === "string" && a.building.trim()
-          ? a.building.trim().slice(0, MAX_LEN.building)
-          : undefined,
-      floor:
-        typeof a.floor === "string" && a.floor.trim() ? a.floor.trim().slice(0, MAX_LEN.floor) : undefined,
-      notes:
-        typeof a.notes === "string" && a.notes.trim()
-          ? a.notes.trim().slice(0, MAX_LEN.notes)
-          : undefined,
-      phone: phone ?? "",
-      lat: isFiniteNumber(a.lat) && a.lat >= -90 && a.lat <= 90 ? a.lat : undefined,
-      lng: isFiniteNumber(a.lng) && a.lng >= -180 && a.lng <= 180 ? a.lng : undefined,
-      accuracy: isFiniteNumber(a.accuracy) && a.accuracy >= 0 ? a.accuracy : undefined,
-      locationAt:
-        typeof a.locationAt === "string" && !Number.isNaN(Date.parse(a.locationAt))
-          ? a.locationAt
-          : undefined,
-    };
+  if (fulfilment === "pickup") {
+    if (!business) {
+      errors.address = "We can't find that station to collect from.";
+    } else {
+      address = {
+        label: "Pickup",
+        estate: business.name,
+        city: business.city,
+        notes: `Collect from ${business.name}`,
+        phone: customerPhone ?? "",
+        lat: business.lat,
+        lng: business.lng,
+      };
+    }
+  } else {
+    if (typeof o.address !== "object" || o.address === null) {
+      errors.address = "Delivery address is required.";
+    }
+    if (typeof o.address === "object" && o.address !== null) {
+      const a = o.address as Record<string, unknown>;
+      const estate = typeof a.estate === "string" ? a.estate.trim() : "";
+      const phone = normalizePhone(a.phone);
+      const lat = isFiniteNumber(a.lat) && a.lat >= -90 && a.lat <= 90 ? a.lat : undefined;
+      const lng = isFiniteNumber(a.lng) && a.lng >= -180 && a.lng <= 180 ? a.lng : undefined;
+      const pinned = lat !== undefined && lng !== undefined;
+      if (!estate && !pinned)
+        errors.estate = "Tell us your area or drop a pin so the rider can find you.";
+      if (!phone) errors.phone = "Enter the phone the rider should call.";
+      if (estate.length > MAX_LEN.estate) errors.estate = "That area name is too long.";
+      address = {
+        label: typeof a.label === "string" && a.label.trim() ? a.label.slice(0, 40) : "Delivery",
+        estate: estate || (pinned ? "Pinned location" : ""),
+        street: typeof a.street === "string" ? a.street.slice(0, MAX_LEN.estate) : undefined,
+        city:
+          typeof a.city === "string" && a.city.trim()
+            ? a.city.trim().slice(0, MAX_LEN.city)
+            : undefined,
+        landmark:
+          typeof a.landmark === "string" && a.landmark.trim()
+            ? a.landmark.trim().slice(0, MAX_LEN.landmark)
+            : undefined,
+        building:
+          typeof a.building === "string" && a.building.trim()
+            ? a.building.trim().slice(0, MAX_LEN.building)
+            : undefined,
+        floor:
+          typeof a.floor === "string" && a.floor.trim() ? a.floor.trim().slice(0, MAX_LEN.floor) : undefined,
+        notes:
+          typeof a.notes === "string" && a.notes.trim()
+            ? a.notes.trim().slice(0, MAX_LEN.notes)
+            : undefined,
+        phone: phone ?? "",
+        lat,
+        lng,
+        accuracy: isFiniteNumber(a.accuracy) && a.accuracy >= 0 ? a.accuracy : undefined,
+        locationAt:
+          typeof a.locationAt === "string" && !Number.isNaN(Date.parse(a.locationAt))
+            ? a.locationAt
+            : undefined,
+      };
+    }
   }
 
   if (Object.keys(errors).length > 0) return { errors };
@@ -277,12 +349,15 @@ export function validateOrder(input: unknown): ValidationResult {
     items,
     subtotal,
     deliveryFee: fee,
+    deposit: depositTotal,
     total,
+    fulfilment,
     pricingSnapshot: {
       verifiedAt,
       items: items.map((line) => ({ ...line })),
       subtotal,
       deliveryFee: fee,
+      deposit: depositTotal,
       total,
     },
     payment: o.payment as Order["payment"],

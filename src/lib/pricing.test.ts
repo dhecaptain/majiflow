@@ -52,8 +52,8 @@ describe("computeCartTotals", () => {
     expect(totals.deliveryFee).toBe(200);
     expect(totals.total).toBe(1380);
     expect(totals.groups).toEqual([
-      { businessId: "bio", subtotal: 700, deliveryFee: 120, total: 820 },
-      { businessId: "tru", subtotal: 480, deliveryFee: 80, total: 560 },
+      { businessId: "bio", subtotal: 700, deliveryFee: 120, deposit: 0, total: 820 },
+      { businessId: "tru", subtotal: 480, deliveryFee: 80, deposit: 0, total: 560 },
     ]);
   });
 
@@ -87,6 +87,7 @@ describe("computeCartTotals", () => {
     expect(computeCartTotals([], [BIO, TRU])).toEqual({
       subtotal: 0,
       deliveryFee: 0,
+      deposit: 0,
       total: 0,
       groups: [],
     });
@@ -96,5 +97,25 @@ describe("computeCartTotals", () => {
     const totals = computeCartTotals([{ businessId: "bio", quantity: 0, unitPrice: 350 }], [BIO]);
     expect(totals.deliveryFee).toBe(0);
     expect(totals.total).toBe(0);
+  });
+
+  it("collects refundable deposits on top of the item price", () => {
+    const totals = computeCartTotals(
+      [{ businessId: "bio", quantity: 2, unitPrice: 350, deposit: 350 }],
+      [BIO]
+    );
+    expect(totals.subtotal).toBe(700);
+    expect(totals.deposit).toBe(700);
+    expect(totals.deliveryFee).toBe(120);
+    expect(totals.total).toBe(1520);
+  });
+
+  it("never collects a deposit for a line without one", () => {
+    const totals = computeCartTotals(
+      [{ businessId: "bio", quantity: 2, unitPrice: 350, deposit: 0 }],
+      [BIO]
+    );
+    expect(totals.deposit).toBe(0);
+    expect(totals.total).toBe(820);
   });
 });

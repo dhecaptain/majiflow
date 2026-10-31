@@ -95,7 +95,7 @@ function teardrop(
   const { color, label = "", selected = false, closed = false } = opts;
   const w = selected ? 34 : 28;
   const h = selected ? 44 : 36;
-  const fill = closed ? "#94a3b8" : color;
+  const fill = closed ? "var(--map-pin-closed)" : color;
   const scale = selected ? "transform:scale(1.02);" : "";
   const halo = selected
     ? `<span style="position:absolute;left:50%;top:${h - 20}px;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:9999px;background:${fill};opacity:.18"></span>`
@@ -145,7 +145,7 @@ export const selectedStationPin = selectedPin;
 export function addressPin(L: LeafletNS, size = 14) {
   return L.divIcon({
     className: "",
-    html: dot("#64748b", size, "0 1px 4px rgba(0,0,0,.4)"),
+    html: dot("var(--muted-foreground)", size, "0 1px 4px rgba(0,0,0,.4)"),
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });

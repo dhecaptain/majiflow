@@ -20,6 +20,7 @@ import { isActiveStatus } from "@/lib/order-status";
 import { formatKES, formatPhone } from "@/lib/format";
 import type { Order, OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { OrderTotalsList } from "@/components/shared/order-totals";
 
 const STEPS: { status: OrderStatus; label: string; desc: string }[] = [
   { status: "accepted", label: "Order received", desc: "The station confirmed your order." },
@@ -134,7 +135,12 @@ export function TrackOrderPage({ id }: { id: string }) {
       children: <RefreshCcw className="size-5" aria-hidden />,
       onDone: () => {
         order.items.forEach((item) =>
-          addItem({ businessId: order.businessId, productId: item.productId, quantity: item.quantity })
+          addItem({
+            businessId: order.businessId,
+            productId: item.productId,
+            quantity: item.quantity,
+            ...(item.optionId ? { optionId: item.optionId } : {}),
+          })
         );
         toast({
           kind: "success",
@@ -150,7 +156,7 @@ export function TrackOrderPage({ id }: { id: string }) {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span className={cn("size-1.5 rounded-full animate-pulse-dot", cancelled ? "bg-foreground" : "bg-foreground")} />
+            <span className={cn("size-1.5 rounded-full animate-pulse-dot", cancelled ? "bg-danger" : "bg-foreground")} />
             Order tracking · {order.orderNumber}
           </p>
           <h1 className="mt-2 font-display text-3xl text-foreground sm:text-4xl">
@@ -166,7 +172,7 @@ export function TrackOrderPage({ id }: { id: string }) {
       </div>
 
       {cancelled && (
-        <div className="mb-10 flex items-start gap-4 rounded-2xl border border-danger/25 bg-transparent/10 p-6">
+        <div className="mb-10 flex items-start gap-4 rounded-2xl border border-danger/25 bg-danger/10 p-6">
           <XCircle className="mt-0.5 size-6 shrink-0 text-danger" aria-hidden />
           <div>
             <h2 className="font-display text-lg text-danger">
@@ -285,7 +291,7 @@ export function TrackOrderPage({ id }: { id: string }) {
               </p>
               <a
                 href={`tel:${rider.phone}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-slate-50"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-muted"
                 aria-label={`Call ${rider.name} on ${formatPhone(rider.phone)}`}
               >
                 <Phone className="size-4" aria-hidden /> {formatPhone(rider.phone)}
@@ -294,7 +300,7 @@ export function TrackOrderPage({ id }: { id: string }) {
           )}
 
           {order.status === "pending" && (
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-warning/25 bg-transparent/10 p-4">
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-warning/25 bg-warning/10 p-4">
               <Inbox className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
               <p className="text-sm leading-relaxed text-foreground/85">
                 {order.paymentState === "success" ? (
@@ -320,9 +326,12 @@ export function TrackOrderPage({ id }: { id: string }) {
             <h2 className="font-display text-lg text-foreground">Order details</h2>
             <ul className="mt-4 space-y-2.5">
               {order.items.map((item) => (
-                <li key={item.productId} className="flex items-center justify-between gap-3 text-sm">
+                <li key={`${item.productId}-${item.optionId ?? ""}`} className="flex items-center justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate text-muted-foreground">
                     {item.quantity} × {item.name}
+                    {item.optionLabel && (
+                      <span className="block text-xs font-medium text-[var(--brand)]">{item.optionLabel}</span>
+                    )}
                   </span>
                   <span className="shrink-0 font-semibold text-foreground">
                     {formatKES(item.unitPrice * item.quantity)}
@@ -330,22 +339,17 @@ export function TrackOrderPage({ id }: { id: string }) {
                 </li>
               ))}
             </ul>
-            <dl className="mt-4 space-y-1.5 border-t border-border pt-4 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Subtotal</dt>
-                <dd className="text-foreground">{formatKES(order.subtotal)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Delivery</dt>
-                <dd className="text-foreground">
-                  {order.deliveryFee === 0 ? "Free" : formatKES(order.deliveryFee)}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between border-t border-border pt-2">
-                <dt className="font-semibold text-foreground">Total</dt>
-                <dd className="font-display text-xl text-foreground">{formatKES(order.total)}</dd>
-              </div>
-            </dl>
+            <OrderTotalsList
+              totals={{
+                subtotal: order.subtotal,
+                deliveryFee: order.deliveryFee,
+                deposit: order.deposit ?? 0,
+                total: order.total,
+              }}
+              pickup={order.fulfilment === "pickup"}
+              className="mt-4 space-y-1.5 border-t border-border pt-4"
+              totalClassName="font-display text-xl"
+            />
             <div className="mt-4 flex items-center justify-between rounded-lg bg-muted/60 px-3.5 py-2.5">
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Smartphone className="size-4 text-[var(--brand)]" aria-hidden /> {order.payment === "mpesa" ? "M-Pesa" : "Card"}

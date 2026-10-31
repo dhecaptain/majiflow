@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 const fieldBase =
-  "w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-slate-400 shadow-soft transition-colors min-h-11 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[#dc2626]";
+  "w-full rounded-lg border border-border bg-card px-3.5 text-sm text-foreground placeholder:text-muted-foreground/70 shadow-soft transition-colors min-h-11 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;
@@ -60,7 +60,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       className={cn(fieldBase, "appearance-none bg-no-repeat pr-9", className)}
       style={{
         backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235a7391' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
         backgroundPosition: "right 0.75rem center",
       }}
       {...props}

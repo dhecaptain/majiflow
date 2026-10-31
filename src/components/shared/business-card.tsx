@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Star, Truck } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Star, Truck } from "lucide-react";
 import type { Business } from "@/lib/types";
 import { formatKES } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,12 @@ import { BusinessAvailability } from "@/components/shared/business-availability"
 interface BusinessCardProps {
   business: Business;
   className?: string;
+  variant?: "default" | "catalog";
   distanceKm?: number;
+  /** Rough minutes for a rider to reach the customer; falls back to the station average. */
+  etaMinutes?: number;
+  /** False when the station is close by but does not deliver to the customer yet. */
+  delivers?: boolean;
 }
 
 function formatDistanceKm(distanceKm: number): string {
@@ -23,8 +28,16 @@ function formatDistanceKm(distanceKm: number): string {
 export function BusinessCard({
   business,
   className,
+  variant = "default",
   distanceKm,
+  etaMinutes,
+  delivers = true,
 }: BusinessCardProps) {
+  const catalog = variant === "catalog";
+  const eta = typeof etaMinutes === "number" && Number.isFinite(etaMinutes)
+    ? etaMinutes
+    : business.avgDeliveryMinutes;
+  const hasRating = business.reviewCount > 0 && Number.isFinite(business.rating);
   return (
     <Link
       href={`/browse/${business.slug}`}
@@ -33,9 +46,14 @@ export function BusinessCard({
         className
       )}
     >
-      <Card className="flex h-full flex-col overflow-hidden border-border transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-layered">
+      <Card
+        className={cn(
+          "flex h-full flex-col overflow-hidden border-border transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-layered group-active:translate-y-0 group-active:scale-[0.98]",
+          catalog && "rounded-2xl shadow-soft"
+        )}
+      >
         {/* Cover */}
-        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+        <div className={cn("relative overflow-hidden bg-muted", catalog ? "aspect-[4/3]" : "aspect-[16/10]")}>
           <BlurImage
             src={business.cover}
             alt=""
@@ -51,10 +69,13 @@ export function BusinessCard({
             className="absolute left-3 top-3"
           />
 
-          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-foreground shadow-soft backdrop-blur">
-            <Star className="size-3.5 fill-warning text-warning" aria-hidden />
-            {business.rating}
-          </span>
+          {hasRating && (
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-foreground shadow-soft backdrop-blur">
+              <Star className="size-3.5 fill-warning text-warning" aria-hidden />
+              {business.rating}
+              <span className="font-normal text-muted-foreground">({business.reviewCount})</span>
+            </span>
+          )}
 
           <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 text-xs font-medium text-white">
             <MapPin className="size-3.5" aria-hidden /> {business.city}
@@ -62,8 +83,8 @@ export function BusinessCard({
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 flex-col p-5">
-          <h3 className="line-clamp-1 font-display text-lg leading-snug text-foreground transition-colors group-hover:text-[var(--brand)]">
+        <div className={cn("flex flex-1 flex-col", catalog ? "p-4" : "p-5")}>
+          <h3 className={cn("line-clamp-1 font-display leading-snug text-foreground transition-colors group-hover:text-[var(--brand)]", catalog ? "text-xl" : "text-lg")}>
             {business.name}
           </h3>
           <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
@@ -71,10 +92,26 @@ export function BusinessCard({
           </p>
 
           <BusinessAvailability hours={business.openingHours} compact plain />
-          {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--brand)]">
-              <MapPin className="size-3.5" aria-hidden />{" "}
-              {formatDistanceKm(distanceKm)} away
+          {(typeof distanceKm === "number" || typeof eta === "number") && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--brand)]">
+              {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="size-3.5" aria-hidden />
+                  {formatDistanceKm(distanceKm)} away
+                </span>
+              )}
+              {typeof eta === "number" && Number.isFinite(eta) && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="size-3.5" aria-hidden />
+                  ~{Math.round(eta)} min
+                </span>
+              )}
+            </p>
+          )}
+
+          {!delivers && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-warning">
+              Does not deliver here yet - collect in person
             </p>
           )}
 
@@ -89,8 +126,14 @@ export function BusinessCard({
               )}
             </div>
 
-            <span className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-foreground transition-colors group-hover:border-[var(--brand)]/40 group-hover:text-[var(--brand)]">
-              View menu
+            <span className={cn(
+              "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200",
+              catalog
+                ? "bg-brand text-white group-hover:bg-brand-deep group-hover:shadow-accent"
+                : "bg-cta-soft text-[var(--brand)] group-hover:bg-[var(--brand)] group-hover:text-white group-hover:shadow-accent"
+            )}>
+              {catalog ? "Browse station" : "View menu"}
+              <ArrowRight className="size-4" aria-hidden />
             </span>
           </div>
         </div>

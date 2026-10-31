@@ -56,7 +56,7 @@ export function ErrorState({ title, message, action }: ErrorStateProps) {
   return (
     <div
       role="alert"
-      className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-danger/25 bg-transparent/10 px-6 py-12 text-center"
+      className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-danger/25 bg-danger/10 px-6 py-12 text-center"
     >
       <h3 className="font-display text-xl text-danger">{title}</h3>
       <p className="max-w-sm text-sm text-foreground/80">{message}</p>

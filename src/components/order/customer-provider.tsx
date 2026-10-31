@@ -30,13 +30,18 @@ export interface ProfileDetails {
 
 export function profileForSession(
   stored: CustomerProfile,
-  sessionUser: { name: string; email: string; role: "customer" | "business_owner" } | null
+  sessionUser: { name: string; email: string | null; phone?: string | null; role: "customer" | "business_owner" } | null
 ): CustomerProfile {
   if (!sessionUser || sessionUser.role !== "customer") return EMPTY;
-  if (stored.email?.trim().toLowerCase() !== sessionUser.email.toLowerCase()) {
-    return { ...EMPTY, name: sessionUser.name, email: sessionUser.email };
+  // The email is the sign-in identity for most accounts; a phone-first account
+  // has no email, so its number stands in.
+  const identity = (sessionUser.email ?? sessionUser.phone ?? "").trim().toLowerCase();
+  const storedIdentity = (stored.email || stored.phone).trim().toLowerCase();
+  const email = sessionUser.email ?? "";
+  if (identity && storedIdentity !== identity) {
+    return { ...EMPTY, name: sessionUser.name, email };
   }
-  return { ...stored, name: sessionUser.name, email: sessionUser.email };
+  return { ...stored, name: sessionUser.name, email };
 }
 
 /** The server account is the source of truth; localStorage is only a cache of it. */
@@ -161,12 +166,21 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     let active = true;
     void fetch("/api/auth/session", { cache: "no-store" })
       .then((response) => response.json())
-      .then((body: { user?: { name: string; email: string; role: "customer" | "business_owner" } | null }) => {
-        if (!active) return;
-        setProfile((current) => profileForSession(current, body.user ?? null));
-        setLoggedIn(body.user?.role === "customer");
-        if (body.user?.role === "customer") return refreshAccount();
-      })
+      .then(
+        (body: {
+          user?: {
+            name: string;
+            email: string | null;
+            phone?: string | null;
+            role: "customer" | "business_owner";
+          } | null;
+        }) => {
+          if (!active) return;
+          setProfile((current) => profileForSession(current, body.user ?? null));
+          setLoggedIn(body.user?.role === "customer");
+          if (body.user?.role === "customer") return refreshAccount();
+        }
+      )
       .catch(() => {
         // Public browsing and guest checkout remain available if session lookup is unavailable.
       })

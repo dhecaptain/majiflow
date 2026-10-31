@@ -37,15 +37,19 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    email: varchar("email", { length: 320 }).notNull(),
+    /** Optional: phone-first customers sign in with an SMS code and never set one. */
+    email: varchar("email", { length: 320 }),
     name: varchar("name", { length: 120 }).notNull(),
+    /** Kenyan mobile number in local form (07XXXXXXXXX / 01XXXXXXXXX). */
     phone: varchar("phone", { length: 20 }),
-    passwordHash: text("password_hash").notNull(),
+    /** Optional: phone-first customers have no password. */
+    passwordHash: text("password_hash"),
     role: userRole("role").default("customer").notNull(),
     ...timestamps,
   },
   (table) => ({
     emailUnique: uniqueIndex("users_email_unique").on(table.email),
+    phoneUnique: uniqueIndex("users_phone_unique").on(table.phone),
   })
 );
 
@@ -144,8 +148,53 @@ export const customerPreferences = pgTable("customer_preferences", {
   orderUpdates: boolean("order_updates").default(true).notNull(),
   marketing: boolean("marketing").default(false).notNull(),
   notificationsReadAt: timestamp("notifications_read_at", { withTimezone: true }),
+  /** Last fulfilment the customer chose ("delivery" | "pickup"). */
+  fulfilment: varchar("fulfilment", { length: 10 }),
+  /** Station the customer ordered from last, so we can preselect it. */
+  lastStationId: varchar("last_station_id", { length: 180 }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const authOtpCodes = pgTable(
+  "auth_otp_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    /** Kenyan mobile number in E.164 form (254XXXXXXXXX). */
+    phone: varchar("phone", { length: 20 }).notNull(),
+    /** HMAC of the code, never the code itself. */
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    purpose: varchar("purpose", { length: 16 }).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    phonePurposeIdx: index("auth_otp_codes_phone_purpose_idx").on(table.phone, table.purpose),
+  })
+);
+
+export const stationInterest = pgTable(
+  "station_interest",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    /** Signed-in customer, when there is one. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** Kenyan mobile number in E.164 form (254XXXXXXXXX). */
+    phone: varchar("phone", { length: 20 }),
+    /** Free-text area the customer asked about, e.g. "Kawangware". */
+    area: varchar("area", { length: 120 }),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    /** Station they asked about, when the customer picked one. */
+    businessId: varchar("business_id", { length: 180 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    phoneIdx: index("station_interest_phone_idx").on(table.phone),
+    areaIdx: index("station_interest_area_idx").on(table.area),
+  })
+);
 
 export const subscriptions = pgTable(
   "subscriptions",

@@ -1,6 +1,8 @@
-import { getCurrentUser } from "@/lib/server/auth";
+import { renewSession } from "@/lib/server/auth";
 
 export async function GET() {
-  const user = await getCurrentUser();
+  // Renewing here keeps an active customer's session alive; the cookie and the
+  // database row are extended together.
+  const user = await renewSession();
   return Response.json({ user });
 }

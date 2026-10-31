@@ -3,11 +3,15 @@ import type { Business } from "@/lib/types";
 import { businesses } from "@/lib/data/businesses";
 import {
   MAX_LINE_QUANTITY,
+  cartLineKey,
+  cartStationId,
   itemHref,
   maxOrderQuantity,
+  optionFor,
   productRequirements,
   resolveCart,
   sanitizeCartLines,
+  unitPriceFor,
 } from "@/lib/cart";
 
 const station = businesses.find((b) => b.id === "bio-water-kasarani")!;
@@ -133,5 +137,103 @@ describe("productRequirements", () => {
 describe("itemHref", () => {
   it("builds the item route under its station", () => {
     expect(itemHref("bio-water-kasarani", "bw-refill-20")).toBe("/browse/bio-water-kasarani/bw-refill-20");
+  });
+});
+
+describe("product options", () => {
+  const refill = station.products.find((p) => p.id === "bw-refill-20")!;
+
+  it("keeps the option part of the line identity so choices never merge", () => {
+    expect(cartLineKey({ businessId: "a", productId: "p", optionId: "swap-empty" })).not.toBe(
+      cartLineKey({ businessId: "a", productId: "p", optionId: "new-can" })
+    );
+    expect(cartLineKey({ businessId: "a", productId: "p" })).not.toBe(
+      cartLineKey({ businessId: "a", productId: "p", optionId: "swap-empty" })
+    );
+  });
+
+  it("merges only lines that chose the same option", () => {
+    expect(
+      sanitizeCartLines([
+        { businessId: "a", productId: "p", quantity: 2, optionId: "swap-empty" },
+        { businessId: "a", productId: "p", quantity: 3, optionId: "swap-empty" },
+        { businessId: "a", productId: "p", quantity: 1, optionId: "new-can" },
+      ])
+    ).toEqual([
+      { businessId: "a", productId: "p", quantity: 5, optionId: "swap-empty" },
+      { businessId: "a", productId: "p", quantity: 1, optionId: "new-can" },
+    ]);
+  });
+
+  it("prices a line with the option delta and collects its deposit", () => {
+    const cart = resolveCart(
+      [{ businessId: station.id, productId: "bw-refill-20", quantity: 2, optionId: "swap-empty" }],
+      businesses,
+      OPEN
+    );
+    expect(cart.lines[0]).toMatchObject({
+      status: "ok",
+      unitPrice: refill.price - 50,
+      deposit: 0,
+      option: { id: "swap-empty" },
+    });
+  });
+
+  it("collects the refundable deposit of the chosen option", () => {
+    const cart = resolveCart(
+      [{ businessId: station.id, productId: "bw-refill-20", quantity: 1, optionId: "new-can" }],
+      businesses,
+      OPEN
+    );
+    expect(cart.lines[0]).toMatchObject({ status: "ok", unitPrice: refill.price, deposit: 350 });
+  });
+
+  it("flags a choice the station no longer offers", () => {
+    const cart = resolveCart(
+      [{ businessId: station.id, productId: "bw-refill-20", quantity: 1, optionId: "gone" }],
+      businesses,
+      OPEN
+    );
+    expect(cart.lines[0]).toMatchObject({ status: "option-missing" });
+    expect(cart.lines[0].problem).toMatch(/no longer available/);
+    expect(cart.canCheckout).toBe(false);
+  });
+
+  it("caps the quantity by the stock of the chosen option, not the product", () => {
+    const cart = resolveCart(
+      [{ businessId: station.id, productId: "bw-dispenser", quantity: 10, optionId: "with-can" }],
+      businesses,
+      OPEN
+    );
+    expect(cart.lines[0]).toMatchObject({ status: "over-stock", max: 6 });
+    expect(cart.lines[0].problem).toMatch(/Only 6 available/);
+  });
+
+  it("resolves the option and the price of one unit from the catalog", () => {
+    const option = optionFor(refill, "new-can")!;
+    expect(option.label).toBe("New can handed over");
+    expect(unitPriceFor(refill, option)).toBe(refill.price);
+    expect(optionFor(refill, "gone")).toBeUndefined();
+  });
+});
+
+describe("one station per cart", () => {
+  it("names the station the cart belongs to", () => {
+    expect(cartStationId([{ businessId: "a", productId: "p", quantity: 1 }])).toBe("a");
+    expect(cartStationId([])).toBeNull();
+  });
+
+  it("refuses to check out a cart that still holds two stations", () => {
+    const cart = resolveCart(
+      [
+        { businessId: station.id, productId: "bw-refill-20", quantity: 1 },
+        { businessId: "tru-flow-mombasa", productId: "tf-refill-20", quantity: 1 },
+      ],
+      businesses,
+      OPEN
+    );
+    expect(cart.mixedStations).toBe(true);
+    expect(cart.stationId).toBeNull();
+    expect(cart.canCheckout).toBe(false);
   });
 });

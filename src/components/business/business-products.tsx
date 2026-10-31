@@ -93,7 +93,7 @@ export function BusinessProducts() {
               )}
             >
               <div className="flex items-start justify-between gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-transparent/10">
+                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand/10">
                   <Image src={productImage(p.image)} alt="" className="size-full object-cover" />
                 </span>
                 <Badge variant={isLive ? "softAccent" : "muted"}>{isLive ? "Live" : "Hidden"}</Badge>

@@ -2,27 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import {
   BarChart3,
-  Bell,
   Boxes,
   CircleUser,
   ClipboardCheck,
   CreditCard,
   LayoutDashboard,
   Megaphone,
-  Menu,
-  MoreHorizontal,
   Package,
-  Search,
   Settings,
   Users,
 } from "lucide-react";
 import { BrandMark } from "@/components/layout/brand-mark";
-import { WaterDrawer } from "@/components/ui/water-drawer";
-import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { SiteHeader } from "@/components/layout/site-header";
 import { PageTransition } from "@/components/layout/page-transition";
 import { BusinessProvider, useBusiness } from "@/components/business/business-provider";
 import { cn } from "@/lib/utils";
@@ -61,35 +54,20 @@ export function DashboardShell({
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const { business, hasBusiness } = useBusiness();
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  const logout = async () => {
-    setLoggingOut(true);
-    try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (!response.ok) throw new Error("Could not sign out.");
-      router.replace("/login");
-      router.refresh();
-    } catch {
-      setLoggingOut(false);
-    }
-  };
+  const { hasBusiness } = useBusiness();
 
   const nav = (
     <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
       {NAV.map((item) => (
-        <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} onClick={() => setOpen(false)} />
+        <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} />
       ))}
       <p className="px-3 pb-1 pt-5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Account</p>
       {LOWER.map((item) => (
-        <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} badge={item.badge} onClick={() => setOpen(false)} />
+        <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} badge={item.badge} />
       ))}
-      <div className="mt-auto rounded-xl bg-transparent/5 p-3">
+      <div className="mt-auto rounded-xl bg-brand/5 p-3">
         <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--brand)]">Trial</p>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-transparent/15">
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-brand/15">
           <div className="h-full w-[60%] rounded-full bg-foreground" />
         </div>
         <p className="mt-2 text-[11px] leading-snug text-foreground/70">
@@ -99,98 +77,22 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     </nav>
   );
 
-  const header = (
-    <>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="flex size-10 items-center justify-center rounded-xl border border-border bg-white lg:hidden"
-          onClick={() => setOpen(true)}
-          aria-label="Open dashboard menu"
-        >
-          <Menu className="size-5" aria-hidden />
-        </button>
-        <div className="relative">
-          {hasBusiness ? (
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2">
-              <span className="flex size-7 items-center justify-center rounded-lg bg-foreground font-display text-xs text-white">
-                {business.name.slice(0, 1)}
-              </span>
-              <span className="hidden text-sm font-semibold text-foreground sm:block">{business.name}</span>
-            </div>
-          ) : (
-            <Link
-              href="/business/applications"
-              className="rounded-xl border border-[var(--brand)]/25 bg-[var(--brand)]/5 px-3 py-2 text-sm font-semibold text-[var(--brand)]"
-            >
-              Application pending
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 md:flex">
-          <Search className="size-4 text-muted-foreground" aria-hidden />
-          <input
-            className="w-44 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            placeholder="Search orders, customers…"
-            aria-label="Search dashboard"
-          />
-        </div>
-        <button
-          type="button"
-          className="relative flex size-10 items-center justify-center rounded-xl border border-border bg-white text-muted-foreground hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <Bell className="size-4.5" aria-hidden />
-          <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-foreground ring-2 ring-white" />
-        </button>
-        <button
-          type="button"
-          onClick={logout}
-          disabled={loggingOut}
-          className="rounded-xl bg-foreground px-3 py-2 text-sm font-semibold text-white shadow-accent disabled:opacity-50"
-        >
-          {loggingOut ? "Signing out…" : "Log out"}
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="min-h-screen bg-muted/40">
+      <SiteHeader />
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-white lg:flex">
+      <aside className="fixed bottom-0 left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 hidden w-64 flex-col border-r border-border bg-white lg:top-[calc(90px+env(safe-area-inset-top))] lg:flex">
         <div className="flex h-16 items-center border-b border-border px-5">
           <BrandMark className="scale-90" />
         </div>
         {nav}
       </aside>
 
-      {/* Mobile drawer */}
-      <WaterDrawer open={open} onClose={() => setOpen(false)}>
-        {nav}
-      </WaterDrawer>
-
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-white/80 px-4 backdrop-blur-md sm:px-6">
-          {header}
-        </header>
-        <main className="p-4 pb-24 sm:p-6 lg:pb-6">
-          <PageTransition>          {hasBusiness || pathname === "/business/applications" ? children : <PendingBusinessState />}</PageTransition>
+      <div className="min-h-[calc(100svh-4rem)] md:min-h-[calc(100svh-5.625rem)] lg:pl-64">
+        <main className="p-4 pb-10 sm:p-6 lg:pb-6">
+          <PageTransition>{hasBusiness || pathname === "/business/applications" ? children : <PendingBusinessState />}</PageTransition>
         </main>
       </div>
-
-      <MobileTabBar
-        items={[
-          { href: "/business", label: "Overview", icon: LayoutDashboard },
-          { href: "/business/orders", label: "Orders", icon: Package },
-          { href: "/business/products", label: "Products", icon: Boxes },
-          { href: "/business/customers", label: "Customers", icon: Users },
-          { label: "More", icon: MoreHorizontal, onClick: () => setOpen(true) },
-        ]}
-      />
     </div>
   );
 }
@@ -236,13 +138,13 @@ function SidebarLink({
       aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-        active ? "bg-transparent/8 text-[var(--brand)]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        active ? "bg-brand/10 text-[var(--brand)]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
     >
       <Icon className={cn("size-4.5", active && "text-[var(--brand)]")} aria-hidden />
       {label}
       {badge && (
-        <span className="ml-auto rounded-full bg-transparent-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-warning">
+        <span className="ml-auto rounded-full bg-warning-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-warning">
           {badge}
         </span>
       )}

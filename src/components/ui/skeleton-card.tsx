@@ -14,6 +14,7 @@ export function SkeletonBlock({ className }: { className?: string }) {
 
 export type SkeletonVariant =
   | "station"
+  | "catalog-station"
   | "product"
   | "menu"
   | "promotion"
@@ -44,6 +45,21 @@ export function SkeletonCard({ variant = "station", className, lines = 3 }: Skel
           <SkeletonBlock className="h-3 w-2/3" />
           <SkeletonBlock className="h-5 w-24" />
           <SkeletonBlock className="h-8 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "catalog-station") {
+    return (
+      <div className={cn("flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card", className)}>
+        <SkeletonBlock className="aspect-[4/3] w-full rounded-none" />
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          <SkeletonBlock className="h-5 w-3/5" />
+          <SkeletonBlock className="h-3.5 w-full" />
+          <SkeletonBlock className="h-3.5 w-4/5" />
+          <SkeletonBlock className="h-3 w-1/3" />
+          <SkeletonBlock className="mt-1 h-10 w-full rounded-xl" />
         </div>
       </div>
     );

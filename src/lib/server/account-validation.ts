@@ -1,4 +1,5 @@
 import { normalizePhone } from "@/lib/server/order-store";
+import type { FulfillmentMethod } from "@/lib/types";
 
 /**
  * Validation for customer-account writes. Every function takes untrusted JSON
@@ -27,11 +28,15 @@ export interface AddressInput {
 export interface ProfileInput {
   name: string;
   phone: string | null;
+  /** Only set for phone-first customers who have no email yet. */
+  email?: string;
 }
 
 export interface PreferencesInput {
   orderUpdates?: boolean;
   marketing?: boolean;
+  fulfilment?: FulfillmentMethod;
+  lastStationId?: string | null;
 }
 
 const NAME_RE = /^[\p{L}\p{M}'’.\- ]+$/u;
@@ -115,9 +120,23 @@ export function validateProfileInput(input: unknown): { profile: ProfileInput } 
     errors.phone = "Use a Kenyan number, e.g. 07XX XXX XXX or +254 7XX….";
   }
 
-  if ("email" in body) errors.email = "Your email is your sign-in and can't be changed here.";
+  // A phone-first customer may add an email once. Changing an email that is
+  // already in use is refused by the account service, which knows the history.
+  let email: string | undefined;
+  if (body.email !== undefined && body.email !== null && body.email !== "") {
+    if (typeof body.email !== "string") {
+      errors.email = "Use a valid email address.";
+    } else {
+      const trimmed = body.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        errors.email = "Use a valid email address.";
+      } else {
+        email = trimmed;
+      }
+    }
+  }
 
-  return Object.keys(errors).length > 0 ? { errors } : { profile: { name, phone } };
+  return Object.keys(errors).length > 0 ? { errors } : { profile: { name, phone, ...(email ? { email } : {}) } };
 }
 
 export function validatePreferencesInput(input: unknown): { preferences: PreferencesInput } | { errors: FieldErrors } {
@@ -129,6 +148,19 @@ export function validatePreferencesInput(input: unknown): { preferences: Prefere
     if (body[key] === undefined) continue;
     if (typeof body[key] !== "boolean") errors[key] = "Must be on or off.";
     else preferences[key] = body[key] as boolean;
+  }
+  if (body.fulfilment !== undefined) {
+    if (body.fulfilment === "delivery" || body.fulfilment === "pickup") preferences.fulfilment = body.fulfilment;
+    else errors.fulfilment = "Choose delivery or pickup.";
+  }
+  if (body.lastStationId !== undefined) {
+    if (body.lastStationId === null || body.lastStationId === "") {
+      preferences.lastStationId = null;
+    } else if (typeof body.lastStationId === "string" && body.lastStationId.trim().length <= 180) {
+      preferences.lastStationId = body.lastStationId.trim() || null;
+    } else {
+      errors.lastStationId = "Use a valid station id.";
+    }
   }
   if (Object.keys(errors).length === 0 && Object.keys(preferences).length === 0)
     errors._form = "No preferences supplied.";

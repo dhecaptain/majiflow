@@ -39,6 +39,8 @@ interface StationMapProps {
   center?: [number, number];
   zoom?: number;
   className?: string;
+  /** Full-bleed usage (e.g. the full-screen browse map): no card frame. */
+  frameless?: boolean;
 }
 
 function escapeHtml(value: string) {
@@ -55,6 +57,7 @@ export function StationMap({
   center,
   zoom = 12,
   className = "",
+  frameless = false,
 }: StationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
@@ -127,8 +130,8 @@ export function StationMap({
       }
       marker.bindPopup(
         `<div style="min-width:150px;font:13px/1.35 system-ui,sans-serif">
-           <strong style="display:block;color:#14181f">${escapeHtml(s.name)}</strong>
-           <span style="color:#6b675d">${escapeHtml(s.city)} · KES ${s.deliveryFee} delivery${
+           <strong style="display:block;color:var(--foreground)">${escapeHtml(s.name)}</strong>
+           <span style="color:var(--muted-foreground)">${escapeHtml(s.city)} · KES ${s.deliveryFee} delivery${
              typeof s.distanceKm === "number" ? ` · ${s.distanceKm.toFixed(1)} km` : ""
            }</span>
            <a href="/browse/${encodeURIComponent(s.slug)}" style="display:inline-block;margin-top:6px;color:var(--brand);font-weight:600">View menu →</a>
@@ -167,9 +170,9 @@ export function StationMap({
         .bindTooltip("You", { direction: "top", offset: [0, -10] });
       const circle = L.circle(latlng, {
         radius: userLocation.accuracy ?? 60,
-        color: "#16A34A",
+        color: "var(--success)",
         weight: 1,
-        fillColor: "#16A34A",
+        fillColor: "var(--success)",
         fillOpacity: 0.12,
       }).addTo(map);
       userRef.current = { marker, circle };
@@ -197,7 +200,9 @@ export function StationMap({
   }, [stations.map((s) => s.id).join(","), userLocation?.lat, userLocation?.lng]);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-border bg-muted ${className}`}>
+    <div
+      className={`relative overflow-hidden bg-muted ${frameless ? "" : "rounded-2xl border border-border"} ${className}`}
+    >
       <div
         ref={containerRef}
         className="h-full w-full"

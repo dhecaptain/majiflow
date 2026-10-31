@@ -110,7 +110,7 @@ export function BusinessApplicationsStatus() {
             <div><dt className="text-muted-foreground">Plan</dt><dd className="font-medium capitalize text-foreground">{application.plan}</dd></div>
           </dl>
           {application.status === "rejected" && application.rejectionReason && (
-            <p className="mt-4 rounded-xl bg-transparent/5 p-3 text-sm text-foreground">
+            <p className="mt-4 rounded-xl bg-brand/5 p-3 text-sm text-foreground">
               <span className="font-semibold">Reason: </span>{application.rejectionReason}
             </p>
           )}

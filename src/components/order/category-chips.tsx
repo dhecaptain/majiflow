@@ -60,7 +60,7 @@ export function CategoryChips({
   return (
     <div
       className={cn(
-        "sticky top-[104px] z-30 -mx-4 border-b border-border bg-white/95 px-4 backdrop-blur-md",
+        "sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 border-b border-border bg-white/95 px-4 backdrop-blur-md md:top-[calc(5.625rem+env(safe-area-inset-top))]",
         className
       )}
     >
@@ -72,7 +72,7 @@ export function CategoryChips({
             onClick={() => jump(c.id)}
             aria-pressed={active === c.id}
             className={cn(
-              "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all",
+              "min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all",
               active === c.id
                 ? "border-[var(--brand)] bg-[var(--brand)] text-white shadow-accent"
                 : "border-border bg-white text-muted-foreground hover:border-[var(--brand)]/40 hover:text-[var(--brand)]"

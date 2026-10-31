@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Info, Minus, Plus, ShoppingCart, X } from "lucide-react";
-import type { Business, BusinessProduct } from "@/lib/types";
-import { maxOrderQuantity, productRequirements } from "@/lib/cart";
+import type { Business, BusinessProduct, ProductOption } from "@/lib/types";
+import { maxOrderQuantity, productRequirements, unitPriceFor } from "@/lib/cart";
+import { lineDeposit, lineSubtotal } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
 import { productImage } from "@/lib/product-images";
 import { cn } from "@/lib/utils";
@@ -15,29 +16,50 @@ import { useCart } from "@/components/order/cart-provider";
 import { useOptionalCartUi } from "@/components/order/cart-ui-provider";
 import { useBusinessAvailability } from "@/components/shared/business-availability";
 import { useMotionSafe } from "@/lib/motion";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export interface ProductSheetProps {
   business: Business;
   product: BusinessProduct | null;
   open: boolean;
   onClose: () => void;
+  initialQuantity?: number;
 }
 
 /**
  * Bottom sheet (mobile) / centred card (desktop) for a product: image, the
- * "refill vs new bottle" style options, quantity and a live-priced Add button.
+ * choices the station offers (swap your can, new can, dispenser + can),
+ * quantity and a live-priced Add button.
  */
-export function ProductSheet({ business, product, open, onClose }: ProductSheetProps) {
+export function ProductSheet({ business, product, open, onClose, initialQuantity = 1 }: ProductSheetProps) {
   const { items, addItem, updateQuantity } = useCart();
   const cartUi = useOptionalCartUi();
   const { toast } = useToast();
   const { reduce, transition } = useMotionSafe();
   const availability = useBusinessAvailability(business.openingHours);
   const [qty, setQty] = useState(1);
+  const [optionId, setOptionId] = useState<string | null>(null);
   const [lastOpenKey, setLastOpenKey] = useState<string | null>(null);
+  const panelRef = useFocusTrap<HTMLDivElement>(open);
 
-  const max = product ? maxOrderQuantity(product) : 0;
-  const inCart = product ? items.find((i) => i.businessId === business.id && i.productId === product.id) : undefined;
+  const options = useMemo(() => product?.options ?? [], [product]);
+  // The default is the first choice the station can actually fill, so a quick
+  // add never lands on something out of stock.
+  const defaultOptionId = options.find((o) => (o.stock ?? product?.stock ?? 0) > 0)?.id ?? options[0]?.id ?? null;
+  const selectedOption: ProductOption | undefined = options.find((o) => o.id === optionId) ?? (defaultOptionId ? options.find((o) => o.id === defaultOptionId) : undefined);
+
+  const max = product ? maxOrderQuantity(product, selectedOption) : 0;
+  const unitPrice = product ? unitPriceFor(product, selectedOption) : 0;
+  const deposit = selectedOption?.deposit ?? 0;
+  const lineTotal = (qty: number) => lineSubtotal(unitPrice, qty) + lineDeposit(deposit, qty);
+  const inCart = product
+    ? items.find(
+        (i) =>
+          i.businessId === business.id &&
+          i.productId === product.id &&
+          (i.optionId ?? undefined) === (selectedOption?.id ?? undefined)
+      )
+    : undefined;
   const closed = availability.state !== "open";
   const requirements = useMemo(
     () => (product ? productRequirements(product, business) : []),
@@ -49,7 +71,10 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
   const openKey = open && product ? `${business.id}:${product.id}` : null;
   if (openKey !== lastOpenKey) {
     setLastOpenKey(openKey);
-    if (openKey !== null) setQty(1);
+    if (openKey !== null) {
+      setQty(Math.max(1, Math.floor(initialQuantity)));
+      setOptionId(null);
+    }
   }
 
   useEffect(() => {
@@ -71,10 +96,15 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
 
   const add = () => {
     if (!product) return;
-    const line = { businessId: business.id, productId: product.id, quantity: pick };
+    const line = {
+      businessId: business.id,
+      productId: product.id,
+      quantity: pick,
+      ...(selectedOption ? { optionId: selectedOption.id } : {}),
+    };
     if (cartUi) cartUi.requestAdd(line);
     else addItem(line);
-    toast({ kind: "success", title: "Added to order", message: `${pick} × ${product.name}` });
+    toast({ kind: "success", title: "Added to cart", message: `${pick} × ${product.name}` });
     onClose();
   };
 
@@ -90,6 +120,7 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
         >
           <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label={product.name}
@@ -111,7 +142,7 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-foreground shadow-soft backdrop-blur hover:bg-white"
+                className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-full bg-white/90 text-foreground shadow-soft backdrop-blur hover:bg-white"
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -122,12 +153,70 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
               <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
 
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-foreground">{formatKES(product.price)}</span>
+                <span className="text-2xl font-bold tracking-tight text-foreground">{formatKES(unitPrice)}</span>
                 <span className="font-mono text-[11px] uppercase text-muted-foreground">/ {product.unit}</span>
-                {product.oldPrice && (
+                {product.oldPrice && unitPrice === product.price && (
                   <span className="text-sm text-muted-foreground line-through">{formatKES(product.oldPrice)}</span>
                 )}
               </div>
+
+              {options.length > 0 && (
+                <fieldset className="mt-5">
+                  <legend className="text-sm font-semibold text-foreground">Choose how you want it</legend>
+                  <div className="mt-2.5 flex flex-col gap-2">
+                    {options.map((option) => {
+                      const optionPrice = unitPriceFor(product, option);
+                      const optionMax = maxOrderQuantity(product, option);
+                      const selected = selectedOption?.id === option.id;
+                      return (
+                        <label
+                          key={option.id}
+                          className={cn(
+                            "flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
+                            selected
+                              ? "border-[var(--brand)] bg-cta-soft/40"
+                              : "border-border bg-white hover:border-[var(--brand)]/40"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="product-option"
+                            className="sr-only"
+                            checked={selected}
+                            disabled={optionMax === 0}
+                            onChange={() => {
+                              setOptionId(option.id);
+                              setQty(1);
+                            }}
+                          />
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                              selected ? "border-[var(--brand)]" : "border-border"
+                            )}
+                          >
+                            {selected && <span className="size-2 rounded-full bg-[var(--brand)]" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-foreground">{option.label}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {optionMax === 0
+                                ? "Out of stock"
+                                : `${formatKES(optionPrice)} each${option.priceDelta < 0 ? ` · ${formatKES(Math.abs(option.priceDelta))} off` : option.priceDelta > 0 ? ` · +${formatKES(option.priceDelta)}` : ""}`}
+                            </span>
+                            {option.deposit ? (
+                              <span className="mt-0.5 block text-xs font-medium text-[var(--brand)]">
+                                + {formatKES(option.deposit)} refundable deposit
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
 
               {requirements.length > 0 && (
                 <ul className="mt-4 space-y-2">
@@ -154,8 +243,8 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
                     <QtyControl
                       value={inCart.quantity}
                       max={max}
-                      onDec={() => updateQuantity(business.id, product.id, inCart.quantity - 1)}
-                      onInc={() => updateQuantity(business.id, product.id, inCart.quantity + 1)}
+                      onDec={() => updateQuantity(inCart, inCart.quantity - 1)}
+                      onInc={() => updateQuantity(inCart, inCart.quantity + 1)}
                       label={product.name}
                     />
                   </div>
@@ -177,7 +266,7 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
             <div className="shrink-0 border-t border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {inCart ? (
                 <Button size="lg" className="w-full" onClick={onClose}>
-                  Done · {formatKES(product.price * inCart.quantity)}
+                  Done · {formatKES(lineTotal(inCart.quantity))}
                 </Button>
               ) : (
                 <Button
@@ -187,7 +276,7 @@ export function ProductSheet({ business, product, open, onClose }: ProductSheetP
                   onClick={add}
                 >
                   <ShoppingCart className="size-4" aria-hidden />
-                  {closed ? "Station is closed" : max === 0 ? "Out of stock" : `Add to order · ${formatKES(product.price * pick)}`}
+                  {closed ? "Station is closed" : max === 0 ? "Out of stock" : `Add to cart · ${formatKES(lineTotal(pick))}`}
                 </Button>
               )}
             </div>

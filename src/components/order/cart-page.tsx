@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Droplets, AlertCircle, ArrowLeft, PackageX, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { Droplets, AlertCircle, ArrowLeft, PackageX, ShoppingCart, Trash2 } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -9,11 +9,12 @@ import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { BlurImage } from "@/components/ui/blur-image";
 import { productImage } from "@/lib/product-images";
 import { useCart } from "@/components/order/cart-provider";
-import { OrderTypeBar } from "@/components/order/order-type-bar";
 import { JourneyLink } from "@/components/order/journey";
 import { QuantityStepper } from "@/components/order/quantity-stepper";
+import { SendWaterSummary } from "@/components/order/send-water-summary";
+import { OrderTotalsList } from "@/components/shared/order-totals";
 import { businesses } from "@/lib/data/businesses";
-import { itemHref, resolveCart, type ResolvedCartLine } from "@/lib/cart";
+import { itemHref, resolveCart, type CartLine, type ResolvedCartLine } from "@/lib/cart";
 import { formatKES } from "@/lib/format";
 import { computeCartTotals, lineSubtotal } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,8 @@ export function CartPage() {
   const { items, hydrated, updateQuantity, removeItem } = useCart();
   const { toast } = useToast();
 
-  const remove = (businessId: string, productId: string, name: string) => {
-    removeItem(businessId, productId);
+  const remove = (line: CartLine, name: string) => {
+    removeItem(line);
     toast({ kind: "info", title: "Removed from cart", message: name });
   };
 
@@ -60,11 +61,12 @@ export function CartPage() {
     priced.map((r) => ({
       businessId: r.business!.id,
       quantity: Math.min(r.line.quantity, r.max),
-      unitPrice: r.product!.price,
+      unitPrice: r.unitPrice,
+      deposit: r.deposit,
     })),
     businesses
   );
-  const { subtotal, deliveryFee, total } = totals;
+  const { total } = totals;
   const freeDeliveryStations = totals.groups.filter(
     (group) => group.subtotal > 0 && group.deliveryFee === 0
   );
@@ -72,7 +74,7 @@ export function CartPage() {
   const { stationBlockers, problems } = cart;
   const removeUnavailable = () => {
     for (const r of problems.filter((p) => p.status === "missing" || p.status === "out-of-stock")) {
-      removeItem(r.line.businessId, r.line.productId);
+      removeItem(r.line);
     }
     toast({ kind: "info", title: "Removed unavailable items" });
   };
@@ -80,7 +82,6 @@ export function CartPage() {
 
   return (
     <>
-      <OrderTypeBar />
       <Container className="py-14 lg:py-20">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -118,10 +119,10 @@ export function CartPage() {
           <ul className="flex flex-col gap-4" aria-label="Items in your cart">
             {cart.lines.map((r) => (
               <CartRow
-                key={`${r.line.businessId}-${r.line.productId}`}
+                key={`${r.line.businessId}-${r.line.productId}-${r.line.optionId ?? ""}`}
                 row={r}
-                onQuantity={(n) => updateQuantity(r.line.businessId, r.line.productId, n)}
-                onRemove={() => remove(r.line.businessId, r.line.productId, r.product?.name ?? "Unavailable item")}
+                onQuantity={(n) => updateQuantity(r.line, n)}
+                onRemove={() => remove(r.line, r.product?.name ?? "Unavailable item")}
               />
             ))}
           </ul>
@@ -130,19 +131,7 @@ export function CartPage() {
         {/* Summary */}
         <div className="h-fit rounded-2xl border border-border bg-white p-6 shadow-layered lg:sticky lg:top-24">
           <h2 className="font-display text-xl text-foreground">Order summary</h2>
-          <dl className="mt-5 space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
-              <dd className="font-semibold text-foreground">{formatKES(subtotal)}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="inline-flex items-center gap-1.5 text-muted-foreground">
-                <Truck className="size-4" aria-hidden /> Delivery
-              </dt>
-              <dd className="font-semibold text-foreground">
-                {deliveryFee === 0 ? <span className="text-success">Free</span> : formatKES(deliveryFee)}
-              </dd>
-            </div>
+          <OrderTotalsList totals={totals} className="mt-5">
             {totals.groups.length > 1 && (
               <ul className="space-y-1 border-l border-border pl-3 text-xs text-muted-foreground">
                 {totals.groups.map((group) => (
@@ -162,13 +151,11 @@ export function CartPage() {
                 : those items reach the station minimum.
               </p>
             )}
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <dt className="font-semibold text-foreground">Total</dt>
-              <dd className="font-display text-2xl text-foreground">{formatKES(total)}</dd>
-            </div>
-          </dl>
+          </OrderTotalsList>
 
-          <p className="mt-4 flex items-center gap-2 rounded-lg bg-transparent-soft/70 px-3 py-2.5 text-xs text-success">
+          <SendWaterSummary className="mt-4" />
+
+          <p className="mt-4 flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-xs text-success">
             <Droplets className="size-4 shrink-0" aria-hidden />
             Payment is collected with M-Pesa before dispatch.
           </p>
@@ -194,7 +181,7 @@ export function CartPage() {
               href="/checkout"
               className={buttonVariants({
                 size: "lg",
-                className: "mt-5 w-full bg-orange-500 text-white shadow-[0_4px_14px_-4px_rgb(249,115,22)] hover:bg-orange-600",
+                className: "mt-5 w-full bg-[var(--brand)] text-white shadow-accent hover:bg-[var(--cta-hover)]",
               })}
             >
               Continue to checkout · {formatKES(total)}
@@ -230,7 +217,7 @@ function CartRow({
   onQuantity: (n: number) => void;
   onRemove: () => void;
 }) {
-  const { line, business, product, status, problem, max } = row;
+  const { line, business, product, option, status, problem, max } = row;
 
   if (!business || !product) {
     return (
@@ -268,12 +255,20 @@ function CartRow({
         <Link href={href} className="block truncate text-[15px] font-semibold text-foreground hover:text-[var(--brand)] hover:underline">
           {product.name}
         </Link>
+        {option && (
+          <p className="mt-0.5 truncate text-xs font-medium text-[var(--brand)]">{option.label}</p>
+        )}
         <Link href={`/browse/${business.slug}#menu`} className="mt-0.5 block text-xs text-muted-foreground hover:underline">
           {business.name} · {business.city}
         </Link>
         <p className="mt-1 text-sm font-bold text-foreground">
-          {formatKES(product.price)} <span className="font-normal text-muted-foreground">/ {product.unit}</span>
+          {formatKES(row.unitPrice)} <span className="font-normal text-muted-foreground">/ {product.unit}</span>
         </p>
+        {row.deposit > 0 && (
+          <p className="text-xs text-muted-foreground">
+            + {formatKES(row.deposit)} refundable deposit
+          </p>
+        )}
         {problem && <p className="mt-1 text-xs font-medium text-danger">{problem}</p>}
       </div>
 
@@ -290,13 +285,13 @@ function CartRow({
         )}
         <div className="w-24 text-right">
           <p className="text-sm font-bold text-foreground">
-            {formatKES(lineSubtotal(product.price, Math.min(line.quantity, max)))}
+            {formatKES(lineSubtotal(row.unitPrice, Math.min(line.quantity, max)))}
           </p>
           <button
             type="button"
             onClick={onRemove}
             aria-label={`Remove ${product.name} from cart`}
-            className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs text-muted-foreground hover:text-danger"
+            className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs text-muted-foreground hover:text-danger"
           >
             <Trash2 className="size-3.5" aria-hidden /> Remove
           </button>

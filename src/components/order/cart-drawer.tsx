@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowRight, PackageX, ShoppingCart, Trash2, Truck, X } from "lucide-react";
+import { AlertCircle, ArrowRight, PackageX, ShoppingCart, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 import { ButtonLoader } from "@/components/ui/button-loader";
@@ -17,6 +17,8 @@ import { useMotionSafe } from "@/lib/motion";
 import { useCart } from "@/components/order/cart-provider";
 import { useCartUi } from "@/components/order/cart-ui-provider";
 import { QuantityStepper } from "@/components/order/quantity-stepper";
+import { SendWaterSummary } from "@/components/order/send-water-summary";
+import { OrderTotalsList } from "@/components/shared/order-totals";
 
 /**
  * Slide-in cart: right panel on desktop, bottom sheet on mobile. Reuses the
@@ -34,7 +36,8 @@ export function CartDrawer() {
     priced.map((r) => ({
       businessId: r.business!.id,
       quantity: Math.min(r.line.quantity, r.max),
-      unitPrice: r.product!.price,
+      unitPrice: r.unitPrice,
+      deposit: r.deposit,
     })),
     businesses
   );
@@ -70,7 +73,7 @@ export function CartDrawer() {
                 type="button"
                 onClick={closeCart}
                 aria-label="Close cart"
-                className="rounded-lg p-2 text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+                className="flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -108,10 +111,10 @@ export function CartDrawer() {
                   )}
                   <ul className="flex flex-col gap-3" aria-label="Items in your order">
                     {cart.lines.map((r) => {
-                      const { line, business, product, status, problem, max } = r;
+                      const { line, business, product, option, status, problem, max } = r;
                       if (!business || !product) {
                         return (
-                          <li key={`${line.businessId}-${line.productId}`} className="flex items-center gap-3 rounded-2xl border border-dashed border-danger/40 p-3">
+                          <li key={`${line.businessId}-${line.productId}-${line.optionId ?? ""}`} className="flex items-center gap-3 rounded-2xl border border-dashed border-danger/40 p-3">
                             <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                               <PackageX className="size-5" aria-hidden />
                             </span>
@@ -121,9 +124,9 @@ export function CartDrawer() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => removeItem(line.businessId, line.productId)}
+                              onClick={() => removeItem(line)}
                               aria-label="Remove unavailable item"
-                              className="rounded-lg p-2 text-muted-foreground hover:text-danger"
+                              className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-danger"
                             >
                               <Trash2 className="size-4" aria-hidden />
                             </button>
@@ -132,7 +135,7 @@ export function CartDrawer() {
                       }
                       return (
                         <li
-                          key={`${line.businessId}-${line.productId}`}
+                          key={`${line.businessId}-${line.productId}-${line.optionId ?? ""}`}
                           className={cn("flex gap-3 rounded-2xl border bg-white p-3", status === "ok" ? "border-border" : "border-danger/40")}
                         >
                           <Link href={itemHref(business.slug, product.id)} onClick={closeCart} className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
@@ -140,6 +143,9 @@ export function CartDrawer() {
                           </Link>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">{product.name}</p>
+                            {option && (
+                              <p className="truncate text-xs font-medium text-[var(--brand)]">{option.label}</p>
+                            )}
                             <p className="truncate text-xs text-muted-foreground">
                               {business.name} · {business.city}
                             </p>
@@ -154,13 +160,18 @@ export function CartDrawer() {
                                   max={Math.max(max, line.quantity)}
                                   label={product.name}
                                   size="sm"
-                                  onChange={(n) => updateQuantity(line.businessId, line.productId, n)}
+                                  onChange={(n) => updateQuantity(line, n)}
                                 />
                               )}
                               <span className="text-sm font-bold text-foreground">
-                                {formatKES(lineSubtotal(product.price, Math.min(line.quantity, max)))}
+                                {formatKES(lineSubtotal(r.unitPrice, Math.min(line.quantity, max)))}
                               </span>
                             </div>
+                            {r.deposit > 0 && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                + {formatKES(r.deposit * Math.min(line.quantity, max))} refundable deposit
+                              </p>
+                            )}
                           </div>
                         </li>
                       );
@@ -169,24 +180,12 @@ export function CartDrawer() {
                 </div>
 
                 <footer className="shrink-0 border-t border-border bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                  <dl className="space-y-1.5 text-sm">
-                    <div className="flex items-center justify-between">
-                      <dt className="text-muted-foreground">Subtotal</dt>
-                      <dd className="font-semibold text-foreground">{formatKES(totals.subtotal)}</dd>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <dt className="inline-flex items-center gap-1.5 text-muted-foreground">
-                        <Truck className="size-4" aria-hidden /> Delivery
-                      </dt>
-                      <dd className="font-semibold text-foreground">
-                        {totals.deliveryFee === 0 ? <span className="text-success">Free</span> : formatKES(totals.deliveryFee)}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-border pt-2">
-                      <dt className="font-semibold text-foreground">Total</dt>
-                      <dd className="font-display text-xl text-foreground">{formatKES(totals.total)}</dd>
-                    </div>
-                  </dl>
+                  <SendWaterSummary className="mb-3" />
+                  <OrderTotalsList
+                    totals={totals}
+                    className="space-y-1.5"
+                    totalClassName="font-display text-xl"
+                  />
 
                   {cart.canCheckout ? (
                     <Link

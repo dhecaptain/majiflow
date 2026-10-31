@@ -24,33 +24,41 @@ export function NearbyStationCard({
   business,
   distanceKm,
   open,
+  delivers = true,
+  etaMinutes,
+  onSelect,
+  selected = false,
 }: {
   business: Business;
   distanceKm?: number;
   open: boolean;
+  delivers?: boolean;
+  etaMinutes?: number;
+  onSelect?: () => void;
+  selected?: boolean;
 }) {
   const availability = useBusinessAvailability(business.openingHours);
-  return (
-    <Link
-      href={`/browse/${business.slug}`}
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border border-border bg-white p-3 transition-colors hover:border-[var(--brand)]/50",
-        !open && "opacity-70"
-      )}
-    >
+  const body = (
+    <>
       <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-3 text-[var(--brand)]">
         <Store className="size-5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate text-sm font-semibold text-foreground">{business.name}</span>
-          {open ? (
-            <Badge variant="success" className="shrink-0">
-              Open
-            </Badge>
+          {delivers ? (
+            open ? (
+              <Badge variant="success" className="shrink-0">
+                Open
+              </Badge>
+            ) : (
+              <Badge variant="mono" className="shrink-0">
+                Closed
+              </Badge>
+            )
           ) : (
-            <Badge variant="mono" className="shrink-0">
-              Closed
+            <Badge variant="warning" className="shrink-0">
+              Not yet
             </Badge>
           )}
         </span>
@@ -62,14 +70,48 @@ export function NearbyStationCard({
           )}
           <span className="inline-flex items-center gap-1">
             <Clock className="size-3" aria-hidden />{" "}
-            {open ? `~${business.avgDeliveryMinutes} min` : availability.hoursLabel}
+            {delivers
+              ? open
+                ? `~${etaMinutes ?? business.avgDeliveryMinutes} min`
+                : availability.hoursLabel
+              : "Collect in person"}
           </span>
           <span className="inline-flex items-center gap-1">
             <Star className="size-3 fill-warning text-warning" aria-hidden /> {business.rating}
           </span>
-          <span>{formatKES(business.deliveryFee)} delivery</span>
+          {delivers ? (
+            <span>{formatKES(business.deliveryFee)} delivery</span>
+          ) : (
+            business.nearbyDiscountPercent ? (
+              <span className="font-medium text-[var(--brand)]">
+                {business.nearbyDiscountPercent}% off for pickup
+              </span>
+            ) : (
+              <span>Pickup only</span>
+            )
+          )}
         </span>
       </span>
+    </>
+  );
+
+  const className = cn(
+    "flex w-full items-center gap-3 rounded-2xl border bg-white p-3 text-left transition-colors",
+    selected ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/20" : "border-border hover:border-[var(--brand)]/50",
+    !open && "opacity-70"
+  );
+
+  if (onSelect) {
+    return (
+      <button type="button" onClick={onSelect} className={className}>
+        {body}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={`/browse/${business.slug}`} className={className}>
+      {body}
     </Link>
   );
 }
@@ -77,45 +119,92 @@ export function NearbyStationCard({
 /**
  * The nearby-station list. Rendered inline on wide screens and inside the
  * draggable sheet on phones.
+ *
+ * Stations that reach the customer come first; the ones that do not are
+ * listed under their own heading so the gap is honest rather than hidden.
  */
 export function NearbyStationList({
   stations,
   onNotify,
   emptyTitle = "No station delivers here yet",
   emptyBody = "Try a nearby estate, or tell us where to expand next.",
+  onSelect,
+  selectedId,
 }: {
   stations: DiscoveredStation[];
-  onNotify: () => void;
+  onNotify: (businessId?: string) => void;
   emptyTitle?: string;
   emptyBody?: string;
+  onSelect?: (businessId: string) => void;
+  selectedId?: string | null;
 }) {
-  const anyOpen = stations.some((s) => s.open);
-
   if (stations.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-surface-2/60 p-4 text-center">
         <p className="text-sm font-semibold text-foreground">{emptyTitle}</p>
         <p className="mt-1 text-xs text-muted-foreground">{emptyBody}</p>
-        <Button variant="outline" size="sm" className="mt-3" onClick={onNotify}>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => onNotify()}>
           Notify me when available
         </Button>
       </div>
     );
   }
 
+  const delivering = stations.filter((s) => s.delivers);
+  const nearby = stations.filter((s) => !s.delivers);
+  const anyOpen = delivering.some((s) => s.open);
+
   return (
     <>
-      <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-        {anyOpen ? "Stations that deliver here" : "Stations near you - all closed right now"}
-      </p>
-      <ul className="mt-2 flex flex-col gap-2">
-        {stations.map(({ business, distanceKm, open }) => (
-          <li key={business.id}>
-            <NearbyStationCard business={business} distanceKm={distanceKm} open={open} />
-          </li>
-        ))}
-      </ul>
-      {!anyOpen && (
+      {delivering.length > 0 && (
+        <>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            {anyOpen ? "Stations that deliver here" : "Stations near you - all closed right now"}
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {delivering.map(({ business, distanceKm, open, etaMinutes }) => (
+              <li key={business.id}>
+                <NearbyStationCard
+                  business={business}
+                  distanceKm={distanceKm}
+                  open={open}
+                  etaMinutes={etaMinutes}
+                  onSelect={onSelect ? () => onSelect(business.id) : undefined}
+                  selected={selectedId === business.id}
+                />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {nearby.length > 0 && (
+        <div className={delivering.length > 0 ? "mt-5" : ""}>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            Nearby, not yet delivering
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {nearby.map(({ business, distanceKm, open, etaMinutes }) => (
+              <li key={business.id}>
+                <NearbyStationCard
+                  business={business}
+                  distanceKm={distanceKm}
+                  open={open}
+                  delivers={false}
+                  etaMinutes={etaMinutes}
+                  onSelect={onSelect ? () => onSelect(business.id) : undefined}
+                  selected={selectedId === business.id}
+                />
+              </li>
+            ))}
+          </ul>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => onNotify()}>
+            Notify me when a station opens here
+          </Button>
+        </div>
+      )}
+
+      {delivering.length > 0 && !anyOpen && (
         <div className="mt-4 rounded-2xl border border-dashed border-border bg-surface-2/60 p-4 text-center">
           <p className="text-sm font-semibold text-foreground">
             Nothing is open for delivery here yet
@@ -123,7 +212,7 @@ export function NearbyStationList({
           <p className="mt-1 text-xs text-muted-foreground">
             These stations open later today. We&apos;ll let you know the moment one is open.
           </p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={onNotify}>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => onNotify()}>
             Notify me when available
           </Button>
         </div>
@@ -153,7 +242,7 @@ export function NearbySheet({
   containerRef,
 }: {
   stations: DiscoveredStation[];
-  onNotify: () => void;
+  onNotify: (businessId?: string) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { reduce } = useMotionSafe();

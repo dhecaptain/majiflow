@@ -116,9 +116,12 @@ export function OrderDetailPage({ id }: { id: string }) {
             </h2>
             <ul className="mt-3 divide-y divide-border">
               {order.items.map((item) => (
-                <li key={item.productId} className="flex items-center justify-between gap-3 py-3 text-sm">
+                <li key={`${item.productId}-${item.optionId ?? ""}`} className="flex items-center justify-between gap-3 py-3 text-sm">
                   <span className="text-foreground">
                     {item.quantity} × {item.name}
+                    {item.optionLabel && (
+                      <span className="block text-xs font-medium text-[var(--brand)]">{item.optionLabel}</span>
+                    )}
                   </span>
                   <span className="font-medium text-foreground">{formatKES(item.unitPrice * item.quantity)}</span>
                 </li>
@@ -130,9 +133,15 @@ export function OrderDetailPage({ id }: { id: string }) {
                 <dd>{formatKES(order.subtotal)}</dd>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <dt>Delivery</dt>
+                <dt>{order.fulfilment === "pickup" ? "Collection" : "Delivery"}</dt>
                 <dd>{order.deliveryFee ? formatKES(order.deliveryFee) : "Free"}</dd>
               </div>
+              {order.deposit ? (
+                <div className="flex justify-between text-muted-foreground">
+                  <dt>Refundable deposit</dt>
+                  <dd>{formatKES(order.deposit)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between font-bold text-foreground">
                 <dt>Total</dt>
                 <dd>{formatKES(order.total)}</dd>

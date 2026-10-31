@@ -112,7 +112,7 @@ export default function ForBusiness() {
             {pillars.map((p) => (
               <StaggerItem key={p.title}>
                 <div className="group flex h-full flex-col rounded-2xl border border-border bg-card p-7 shadow-card">
-                  <span className="flex size-12 items-center justify-center rounded-xl bg-neutral-100 text-black">
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
                     <p.icon className="size-5" aria-hidden />
                   </span>
                   <h3 className="mt-6 font-display text-xl text-foreground">{p.title}</h3>
