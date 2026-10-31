@@ -221,14 +221,13 @@ export function BusinessSettings() {
             </Badge>
           </li>
           <li className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-            <span className="text-sm font-medium text-foreground">Card at checkout</span>
-            <Badge variant={business.acceptsCard ? "success" : "muted"}>
-              {business.acceptsCard ? "Enabled" : "Not offered"}
-            </Badge>
+            <span className="text-sm font-medium text-foreground">Pay on delivery</span>
+            <Badge variant="success">Enabled</Badge>
           </li>
         </ul>
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Customer payments settle to your station account, with payouts made on a weekly cycle.
+          Pay-on-delivery money is collected by your rider or at your counter. An order paid on
+          delivery is marked paid when it is marked delivered.
         </p>
       </section>
     </div>

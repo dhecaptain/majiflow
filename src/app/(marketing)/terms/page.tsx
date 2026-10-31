@@ -41,8 +41,9 @@ export default function Terms() {
       <ProseSection title="3. Orders and payments">
         <p>
           You can build your cart and place an order, and the order is stored with a status you can
-          follow. Payments are collected at checkout by M-Pesa or card, and the station you ordered
-          from fulfils the delivery.
+          follow. You pay the station when the order is handed over, by cash or M-Pesa; where M-Pesa
+          checkout is offered you may pay up front instead. The station you ordered from fulfils the
+          delivery.
         </p>
       </ProseSection>
 

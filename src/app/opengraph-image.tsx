@@ -73,7 +73,7 @@ export default function OpengraphImage() {
               color: "#cbd5e1",
             }}
           >
-            Order refills from stations near you. Browse, build a cart, pay with M-Pesa or card and follow your delivery.
+            Order refills from stations near you. Browse, build a cart, pay on delivery and follow your order.
           </div>
         </div>
 

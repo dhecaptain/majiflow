@@ -14,6 +14,7 @@ import { computeCartTotals } from "@/lib/pricing";
 import { businesses } from "@/lib/data/businesses";
 import { normalizeKenyanPhone } from "@/lib/phone";
 import { documentStore } from "@/lib/server/doc-store";
+import { onlinePaymentAvailable } from "@/lib/server/payment-mode";
 import { orders as ordersTable } from "@/lib/server/db/schema";
 
 /**
@@ -134,8 +135,11 @@ export function validateOrder(input: unknown, station?: Business | null): Valida
     if (blocked) errors.businessId = blocked;
   }
 
-  if (o.payment !== "mpesa" && o.payment !== "card")
-    errors.payment = "Choose M-Pesa or card.";
+  if (o.payment === "mpesa") {
+    if (!onlinePaymentAvailable()) errors.payment = "M-Pesa checkout is not available yet - choose pay on delivery.";
+  } else if (o.payment !== "cod") {
+    errors.payment = "Choose M-Pesa or pay on delivery.";
+  }
   // Payment is verified server-side through /api/payments. An order is always
   // born `pending`; clients must never declare it paid.
   if (o.paymentState !== "pending")
@@ -529,6 +533,11 @@ export async function transitionOrder(
       status,
       timeline: [...(previous.timeline ?? []), entry],
     });
+    // Pay on delivery: the money changes hands at the door (or the counter),
+    // and the rider or station marking the order delivered confirms it.
+    if (status === "delivered" && draft.payment === "cod" && draft.paymentState === "pending") {
+      draft.paymentState = "success";
+    }
     if (isTerminalStatus(status)) {
       draft.location = null;
       draft.locationHistory = [];

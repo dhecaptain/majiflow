@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Transition } from "framer-motion";
 import {
-  AlertCircle, ArrowLeft, CheckCircle2, CreditCard, MapPin, Navigation, RefreshCcw, ShieldCheck, Smartphone, Store, User } from "lucide-react";
+  AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, MapPin, Navigation, RefreshCcw, ShieldCheck, Smartphone, Store, User } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/feedback";
@@ -145,7 +145,7 @@ function CheckoutForm() {
   const [location, setLocation] = useState<CapturedLocation | null>(prefill.location);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [method, setMethod] = useState<PaymentMethod>("mpesa");
+  const [chosenMethod, setMethod] = useState<PaymentMethod>("cod");
   const [saveProfile, setSaveProfile] = useState(readConsent);
   const [shareLocation, setShareLocation] = useState(true);
   const [smsUpdates, setSmsUpdates] = useState(true);
@@ -185,6 +185,10 @@ function CheckoutForm() {
 
   const cart = useMemo(() => resolveCart(items, businesses), [items, businesses]);
   const rows = cart.orderable;
+  // M-Pesa up front only where every station in the cart offers it on this
+  // deployment; pay on delivery is always there.
+  const mpesaOffered = rows.length > 0 && rows.every((r) => r.business!.acceptsMpesa);
+  const method: PaymentMethod = chosenMethod === "mpesa" && mpesaOffered ? "mpesa" : "cod";
   const cartProblems = cart.problems;
 
   const totals = computeCartTotals(
@@ -545,6 +549,63 @@ function CheckoutForm() {
         orderIdsRef.current = created.map((o) => o.id);
       }
 
+      /** The orders are in: save what the customer asked us to, then take them to tracking. */
+      const completeCheckout = async (created: Order[], first: Order, title: string, message: string) => {
+
+          if (shareLocation && coords) {
+            await Promise.all(
+              created.map((o) =>
+                postLocation(o.id, {
+                  lat: coords!.lat,
+                  lng: coords!.lng,
+                  accuracy: coords!.accuracy,
+                  at: coords!.at,
+                })
+              )
+            );
+          }
+          setLastOrder(first);
+          clear();
+          if (saveProfile) {
+            saveProfileDetails({
+              name,
+              phone,
+              email: email.trim() || undefined,
+              address: {
+                label: "Home",
+                estate: addrEstate,
+                street: addrStreet.trim() || undefined,
+                city: addrCity || undefined,
+                building: addrBuilding.trim() || undefined,
+                floor: floor.trim() || undefined,
+                landmark: notes.trim() || undefined,
+                phone,
+                lat: coords?.lat,
+                lng: coords?.lng,
+                accuracy: coords?.accuracy,
+                locationAt: coords?.at,
+              },
+            });
+          }
+          setPayState("idle");
+          toast({ kind: "success", title, message });
+          window.setTimeout(() => router.push(`/order/${first.id}`), 1600);
+      };
+
+      if (method === "cod") {
+        // Pay on delivery: nothing to charge now. The station sees the order at once.
+        const first = created[0];
+        await completeCheckout(
+          created,
+          first,
+          "Order placed",
+          created.length > 1
+            ? `${created.length} orders placed. Pay each station when your water arrives.`
+            : `Order ${first.orderNumber} is with ${first.businessName}. Pay when it ${pickup ? "is ready to collect" : "arrives"}.`
+        );
+        return;
+      }
+
       const payable = created.reduce((s, o) => s + o.total, 0);
       const initRes = await fetch("/api/payments/initiate", {
         method: "POST",
@@ -578,51 +639,14 @@ function CheckoutForm() {
           if (fresh) confirmed.push(fresh);
         }
         const first = confirmed[0] ?? created[0];
-        if (shareLocation && coords) {
-          await Promise.all(
-            created.map((o) =>
-              postLocation(o.id, {
-                lat: coords!.lat,
-                lng: coords!.lng,
-                accuracy: coords!.accuracy,
-                at: coords!.at,
-              })
-            )
-          );
-        }
-        setLastOrder(first);
-        clear();
-        if (saveProfile) {
-          saveProfileDetails({
-            name,
-            phone,
-            email: email.trim() || undefined,
-            address: {
-              label: "Home",
-              estate: addrEstate,
-              street: addrStreet.trim() || undefined,
-              city: addrCity || undefined,
-              building: addrBuilding.trim() || undefined,
-              floor: floor.trim() || undefined,
-              landmark: notes.trim() || undefined,
-              phone,
-              lat: coords?.lat,
-              lng: coords?.lng,
-              accuracy: coords?.accuracy,
-              locationAt: coords?.at,
-            },
-          });
-        }
-        setPayState("idle");
-        toast({
-          kind: "success",
-          title: "Payment confirmed",
-          message:
-            confirmed.length > 1
-              ? `${confirmed.length} orders paid (${formatKES(payable)}). Start with ${first.orderNumber} - ${first.businessName}.`
-              : `Order ${first.orderNumber} is paid and with ${first.businessName}. Track it now.`,
-        });
-        window.setTimeout(() => router.push(`/order/${first.id}`), 1600);
+        await completeCheckout(
+          created,
+          first,
+          "Payment confirmed",
+          confirmed.length > 1
+            ? `${confirmed.length} orders paid (${formatKES(payable)}). Start with ${first.orderNumber} - ${first.businessName}.`
+            : `Order ${first.orderNumber} is paid and with ${first.businessName}. Track it now.`
+        );
       } else if (outcome === "pending") {
         // Poll budget spent but the provider may still confirm late.
         setPayState("stale");
@@ -989,31 +1013,34 @@ function CheckoutForm() {
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Step 3</p>
                 <h2 className="font-display text-lg text-foreground">Payment</h2>
-                <p className="text-xs text-muted-foreground">Money is only released when the station accepts.</p>
+                <p className="text-xs text-muted-foreground">
+                  {mpesaOffered ? "Pay when your water arrives, or pay now with M-Pesa." : "Pay when your water arrives."}
+                </p>
               </div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <PaymentOption
-                selected={method === "mpesa"}
-                onSelect={() => setMethod("mpesa")}
-                icon={<Smartphone className="size-5" aria-hidden />}
-                title="M-Pesa"
-                subtitle="STK push to your phone"
-                badge="Fastest"
+                selected={method === "cod"}
+                onSelect={() => setMethod("cod")}
+                icon={<Banknote className="size-5" aria-hidden />}
+                title={pickup ? "Pay at the station" : "Pay on delivery"}
+                subtitle={pickup ? "Cash or M-Pesa at the counter" : "Cash or M-Pesa to the rider"}
               />
-              <PaymentOption
-                selected={method === "card"}
-                onSelect={() => setMethod("card")}
-                icon={<CreditCard className="size-5" aria-hidden />}
-                title="Card"
-                subtitle="Visa & Mastercard"
-              />
+              {mpesaOffered && (
+                <PaymentOption
+                  selected={method === "mpesa"}
+                  onSelect={() => setMethod("mpesa")}
+                  icon={<Smartphone className="size-5" aria-hidden />}
+                  title="M-Pesa now"
+                  subtitle="STK push to your phone"
+                />
+              )}
             </div>
             <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-              Payment is released to the station only after your order is accepted. Failed or
-              rejected orders are refunded automatically. Card numbers and M-Pesa PINs are never
-              stored on your profile.
+              {method === "cod"
+                ? "You pay the station directly when your order is handed over. Nothing is charged now."
+                : "If the station rejects or cancels a paid order, we start a refund to your M-Pesa and show its progress on the order page. M-Pesa PINs are never seen or stored."}
             </p>
           </section>
         </div>
@@ -1124,10 +1151,10 @@ function CheckoutForm() {
                 className="group mt-4 w-full bg-[var(--brand)] hover:bg-[var(--cta-hover)] text-white shadow-accent"
                 disabled={stationBlockers.length > 0}
               >
-                {method === "mpesa" ? `Pay ${formatKES(total)} with M-Pesa` : `Pay ${formatKES(total)} by card`}
+                {method === "mpesa" ? `Pay ${formatKES(total)} with M-Pesa` : `Place order · ${formatKES(total)}`}
               </Button>
               <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                You&apos;ll confirm on your phone
+                {method === "mpesa" ? "You'll confirm on your phone" : pickup ? "Pay when you collect" : "Pay when it arrives"}
               </p>
             </>
           )}
@@ -1174,7 +1201,7 @@ function CheckoutForm() {
                 onClick={startPayment}
                 disabled={submitting || stationBlockers.length > 0}
               >
-                {method === "mpesa" ? "Retry M-Pesa payment" : "Retry card payment"}
+                Retry M-Pesa payment
               </Button>
             </div>
           )}
@@ -1200,7 +1227,7 @@ function CheckoutForm() {
               disabled={stationBlockers.length > 0}
               className="shrink-0 rounded-xl bg-[var(--brand)] px-6 py-3.5 text-sm font-semibold text-white shadow-accent transition-colors hover:bg-[var(--cta-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {method === "mpesa" ? "Pay with M-Pesa" : "Pay by card"}
+              {method === "mpesa" ? "Pay with M-Pesa" : "Place order"}
             </button>
           </div>
         </div>

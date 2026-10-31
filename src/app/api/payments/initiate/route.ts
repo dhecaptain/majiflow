@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const { payment, created, testMode } = await initiatePayment({
       orderIds,
       phone: typeof o.phone === "string" ? o.phone : "",
-      method: o.method === "card" ? "card" : "mpesa",
+      method: o.method === "mpesa" ? "mpesa" : "cod",
       idempotencyKey: typeof o.idempotencyKey === "string" ? o.idempotencyKey : "",
     });
     return Response.json(
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not start payment.";
-    const status = /not be found|required|Choose|Nothing to charge/.test(message) ? 400 : 422;
+    const status = /not be found|required|Choose|Nothing to charge|Kenyan number/.test(message) ? 400 : 422;
     await reportFailure("payment", "Payment initiation failed.", { reason: message });
     return Response.json({ error: message }, { status });
   }
