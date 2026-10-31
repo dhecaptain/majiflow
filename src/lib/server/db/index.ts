@@ -12,6 +12,16 @@ function databaseUrl(): string {
   return value;
 }
 
+/**
+ * Connections per server instance. Serverless platforms run many instances at
+ * once, so keep this small and point DATABASE_URL at the provider's pooled
+ * endpoint (Neon: the "-pooler" host).
+ */
+function poolSize(): number {
+  const configured = Number(process.env.MF_DB_POOL_MAX);
+  return Number.isInteger(configured) && configured > 0 ? configured : 5;
+}
+
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
@@ -26,7 +36,7 @@ export function isLocalPlaintextDatabase(connectionUrl: URL): boolean {
 async function initializeDatabase() {
   const connectionUrl = new URL(databaseUrl());
   if (isLocalPlaintextDatabase(connectionUrl)) {
-    const pool = new Pool({ connectionString: connectionUrl.toString(), ssl: false });
+    const pool = new Pool({ connectionString: connectionUrl.toString(), ssl: false, max: poolSize() });
     return { db: drizzle(pool, { schema }), pool };
   }
   const [ipv4Host] = await resolve4(connectionUrl.hostname);
@@ -43,6 +53,7 @@ async function initializeDatabase() {
 
   const pool = new Pool({
     connectionString: ipv4ConnectionUrl.toString(),
+    max: poolSize(),
     ssl: {
       rejectUnauthorized: true,
       servername: connectionUrl.hostname,

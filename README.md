@@ -87,7 +87,9 @@ All variables are optional; without them the app runs and logs to stderr.
 
 | Variable | Purpose |
 | --- | --- |
-| `MF_DATA_DIR` | Directory for `orders.json`. Defaults to `.data` in the repo. Point it at a mounted volume in production. |
+| `MF_DATA_DIR` | Development and tests only: keep orders and payments in JSON files in this directory instead of Postgres. Never set it in production. |
+| `MF_DB_POOL_MAX` | Database connections per server instance (default 5). Keep it small on serverless and use Neon's pooled (`-pooler`) host. |
+| `CRON_SECRET` | Authorizes the daily retention sweep at `/api/cron/retention` (Vercel Cron sends it automatically). |
 | `MF_ALERT_WEBHOOK_URL` | Where order, payment, notification, store and geocode failures are POSTed. Without it, failures go to stderr only. |
 | `MF_NOTIFY_WEBHOOK_URL` | Provider that sends order-status messages to customers. |
 | `MF_ADMIN_KEY` | Signs admins in at `/admin` and authorizes admin APIs (refunds, linking an approved owner to a station via `POST /api/admin/applications/[id]/approve`). Without it, admin access is disabled. |
@@ -163,12 +165,17 @@ admin sessions fail closed and `/admin` stays behind the key prompt.
 
 ## Data
 
-Stations, products, customers, addresses, preferences and phone codes live in
-Neon PostgreSQL. Orders are persisted as JSON in `MF_DATA_DIR`
-(default `.data/orders.json`).
-Reads and writes are serialized through a single queue, and orders are validated
-server-side (totals are recomputed, never trusted from the client). Tests point
-`MF_DATA_DIR` at a fresh temporary directory so they never touch real orders.
+Stations, products, customers, addresses, preferences, phone codes, orders
+and payments live in Neon PostgreSQL. Orders and payments are stored as JSON
+documents beside indexed columns (`src/lib/server/doc-store.ts`); every change
+to one record is a row-locked transaction, and orders are validated
+server-side (totals are recomputed, never trusted from the client).
+
+Without `DATABASE_URL`, development falls back to JSON files in `.data/`;
+production refuses to start the order store without a database. Unit tests set
+`MF_DATA_DIR` to a temporary directory. The Postgres backend has its own test,
+`src/lib/server/doc-store.postgres.test.ts`, which runs when
+`MF_TEST_DATABASE_URL` points at a throwaway migrated database.
 
 ## Project structure
 
@@ -178,7 +185,7 @@ src/
   components/          UI by area: home, shared, order, business, account, admin, ui
   lib/
     data/              seeded stations, plans and FAQs
-    server/            database foundation and file-backed order store
+    server/            database, order and payment stores, auth, payments
     analytics.ts       station analytics (pure functions)
     business-hours.ts  opening hours and availability
     pricing.ts         cart totals
@@ -187,12 +194,16 @@ src/
 
 ## Deploying
 
-The app is stateless apart from the order file, so any Node host works:
+The app keeps all state in Postgres, so it runs on Vercel or any Node host:
 
-1. Set `MF_DATA_DIR` to a persistent volume.
-2. Set `MF_ALERT_WEBHOOK_URL` (and `MF_NOTIFY_WEBHOOK_URL` if you have a
+1. Set `DATABASE_URL` (Neon pooled host), `NEXT_PUBLIC_SITE_URL`,
+   `MF_ADMIN_KEY`, `MF_OTP_SECRET`, `CRON_SECRET` and an SMS provider.
+2. Apply migrations before each release: `pnpm db:migrate`.
+3. Set `MF_ALERT_WEBHOOK_URL` (and `MF_NOTIFY_WEBHOOK_URL` if you have a
    messaging provider) so failures and status changes are reported.
-3. Build and run:
+4. `vercel.json` schedules the daily retention sweep. On another host, call
+   `GET /api/cron/retention` daily with `Authorization: Bearer $CRON_SECRET`.
+5. Build and run:
 
 ```bash
 pnpm install --frozen-lockfile

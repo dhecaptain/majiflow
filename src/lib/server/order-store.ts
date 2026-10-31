@@ -1,5 +1,4 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { randomBytes, randomUUID } from "node:crypto";
 import type {
   FulfillmentActor,
   FulfillmentMethod,
@@ -8,79 +7,53 @@ import type {
   OrderLocation,
   OrderStatus,
 } from "@/lib/types";
-import { isActiveStatus, isTerminalStatus } from "@/lib/order-status";
+import { isActiveStatus, isTerminalStatus, TERMINAL_STATUSES } from "@/lib/order-status";
 import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 import { computeCartTotals } from "@/lib/pricing";
 import { businesses } from "@/lib/data/businesses";
 import { normalizeKenyanPhone } from "@/lib/phone";
+import { documentStore } from "@/lib/server/doc-store";
+import { orders as ordersTable } from "@/lib/server/db/schema";
 
 /**
- * File-backed order store.
+ * Order store.
  *
- * Orders live in `.data/orders.json` (gitignored) so the whole flow -
- * customer checkout → vendor dashboard → live tracking → platform admin -
- * works across tabs and devices without an external database. Every read
- * and write is serialized through a single queue.
+ * Orders are documents in the Postgres `orders` table (a local JSON file in
+ * development and tests - see doc-store.ts). Every change to one order is an
+ * atomic, row-locked read-modify-write, so concurrent station, rider and
+ * payment updates cannot overwrite each other.
  */
 
-/**
- * Where orders are stored. `MF_DATA_DIR` lets the test suite and any other
- * process point the store at a throwaway directory instead of the repo's
- * `.data`, so a run never reads or overwrites real orders.
- */
-function dataDir(): string {
-  return process.env.MF_DATA_DIR
-    ? path.resolve(process.env.MF_DATA_DIR)
-    : path.join(process.cwd(), ".data");
-}
-
-function ordersFile(): string {
-  return path.join(dataDir(), "orders.json");
-}
+const store = documentStore<Order>({
+  name: "orders",
+  table: ordersTable,
+  id: (order) => order.id,
+  columns: (order) => ({
+    idempotencyKey: order.idempotencyKey ?? null,
+    orderNumber: order.orderNumber,
+    businessId: order.businessId,
+    customerUserId: order.customerUserId ?? null,
+    customerPhone: normalizeKenyanPhone(order.customerPhone) ?? order.customerPhone,
+    status: order.status,
+    riderTokenHash: order.riderTokenHash ?? null,
+    placedAt: new Date(order.placedAt),
+  }),
+  fields: {
+    idempotencyKey: { column: ordersTable.idempotencyKey, read: (o) => o.idempotencyKey },
+    orderNumber: { column: ordersTable.orderNumber, read: (o) => o.orderNumber },
+    businessId: { column: ordersTable.businessId, read: (o) => o.businessId },
+    customerUserId: { column: ordersTable.customerUserId, read: (o) => o.customerUserId },
+    customerPhone: {
+      column: ordersTable.customerPhone,
+      read: (o) => normalizeKenyanPhone(o.customerPhone) ?? o.customerPhone,
+    },
+    status: { column: ordersTable.status, read: (o) => o.status },
+    riderTokenHash: { column: ordersTable.riderTokenHash, read: (o) => o.riderTokenHash },
+  },
+  unique: ["idempotencyKey", "orderNumber"],
+});
 
 const LOCATION_HISTORY_CAP = 300;
-
-let queue: Promise<unknown> = Promise.resolve();
-
-async function readAll(): Promise<Record<string, Order>> {
-  try {
-    const raw = await fs.readFile(ordersFile(), "utf8");
-    return JSON.parse(raw) as Record<string, Order>;
-  } catch {
-    return {};
-  }
-}
-
-async function persist(orders: Record<string, Order>) {
-  await fs.mkdir(dataDir(), { recursive: true });
-  await fs.writeFile(ordersFile(), JSON.stringify(orders, null, 2), "utf8");
-}
-
-/** Serialize a read-modify-write cycle against the order file. */
-function mutate<T>(fn: (orders: Record<string, Order>) => T | Promise<T>): Promise<T> {
-  const run = async () => {
-    const orders = await readAll();
-    const result = await fn(orders);
-    await persist(orders);
-    return result;
-  };
-  const next = queue.then(run, run);
-  queue = next.then(
-    () => undefined,
-    () => undefined
-  );
-  return next;
-}
-
-function readOnly<T>(fn: (orders: Record<string, Order>) => T | Promise<T>): Promise<T> {
-  const run = () => readAll().then(fn);
-  const next = queue.then(run, run);
-  queue = next.then(
-    () => undefined,
-    () => undefined
-  );
-  return next;
-}
 
 function clone(order: Order): Order {
   return JSON.parse(JSON.stringify(order)) as Order;
@@ -90,8 +63,14 @@ function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
+/** Customer-facing reference, e.g. MF-7K3Q9X. Letters that read alike (0/O, 1/I) are left out. */
+const ORDER_NUMBER_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
 export function generateOrderNumber() {
-  return `MF-${Math.floor(10000 + Math.random() * 89999)}`;
+  const bytes = randomBytes(6);
+  let suffix = "";
+  for (const byte of bytes) suffix += ORDER_NUMBER_ALPHABET[byte % ORDER_NUMBER_ALPHABET.length];
+  return `MF-${suffix}`;
 }
 
 const MAX_LEN = { name: 80, phone: 20, estate: 60, building: 60, floor: 60, city: 40, notes: 500, landmark: 500 };
@@ -336,12 +315,13 @@ export function validateOrder(input: unknown): ValidationResult {
   if (Object.keys(errors).length > 0) return { errors };
 
   const verifiedAt = new Date().toISOString();
+  // The id is the private tracking link, so the server always picks it. The
+  // id the client sent identifies its checkout attempt, so a retry of the
+  // same attempt returns the order it already created.
   const order: Order = {
-    id: typeof o.id === "string" && o.id.trim() ? o.id.slice(0, 80) : `order-${Date.now()}`,
-    orderNumber:
-      typeof o.orderNumber === "string" && o.orderNumber.trim()
-        ? o.orderNumber
-        : generateOrderNumber(),
+    id: randomUUID(),
+    idempotencyKey: typeof o.id === "string" && o.id.trim() ? o.id.trim().slice(0, 160) : undefined,
+    orderNumber: generateOrderNumber(),
     businessId: o.businessId as string,
     businessName: business!.name,
     customerName: customerName!,
@@ -386,6 +366,8 @@ function consentFrom(input: unknown): OrderConsent {
 
 export interface ListOptions {
   businessId?: string;
+  /** Restrict to any of these stations (a station account's own stations). */
+  businessIds?: readonly string[];
   status?: string;
   phone?: string;
   /** Restrict to orders owned by this customer account. */
@@ -393,31 +375,23 @@ export interface ListOptions {
 }
 
 export async function listOrders(opts: ListOptions = {}): Promise<Order[]> {
-  return readOnly((orders) => {
-    let list = Object.values(orders);
-    if (opts.customerUserId) list = list.filter((o) => o.customerUserId === opts.customerUserId);
-    if (opts.businessId) list = list.filter((o) => o.businessId === opts.businessId);
-    if (opts.status) list = list.filter((o) => o.status === opts.status);
-    if (opts.phone) {
-      const needleRaw = opts.phone.replace(/\s+/g, "");
-      const needleNorm = normalizePhone(opts.phone);
-      list = list.filter((o) => {
-        const storedRaw = o.customerPhone.replace(/\s+/g, "");
-        const storedNorm = normalizePhone(o.customerPhone);
-        return (
-          storedRaw.includes(needleRaw) ||
-          (storedNorm !== null && needleNorm !== null && storedNorm === needleNorm)
-        );
-      });
-    }
-    return list
-      .sort((a, b) => b.placedAt.localeCompare(a.placedAt))
-      .map(clone);
+  const needleNorm = opts.phone ? normalizePhone(opts.phone) : null;
+  let list = await store.find({
+    businessId: opts.businessId ?? opts.businessIds,
+    status: opts.status,
+    customerUserId: opts.customerUserId,
+    customerPhone: needleNorm ?? undefined,
   });
+  if (opts.phone && !needleNorm) {
+    // A partial number: match on the digits the caller typed.
+    const needleRaw = opts.phone.replace(/\s+/g, "");
+    list = list.filter((o) => o.customerPhone.replace(/\s+/g, "").includes(needleRaw));
+  }
+  return list.sort((a, b) => b.placedAt.localeCompare(a.placedAt));
 }
 
 export async function getOrder(id: string): Promise<Order | null> {
-  return readOnly((orders) => (orders[id] ? clone(orders[id]) : null));
+  return store.get(id);
 }
 
 /**
@@ -436,6 +410,7 @@ export function staffOrder(order: Order): Order {
   const copy = { ...order };
   delete copy.customerUserId;
   delete copy.riderTokenHash;
+  delete copy.idempotencyKey;
   return copy;
 }
 
@@ -450,63 +425,65 @@ export async function getCustomerOrder(id: string, customerUserId: string): Prom
  * them for their records - but they no longer point at a user.
  */
 export async function detachCustomerOrders(customerUserId: string): Promise<number> {
-  return mutate((orders) => {
-    let count = 0;
-    for (const order of Object.values(orders)) {
-      if (order.customerUserId === customerUserId) {
-        delete order.customerUserId;
-        count += 1;
-      }
-    }
-    return count;
-  });
+  let count = 0;
+  for (const order of await store.find({ customerUserId })) {
+    const detached = await store.update(order.id, (draft) => {
+      if (draft.customerUserId !== customerUserId) return false;
+      delete draft.customerUserId;
+      return true;
+    });
+    if (detached) count += 1;
+  }
+  return count;
+}
+
+/** True when two orders are the same checkout of the same items. */
+function sameCheckout(a: Order, b: Order): boolean {
+  return (
+    a.businessId === b.businessId &&
+    a.items.length === b.items.length &&
+    a.items.every((it, i) => it.productId === b.items[i]?.productId && it.quantity === b.items[i]?.quantity)
+  );
 }
 
 /**
- * Persist a new order. Idempotent by id: submitting a duplicate id (e.g. a
- * client retry) returns the existing order unchanged instead of duplicating it.
+ * Persist a new order. Idempotent by checkout attempt: resubmitting the same
+ * attempt (a client retry) returns the existing order instead of duplicating it.
  */
 export async function createOrder(input: Order): Promise<{ order: Order; created: boolean }> {
-  return mutate((orders) => {
-    const existing = input.id ? orders[input.id] : undefined;
-    if (existing) {
-      const sameBusiness = existing.businessId === input.businessId;
-      const sameItems =
-        existing.items.length === input.items.length &&
-        existing.items.every(
-          (it, i) =>
-            it.productId === input.items[i]?.productId && it.quantity === input.items[i]?.quantity
-        );
-      if (sameBusiness && sameItems) return { order: clone(existing), created: false };
+  let idempotencyKey = input.idempotencyKey;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (idempotencyKey) {
+      const [existing] = await store.find({ idempotencyKey });
+      if (existing) {
+        if (sameCheckout(existing, input)) return { order: existing, created: false };
+        // Same attempt key, different basket: keep both, but never merge them.
+        idempotencyKey = `${idempotencyKey}-${randomBytes(3).toString("hex")}`;
+      }
     }
-    const id = existing ? `${input.id}-${Math.random().toString(36).slice(2, 7)}` : input.id;
     const order: Order = {
       ...input,
-      id,
+      id: attempt === 0 ? input.id : randomUUID(),
+      orderNumber: attempt === 0 ? input.orderNumber : generateOrderNumber(),
+      idempotencyKey,
       timeline: input.timeline?.length ? input.timeline : [{ status: input.status, at: input.placedAt }],
       location: input.location ?? null,
       locationHistory: input.locationHistory ?? [],
     };
-    orders[id] = order;
-    return { order: clone(order), created: true };
-  });
+    if (await store.insert(order)) return { order, created: true };
+    // Lost a race: another request took this attempt key, order number or id.
+  }
+  throw new Error("Could not allocate a unique order reference.");
 }
 
 export async function updateOrder(id: string, patch: Partial<Order>): Promise<Order | null> {
-  return mutate((orders) => {
-    const existing = orders[id];
-    if (!existing) return null;
-    const next: Order = { ...existing, ...patch, id: existing.id };
-    if (patch.status && patch.status !== existing.status) {
-      next.timeline = [...(existing.timeline ?? []), { status: patch.status, at: new Date().toISOString() }];
-    } else {
-      next.timeline = existing.timeline;
+  return store.update(id, (draft) => {
+    const previousStatus = draft.status;
+    Object.assign(draft, patch, { id: draft.id });
+    if (patch.status && patch.status !== previousStatus) {
+      draft.timeline = [...(draft.timeline ?? []), { status: patch.status, at: new Date().toISOString() }];
     }
-    next.location = patch.location !== undefined ? patch.location : existing.location;
-    next.locationHistory =
-      patch.locationHistory !== undefined ? patch.locationHistory : existing.locationHistory;
-    orders[id] = next;
-    return clone(next);
+    return clone(draft);
   });
 }
 
@@ -514,13 +491,13 @@ export interface TransitionOptions {
   actor?: FulfillmentActor;
   /** Customer-safe note stored on the timeline entry. */
   note?: string;
-  /** Extra fields written in the same serialized write as the status change. */
+  /** Extra fields written in the same atomic write as the status change. */
   patch?: (order: Order) => Partial<Order>;
 }
 
 /**
  * Move an order to a new status only if `guard` still allows it, checked
- * inside the same serialized write so a concurrent station update can't slip
+ * inside the same locked write so a concurrent station update can't slip
  * between the check and the change. Closing an order (delivered, rejected,
  * cancelled) drops its live location trail and revokes rider access in the
  * same write - nothing location-shaped outlives the delivery.
@@ -531,38 +508,32 @@ export async function transitionOrder(
   guard: (order: Order) => string | null,
   options: TransitionOptions = {}
 ): Promise<{ order: Order; previous: Order } | { error: string } | null> {
-  return mutate((orders) => {
-    const existing = orders[id];
-    if (!existing) return null;
-    const blocked = guard(clone(existing));
+  return store.update(id, (draft) => {
+    const previous = clone(draft);
+    const blocked = guard(clone(draft));
     if (blocked) return { error: blocked };
     const at = new Date().toISOString();
     const entry = { status, at, ...(options.actor ? { actor: options.actor } : {}), ...(options.note ? { note: options.note } : {}) };
-    const next: Order = {
-      ...existing,
-      ...(options.patch ? options.patch(clone(existing)) : {}),
-      id: existing.id,
+    Object.assign(draft, options.patch ? options.patch(clone(previous)) : {}, {
+      id: previous.id,
       status,
-      timeline: [...(existing.timeline ?? []), entry],
-    };
+      timeline: [...(previous.timeline ?? []), entry],
+    });
     if (isTerminalStatus(status)) {
-      next.location = null;
-      next.locationHistory = [];
-      delete next.riderTokenHash;
-      next.closedAt = at;
+      draft.location = null;
+      draft.locationHistory = [];
+      delete draft.riderTokenHash;
+      draft.closedAt = at;
     }
-    orders[id] = next;
-    return { order: clone(next), previous: clone(existing) };
+    return { order: clone(draft), previous };
   });
 }
 
 /** The order a rider token was issued for, while that token is still live. */
 export async function findOrderByRiderToken(tokenHash: string): Promise<Order | null> {
   if (!tokenHash) return null;
-  return readOnly((orders) => {
-    const match = Object.values(orders).find((order) => order.riderTokenHash === tokenHash);
-    return match ? clone(match) : null;
-  });
+  const [match] = await store.find({ riderTokenHash: tokenHash });
+  return match ?? null;
 }
 
 /**
@@ -573,27 +544,50 @@ export async function updateOrderConsent(
   id: string,
   change: Partial<Pick<OrderConsent, "location" | "smsUpdates">>
 ): Promise<Order | null> {
-  return mutate((orders) => {
-    const existing = orders[id];
-    if (!existing) return null;
-    const current = existing.consent ?? { location: false, smsUpdates: true, updatedAt: existing.placedAt };
-    const consent: OrderConsent = {
+  return store.update(id, (draft) => {
+    const current = draft.consent ?? { location: false, smsUpdates: true, updatedAt: draft.placedAt };
+    draft.consent = {
       location: change.location ?? current.location,
       smsUpdates: change.smsUpdates ?? current.smsUpdates,
       updatedAt: new Date().toISOString(),
     };
-    const next: Order = { ...existing, consent };
-    if (!consent.location) {
-      next.location = null;
-      next.locationHistory = [];
+    if (!draft.consent.location) {
+      draft.location = null;
+      draft.locationHistory = [];
     }
-    orders[id] = next;
-    return clone(next);
+    return clone(draft);
   });
 }
 
 /** Days a closed order keeps the customer's precise address pin. */
 export const ADDRESS_PIN_RETENTION_DAYS = 30;
+
+/** Drop location data a closed order no longer needs. Returns true when anything changed. */
+function redactClosedOrder(order: Order, now: Date): boolean {
+  if (!isTerminalStatus(order.status)) return false;
+  const cutoff = now.getTime() - ADDRESS_PIN_RETENTION_DAYS * 86_400_000;
+  let touched = false;
+  if (order.location || order.locationHistory?.length) {
+    order.location = null;
+    order.locationHistory = [];
+    touched = true;
+  }
+  if (order.riderTokenHash) {
+    delete order.riderTokenHash;
+    touched = true;
+  }
+  const closedAt = Date.parse(order.closedAt ?? order.timeline?.at(-1)?.at ?? order.placedAt);
+  const hasPin = order.address.lat !== undefined || order.address.lng !== undefined;
+  if (hasPin && !Number.isNaN(closedAt) && closedAt < cutoff) {
+    delete order.address.lat;
+    delete order.address.lng;
+    delete order.address.accuracy;
+    delete order.address.locationAt;
+    order.pinRedactedAt = now.toISOString();
+    touched = true;
+  }
+  return touched;
+}
 
 /**
  * Retention sweep: closed orders older than the window lose the precise GPS
@@ -601,54 +595,30 @@ export const ADDRESS_PIN_RETENTION_DAYS = 30;
  * any location data a closed order still carries is dropped.
  */
 export async function applyOrderRetention(now = new Date()): Promise<number> {
-  const cutoff = now.getTime() - ADDRESS_PIN_RETENTION_DAYS * 86_400_000;
-  return mutate((orders) => {
-    let changed = 0;
-    for (const order of Object.values(orders)) {
-      if (!isTerminalStatus(order.status)) continue;
-      let touched = false;
-      if (order.location || order.locationHistory?.length) {
-        order.location = null;
-        order.locationHistory = [];
-        touched = true;
-      }
-      if (order.riderTokenHash) {
-        delete order.riderTokenHash;
-        touched = true;
-      }
-      const closedAt = Date.parse(order.closedAt ?? order.timeline?.at(-1)?.at ?? order.placedAt);
-      const hasPin = order.address.lat !== undefined || order.address.lng !== undefined;
-      if (hasPin && !Number.isNaN(closedAt) && closedAt < cutoff) {
-        delete order.address.lat;
-        delete order.address.lng;
-        delete order.address.accuracy;
-        delete order.address.locationAt;
-        order.pinRedactedAt = now.toISOString();
-        touched = true;
-      }
-      if (touched) changed += 1;
-    }
-    return changed;
-  });
+  let changed = 0;
+  for (const order of await store.find({ status: TERMINAL_STATUSES })) {
+    if (!redactClosedOrder(clone(order), now)) continue;
+    const touched = await store.update(order.id, (draft) => redactClosedOrder(draft, now));
+    if (touched) changed += 1;
+  }
+  return changed;
 }
 
 /**
  * Append a live location fix. With a `guard`, the fix is refused (inside the
- * same serialized write) when the guard returns a reason.
+ * same locked write) when the guard returns a reason.
  */
 export async function recordLocation(
   id: string,
   loc: OrderLocation,
   guard?: (order: Order) => string | null
 ): Promise<Order | { error: string } | null> {
-  return mutate((orders) => {
-    const existing = orders[id];
-    if (!existing) return null;
-    const blocked = guard?.(clone(existing));
+  return store.update(id, (draft) => {
+    const blocked = guard?.(clone(draft));
     if (blocked) return { error: blocked };
-    const history = [...(existing.locationHistory ?? []), loc].slice(-LOCATION_HISTORY_CAP);
-    orders[id] = { ...existing, location: loc, locationHistory: history };
-    return clone(orders[id]);
+    draft.location = loc;
+    draft.locationHistory = [...(draft.locationHistory ?? []), loc].slice(-LOCATION_HISTORY_CAP);
+    return clone(draft);
   });
 }
 
@@ -661,10 +631,8 @@ export function locationBlockReason(order: Order): string | null {
 
 /** Record a refund handoff (or its outcome) on the order. */
 export async function setOrderRefund(id: string, refund: Order["refund"]): Promise<Order | null> {
-  return mutate((orders) => {
-    const existing = orders[id];
-    if (!existing) return null;
-    orders[id] = { ...existing, refund };
-    return clone(orders[id]);
+  return store.update(id, (draft) => {
+    draft.refund = refund;
+    return clone(draft);
   });
 }
