@@ -1,3 +1,4 @@
+import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminSignIn, AdminSignOut } from "@/components/admin/admin-session";
 import { Container } from "@/components/ui/container";
 import { hasAdminSession } from "@/lib/server/admin";
@@ -20,7 +21,8 @@ export default async function AdminLayout({ children }: LayoutProps) {
   }
   return (
     <>
-      <Container className="flex justify-end pt-6">
+      <Container className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 pt-6">
+        <AdminNav />
         <AdminSignOut />
       </Container>
       {children}

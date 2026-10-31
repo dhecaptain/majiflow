@@ -163,6 +163,18 @@ POST /api/auth/login      # { "email": "...", "password": "..." } -> sets mf_ses
 Both are required for the `/admin` pages. Without a valid `MF_ADMIN_KEY`, all
 admin sessions fail closed and `/admin` stays behind the key prompt.
 
+### What the console shows
+
+| Page | Purpose |
+| --- | --- |
+| `/admin` | KPIs for the last 7, 30 or 90 days (orders, delivered value, delivery rate, new customers), daily charts, top stations, payment split, order outcomes, cash still to collect on pay-on-delivery orders, and alerts for pending applications and published stations customers cannot see. |
+| `/admin/stations` | Every station in any state (live, published but not visible, ready, setting up, suspended), with why it is not visible, plan, products, 30-day orders and value. Suspend (with a reason) or reinstate; a suspended station leaves browse and checkout at once. |
+| `/admin/users` | Search accounts by name, email or phone and filter by role. Each account shows its orders and stations, and can be disabled (signs it out everywhere and blocks sign-in) or restored. Operations accounts cannot be disabled from the console. |
+| `/admin/orders`, `/admin/applications` | Live order feed and business application review. |
+
+CSV exports: `GET /api/admin/export?kind=stations|users|orders&days=30`. Writes
+and exports need the admin key session *and* an operations account.
+
 ## Data
 
 Stations, products, customers, addresses, preferences, phone codes, orders

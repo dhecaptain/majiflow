@@ -46,6 +46,8 @@ export const users = pgTable(
     /** Optional: phone-first customers have no password. */
     passwordHash: text("password_hash"),
     role: userRole("role").default("customer").notNull(),
+    /** Set by operations to block sign-in; existing sessions stop working at once. */
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => ({
@@ -110,6 +112,9 @@ export const businesses = pgTable(
     openingHours: jsonb("opening_hours"),
     /** Orders at or above this subtotal deliver free; 0 means never free. */
     freeDeliveryAbove: numeric("free_delivery_above", { precision: 10, scale: 2 }).default("0").notNull(),
+    /** Set by operations to take a station off browse and checkout. */
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspensionReason: varchar("suspension_reason", { length: 300 }),
     ...timestamps,
   },
   (table) => ({

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { businesses, businessApplications, subscriptions } from "@/lib/server/db/schema";
 import { evaluateSubscriptionEligibility, type SubscriptionRecord } from "@/lib/server/subscriptions";
@@ -444,6 +444,7 @@ export async function queryEligiblePublishedDatabaseBusinesses(now: Date) {
       and(
         eq(businesses.isPublished, true),
         eq(businesses.isComplete, true),
+        isNull(businesses.suspendedAt),
         eq(businessApplications.status, "approved")
       )
     );
