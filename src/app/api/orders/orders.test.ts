@@ -81,8 +81,13 @@ const markPaid = (id: string) => updateOrder(id, { paymentState: "success" });
 
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
 
+/** Id the server gave the last order created through the API. */
+let orderId = "";
+
 async function createOrder(body: unknown = validBody()) {
-  return POST(postRequest(body));
+  const response = await POST(postRequest(body));
+  if (response.ok) orderId = (await response.clone().json()).order.id;
+  return response;
 }
 
 describe("POST /api/orders", () => {
@@ -90,7 +95,10 @@ describe("POST /api/orders", () => {
     const response = await createOrder();
     expect(response.status).toBe(201);
     const { order } = await response.json();
-    expect(order.id).toBe("api-order-1");
+    // The server picks the id: the client's id only names its checkout attempt.
+    expect(order.id).not.toBe("api-order-1");
+    expect(order.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(order.orderNumber).toMatch(/^MF-[2-9A-HJ-NP-Z]{6}$/);
     expect(order.total).toBe(820);
   });
 
@@ -99,7 +107,7 @@ describe("POST /api/orders", () => {
     expect((await createOrder()).status).toBe(200);
 
     const listed = await (await list()).json();
-    expect(listed.orders.filter((o: { id: string }) => o.id === "api-order-1")).toHaveLength(1);
+    expect(listed.orders).toHaveLength(1);
   });
 
   it("answers 422 with field errors when the client total is wrong", async () => {
@@ -134,14 +142,14 @@ describe("POST /api/orders", () => {
 describe("PATCH /api/orders/[id]", () => {
   it("needs a station or admin session", async () => {
     await createOrder();
-    expect((await PATCH(patchRequest("api-order-1", { status: "accepted" }, {}), context("api-order-1"))).status).toBe(401);
+    expect((await PATCH(patchRequest(orderId, { status: "accepted" }, {}), context(orderId))).status).toBe(401);
     expect((await listRoute(new NextRequest("http://localhost/api/orders"))).status).toBe(401);
   });
 
   it("moves an order through the vendor flow", async () => {
     await createOrder();
-    await markPaid("api-order-1");
-    const response = await PATCH(patchRequest("api-order-1", { status: "accepted" }), context("api-order-1"));
+    await markPaid(orderId);
+    const response = await PATCH(patchRequest(orderId, { status: "accepted" }), context(orderId));
     expect(response.status).toBe(200);
     const { order } = await response.json();
     expect(order.status).toBe("accepted");
@@ -151,18 +159,18 @@ describe("PATCH /api/orders/[id]", () => {
   it("refuses a patch that only tries to change money", async () => {
     await createOrder();
     const response = await PATCH(
-      patchRequest("api-order-1", { total: 1, subtotal: 1, deliveryFee: 0, items: [] }),
-      context("api-order-1")
+      patchRequest(orderId, { total: 1, subtotal: 1, deliveryFee: 0, items: [] }),
+      context(orderId)
     );
     expect(response.status).toBe(400);
   });
 
   it("applies allowed fields and ignores the rest", async () => {
     await createOrder();
-    await markPaid("api-order-1");
+    await markPaid(orderId);
     const response = await PATCH(
-      patchRequest("api-order-1", { status: "accepted", total: 1 }),
-      context("api-order-1")
+      patchRequest(orderId, { status: "accepted", total: 1 }),
+      context(orderId)
     );
     const { order } = await response.json();
     expect(order.status).toBe("accepted");
@@ -172,21 +180,21 @@ describe("PATCH /api/orders/[id]", () => {
   it("rejects an unknown status", async () => {
     await createOrder();
     expect(
-      (await PATCH(patchRequest("api-order-1", { status: "teleported" }), context("api-order-1"))).status
+      (await PATCH(patchRequest(orderId, { status: "teleported" }), context(orderId))).status
     ).toBe(400);
   });
 
   it("rejects an unknown payment state", async () => {
     await createOrder();
     expect(
-      (await PATCH(patchRequest("api-order-1", { paymentState: "refunded" }), context("api-order-1"))).status
+      (await PATCH(patchRequest(orderId, { paymentState: "refunded" }), context(orderId))).status
     ).toBe(400);
   });
 
   it("refuses every client payment-state transition - payment is server-managed", async () => {
     await createOrder();
     for (const paymentState of ["pending", "failed", "success"]) {
-      const response = await PATCH(patchRequest("api-order-1", { paymentState }), context("api-order-1"));
+      const response = await PATCH(patchRequest(orderId, { paymentState }), context(orderId));
       expect(response.status).toBe(400);
     }
     const stored = await (await list()).json();
@@ -201,8 +209,8 @@ describe("PATCH /api/orders/[id]", () => {
 describe("GET /api/orders/[id]", () => {
   it("returns the order", async () => {
     await createOrder();
-    const response = await getOrderRoute(new Request("http://localhost/api/orders/api-order-1"), context("api-order-1"));
-    expect((await response.json()).order.id).toBe("api-order-1");
+    const response = await getOrderRoute(new Request(`http://localhost/api/orders/${orderId}`), context(orderId));
+    expect((await response.json()).order.id).toBe(orderId);
   });
 
   it("answers 404 for an unknown order", async () => {

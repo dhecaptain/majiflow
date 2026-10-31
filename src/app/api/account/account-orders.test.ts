@@ -90,6 +90,7 @@ const post = () => new Request("http://localhost", { method: "POST" });
 describe("order ownership", () => {
   it("stamps the session customer on new orders but never exposes it publicly", async () => {
     const created = await placeOrder(jane, "o-jane", { customerUserId: "user-otto" });
+    const janeId = created.id;
     expect(created).not.toHaveProperty("customerUserId");
 
     const { orders } = await (
@@ -101,7 +102,7 @@ describe("order ownership", () => {
 
     session.user = jane;
     const mine = await (await listRoute(listRequest())).json();
-    expect(mine.orders.map((o: { id: string }) => o.id)).toEqual(["o-jane"]);
+    expect(mine.orders.map((o: { id: string }) => o.id)).toEqual([janeId]);
 
     session.user = otto;
     expect((await (await listRoute(listRequest())).json()).orders).toEqual([]);
@@ -123,24 +124,24 @@ describe("order ownership", () => {
   });
 
   it("hides another customer's order behind a 404", async () => {
-    await placeOrder(jane, "o-jane");
+    const { id: janeId } = await placeOrder(jane, "o-jane");
     session.user = otto;
-    expect((await detailRoute(post(), ctx("o-jane"))).status).toBe(404);
-    expect((await reorderRoute(post(), ctx("o-jane"))).status).toBe(404);
-    expect((await cancelRoute(post(), ctx("o-jane"))).status).toBe(404);
+    expect((await detailRoute(post(), ctx(janeId))).status).toBe(404);
+    expect((await reorderRoute(post(), ctx(janeId))).status).toBe(404);
+    expect((await cancelRoute(post(), ctx(janeId))).status).toBe(404);
 
     session.user = jane;
-    const detail = await (await detailRoute(post(), ctx("o-jane"))).json();
-    expect(detail.order.id).toBe("o-jane");
+    const detail = await (await detailRoute(post(), ctx(janeId))).json();
+    expect(detail.order.id).toBe(janeId);
     expect(detail.cancelBlockReason).toMatch(/being confirmed/);
   });
 });
 
 describe("reorder", () => {
   it("returns cart lines from today's catalog", async () => {
-    await placeOrder(jane, "o-jane");
+    const { id: janeId } = await placeOrder(jane, "o-jane");
     session.user = jane;
-    const response = await reorderRoute(post(), ctx("o-jane"));
+    const response = await reorderRoute(post(), ctx(janeId));
     expect(response.status).toBe(200);
     const { plan } = await response.json();
     expect(plan.lines).toEqual([{ businessId: "bio-water-kasarani", productId: "bw-refill-20", quantity: 2 }]);
@@ -150,17 +151,17 @@ describe("reorder", () => {
 
 describe("cancel", () => {
   it("waits for the payment window, then cancels once", async () => {
-    await placeOrder(jane, "o-jane");
+    const { id: janeId } = await placeOrder(jane, "o-jane");
     session.user = jane;
-    expect((await cancelRoute(post(), ctx("o-jane"))).status).toBe(409);
+    expect((await cancelRoute(post(), ctx(janeId))).status).toBe(409);
 
     vi.setSystemTime(Date.now() + PAYMENT_TIMEOUT_MS + 1000);
-    const response = await cancelRoute(post(), ctx("o-jane"));
+    const response = await cancelRoute(post(), ctx(janeId));
     expect(response.status).toBe(200);
     const { order } = await response.json();
     expect(order.status).toBe("cancelled");
     expect(order.timeline.at(-1).status).toBe("cancelled");
 
-    expect((await cancelRoute(post(), ctx("o-jane"))).status).toBe(409);
+    expect((await cancelRoute(post(), ctx(janeId))).status).toBe(409);
   });
 });

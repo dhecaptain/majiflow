@@ -3,6 +3,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -215,5 +216,58 @@ export const subscriptions = pgTable(
   },
   (table) => ({
     businessUnique: uniqueIndex("subscriptions_business_id_unique").on(table.businessId),
+  })
+);
+
+/**
+ * Customer orders. The whole order document lives in `data`; the columns
+ * beside it are copies of the fields the app filters on, kept in step by the
+ * order store on every write.
+ */
+export const orders = pgTable(
+  "orders",
+  {
+    id: varchar("id", { length: 80 }).primaryKey(),
+    /** The checkout attempt that created the order, so a retry never duplicates it. */
+    idempotencyKey: varchar("idempotency_key", { length: 160 }),
+    orderNumber: varchar("order_number", { length: 24 }).notNull(),
+    businessId: varchar("business_id", { length: 180 }).notNull(),
+    customerUserId: varchar("customer_user_id", { length: 80 }),
+    customerPhone: varchar("customer_phone", { length: 20 }),
+    status: varchar("status", { length: 24 }).notNull(),
+    riderTokenHash: varchar("rider_token_hash", { length: 64 }),
+    placedAt: timestamp("placed_at", { withTimezone: true }).notNull(),
+    data: jsonb("data").notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    idempotencyUnique: uniqueIndex("orders_idempotency_key_unique").on(table.idempotencyKey),
+    orderNumberUnique: uniqueIndex("orders_order_number_unique").on(table.orderNumber),
+    businessIdx: index("orders_business_id_idx").on(table.businessId, table.placedAt),
+    customerIdx: index("orders_customer_user_id_idx").on(table.customerUserId),
+    phoneIdx: index("orders_customer_phone_idx").on(table.customerPhone),
+    statusIdx: index("orders_status_idx").on(table.status),
+    riderTokenIdx: index("orders_rider_token_hash_idx").on(table.riderTokenHash),
+  })
+);
+
+/** Payment attempts and their refunds, one document per payment. */
+export const payments = pgTable(
+  "payments",
+  {
+    id: varchar("id", { length: 80 }).primaryKey(),
+    idempotencyKey: varchar("idempotency_key", { length: 240 }).notNull(),
+    checkoutRequestId: varchar("checkout_request_id", { length: 120 }),
+    status: varchar("status", { length: 16 }).notNull(),
+    orderIds: text("order_ids").array().notNull(),
+    refundIds: text("refund_ids").array().notNull(),
+    data: jsonb("data").notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    idempotencyUnique: uniqueIndex("payments_idempotency_key_unique").on(table.idempotencyKey),
+    checkoutRequestUnique: uniqueIndex("payments_checkout_request_id_unique").on(table.checkoutRequestId),
+    orderIdsIdx: index("payments_order_ids_idx").using("gin", table.orderIds),
+    refundIdsIdx: index("payments_refund_ids_idx").using("gin", table.refundIds),
   })
 );

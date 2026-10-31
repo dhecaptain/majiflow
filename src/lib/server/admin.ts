@@ -19,7 +19,8 @@ function sign(key: string, issuedAt: number) {
   return createHmac("sha256", key).update(`mf-admin:${issuedAt}`).digest("hex");
 }
 
-function safeEqual(a: string, b: string) {
+/** Constant-time string comparison for secrets. */
+export function safeEqual(a: string, b: string) {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);

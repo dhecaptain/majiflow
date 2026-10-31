@@ -43,8 +43,9 @@ function orderPayload() {
 async function seedOrder(id = "pay-order-1") {
   const { order, errors } = validateOrder({ ...orderPayload(), id });
   expect(errors).toBeUndefined();
-  await createOrder(order!);
-  return order!;
+  // The server picks order ids; tests pin one so they can refer to it.
+  const { order: created } = await createOrder({ ...order!, id });
+  return created;
 }
 
 beforeEach(async () => {

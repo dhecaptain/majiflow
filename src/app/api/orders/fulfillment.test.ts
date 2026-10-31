@@ -83,7 +83,8 @@ afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-const ORDER_ID = "fulfil-order-1";
+/** Id the server gave the order placed by `place()`. */
+let ORDER_ID = "";
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 const riderCtx = (token: string) => ({ params: Promise.resolve({ token }) });
 
@@ -101,7 +102,7 @@ const patch = (body: unknown, id = ORDER_ID, headers: Record<string, string> = {
 async function place(overrides: Record<string, unknown> = {}) {
   const response = await createRoute(
     json("POST", "http://localhost/api/orders", {
-      id: ORDER_ID,
+      id: "fulfil-attempt-1",
       businessId: "bio-water-kasarani",
       businessName: "BioWater Refill Station",
       customerName: "Jane Wanjiku",
@@ -119,7 +120,9 @@ async function place(overrides: Record<string, unknown> = {}) {
     })
   );
   expect(response.status).toBe(201);
-  return ((await response.json()) as { order: Order }).order;
+  const { order } = (await response.json()) as { order: Order };
+  ORDER_ID = order.id;
+  return order;
 }
 
 /** Confirm payment the way the provider callback does. */

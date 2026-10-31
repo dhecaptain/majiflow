@@ -1,7 +1,8 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { randomBytes } from "node:crypto";
 import type { Order, PaymentMethod, PaymentState } from "@/lib/types";
 import { getOrder, setOrderRefund, updateOrder } from "@/lib/server/order-store";
+import { documentStore } from "@/lib/server/doc-store";
+import { payments as paymentsTable } from "@/lib/server/db/schema";
 
 /**
  * Server-side payment lifecycle (M-Pesa via Safaricom Daraja, card via the
@@ -59,53 +60,33 @@ export interface PaymentRecord {
 
 export const PAYMENT_TIMEOUT_MS = 15 * 60 * 1000;
 
-function dataDir(): string {
-  return process.env.MF_DATA_DIR
-    ? path.resolve(process.env.MF_DATA_DIR)
-    : path.join(process.cwd(), ".data");
-}
-
-function paymentsFile(): string {
-  return path.join(dataDir(), "payments.json");
-}
-
-let queue: Promise<unknown> = Promise.resolve();
-
-async function readAll(): Promise<Record<string, PaymentRecord>> {
-  try {
-    const raw = await fs.readFile(paymentsFile(), "utf8");
-    return JSON.parse(raw) as Record<string, PaymentRecord>;
-  } catch {
-    return {};
-  }
-}
-
-async function persist(records: Record<string, PaymentRecord>) {
-  await fs.mkdir(dataDir(), { recursive: true });
-  await fs.writeFile(paymentsFile(), JSON.stringify(records, null, 2), "utf8");
-}
-
-function mutate<T>(fn: (records: Record<string, PaymentRecord>) => T | Promise<T>): Promise<T> {
-  const run = async () => {
-    const records = await readAll();
-    const result = await fn(records);
-    await persist(records);
-    return result;
-  };
-  const next = queue.then(run, run);
-  queue = next.then(
-    () => undefined,
-    () => undefined
-  );
-  return next;
-}
+const store = documentStore<PaymentRecord>({
+  name: "payments",
+  table: paymentsTable,
+  id: (payment) => payment.id,
+  columns: (payment) => ({
+    idempotencyKey: payment.idempotencyKey,
+    checkoutRequestId: payment.checkoutRequestId ?? null,
+    status: payment.status,
+    orderIds: payment.orderIds,
+    refundIds: payment.refunds.map((refund) => refund.id),
+  }),
+  fields: {
+    idempotencyKey: { column: paymentsTable.idempotencyKey, read: (p) => p.idempotencyKey },
+    checkoutRequestId: { column: paymentsTable.checkoutRequestId, read: (p) => p.checkoutRequestId },
+    status: { column: paymentsTable.status, read: (p) => p.status },
+    orderIds: { column: paymentsTable.orderIds, read: (p) => p.orderIds },
+    refundIds: { column: paymentsTable.refundIds, read: (p) => p.refunds.map((refund) => refund.id) },
+  },
+  unique: ["idempotencyKey", "checkoutRequestId"],
+});
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
 function newId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}-${Date.now().toString(36)}-${randomBytes(6).toString("hex")}`;
 }
 
 function event(record: PaymentRecord, kind: string, detail?: string) {
@@ -174,55 +155,67 @@ export async function initiatePayment(input: InitiateInput): Promise<InitiateRes
 
   const mode = providerMode();
 
-  const created = await mutate(async (records) => {
-    const existing = Object.values(records).find((r) => r.idempotencyKey === input.idempotencyKey);
-    if (existing) {
-      event(existing, "initiate-duplicate", `Rejoined ${existing.id}`);
-      return { payment: clone(existing), created: false };
-    }
-    const now = new Date().toISOString();
-    const record: PaymentRecord = {
-      id: newId("pay"),
-      orderIds,
-      phone: input.phone,
-      method: input.method,
-      amount,
-      status: "pending",
-      provider: mode,
-      idempotencyKey: input.idempotencyKey,
-      createdAt: now,
-      updatedAt: now,
-      events: [{ at: now, kind: "initiated", detail: `${input.method} for ${orderIds.length} order(s), ${amount}` }],
-      refunds: [],
-    };
-    records[record.id] = record;
-    return { payment: clone(record), created: true };
-  });
+  const now = new Date().toISOString();
+  const record: PaymentRecord = {
+    id: newId("pay"),
+    orderIds,
+    phone: input.phone,
+    method: input.method,
+    amount,
+    status: "pending",
+    provider: mode,
+    idempotencyKey: input.idempotencyKey,
+    createdAt: now,
+    updatedAt: now,
+    events: [{ at: now, kind: "initiated", detail: `${input.method} for ${orderIds.length} order(s), ${amount}` }],
+    refunds: [],
+  };
+  const created: { payment: PaymentRecord; created: boolean } = (await store.insert(record))
+    ? { payment: record, created: true }
+    : { payment: await rejoinPayment(input.idempotencyKey), created: false };
 
   if (created.created && mode === "daraja") {
     try {
       const stk = await darajaStkPush({ phone: input.phone, amount, reference: created.payment.id });
-      await mutate((records) => {
-        const record = records[created.payment.id];
-        if (!record) return;
-        record.checkoutRequestId = stk.checkoutRequestId;
-        record.merchantRequestId = stk.merchantRequestId;
-        event(record, "stk-sent", stk.customerMessage ?? undefined);
+      await store.update(created.payment.id, (draft) => {
+        draft.checkoutRequestId = stk.checkoutRequestId;
+        draft.merchantRequestId = stk.merchantRequestId;
+        event(draft, "stk-sent", stk.customerMessage ?? undefined);
       });
-      created.payment = (await getPayment(created.payment.id)) ?? created.payment;
     } catch (error) {
-      await mutate((records) => {
-        const record = records[created.payment.id];
-        if (!record) return;
-        record.status = "failed";
-        record.failureReason = error instanceof Error ? error.message : "STK push failed";
-        event(record, "initiate-failed", record.failureReason);
+      await store.update(created.payment.id, (draft) => {
+        draft.status = "failed";
+        draft.failureReason = error instanceof Error ? error.message : "STK push failed";
+        event(draft, "initiate-failed", draft.failureReason);
       });
-      created.payment = (await getPayment(created.payment.id)) ?? created.payment;
     }
+    created.payment = (await store.get(created.payment.id)) ?? created.payment;
   }
 
   return { ...created, testMode: devCallbacksAllowed() };
+}
+
+/** The payment an earlier request already opened for this idempotency key. */
+async function rejoinPayment(idempotencyKey: string): Promise<PaymentRecord> {
+  const [existing] = await store.find({ idempotencyKey });
+  if (!existing) throw new Error("Could not start the payment - please try again.");
+  const rejoined = await store.update(existing.id, (draft) => {
+    event(draft, "initiate-duplicate", `Rejoined ${draft.id}`);
+    return clone(draft);
+  });
+  return rejoined ?? existing;
+}
+
+/** The payment state an order shows for a payment status. */
+function orderPaymentState(status: PaymentRecordStatus): PaymentState {
+  return status === "success" ? "success" : status === "timeout" ? "timeout" : status === "cancelled" ? "cancelled" : "failed";
+}
+
+/** Copy a settled payment's state onto its orders, after the payment write has committed. */
+async function syncOrders(record: PaymentRecord) {
+  for (const orderId of record.orderIds) {
+    await updateOrder(orderId, { paymentState: orderPaymentState(record.status) });
+  }
 }
 
 export type ProviderOutcome = "success" | "failed" | "cancelled" | "timeout";
@@ -240,15 +233,17 @@ export async function applyProviderOutcome(input: {
   amount?: number;
   detail?: string;
 }): Promise<PaymentRecord | null> {
-  return mutate(async (records) => {
-    const record = input.paymentId
-      ? records[input.paymentId]
-      : Object.values(records).find((r) => r.checkoutRequestId && r.checkoutRequestId === input.checkoutRequestId);
-    if (!record) return null;
+  const target = input.paymentId
+    ? await store.get(input.paymentId)
+    : input.checkoutRequestId
+      ? (await store.find({ checkoutRequestId: input.checkoutRequestId }))[0] ?? null
+      : null;
+  if (!target) return null;
 
+  const applied = await store.update(target.id, (record) => {
     if (record.status !== "pending") {
       event(record, "callback-duplicate", `Ignored ${input.outcome}; already ${record.status}`);
-      return clone(record);
+      return { record: clone(record), settled: false };
     }
 
     if (input.outcome === "success") {
@@ -266,33 +261,34 @@ export async function applyProviderOutcome(input: {
       record.failureReason = input.detail ?? `Provider reported ${input.outcome}.`;
       event(record, `marked-${input.outcome}`, record.failureReason);
     }
-
-    // The order follows the verified payment - this is the ONLY path that
-    // marks an order paid.
-    const orderState: PaymentState =
-      record.status === "success" ? "success" : record.status === "timeout" ? "timeout" : record.status === "cancelled" ? "cancelled" : "failed";
-    for (const orderId of record.orderIds) {
-      await updateOrder(orderId, { paymentState: orderState });
-    }
-    return clone(record);
+    return { record: clone(record), settled: true };
   });
+  if (!applied) return null;
+
+  // The order follows the verified payment - this is the ONLY path that
+  // marks an order paid.
+  if (applied.settled) await syncOrders(applied.record);
+  return applied.record;
 }
 
-/** Read a payment, sweeping stale pending records to `timeout` first. */
+function isStale(record: PaymentRecord, now = Date.now()): boolean {
+  return record.status === "pending" && now - Date.parse(record.createdAt) > PAYMENT_TIMEOUT_MS;
+}
+
+/** Read a payment, moving a stale pending record to `timeout` first. */
 export async function getPayment(id: string): Promise<PaymentRecord | null> {
-  return mutate(async (records) => {
-    const record = records[id];
-    if (!record) return null;
-    if (record.status === "pending" && Date.now() - Date.parse(record.createdAt) > PAYMENT_TIMEOUT_MS) {
-      record.status = "timeout";
-      record.failureReason = "No provider confirmation arrived in time.";
-      event(record, "timed-out", record.failureReason);
-      for (const orderId of record.orderIds) {
-        await updateOrder(orderId, { paymentState: "timeout" });
-      }
-    }
-    return clone(record);
+  const record = await store.get(id);
+  if (!record || !isStale(record)) return record;
+  const swept = await store.update(id, (draft) => {
+    if (!isStale(draft)) return { record: clone(draft), settled: false };
+    draft.status = "timeout";
+    draft.failureReason = "No provider confirmation arrived in time.";
+    event(draft, "timed-out", draft.failureReason);
+    return { record: clone(draft), settled: true };
   });
+  if (!swept) return null;
+  if (swept.settled) await syncOrders(swept.record);
+  return swept.record;
 }
 
 /** Reconcile a pending payment against the provider (Daraja query; dev returns the record). */
@@ -332,9 +328,7 @@ export async function requestRefund(input: RefundRequest): Promise<RefundRecord>
   if (!input.reason.trim()) throw new Error("A refund reason is required.");
   const order = input.orderId ? await getOrder(input.orderId) : null;
   if (input.orderId && !order) throw new Error("Order not found.");
-  return mutate(async (records) => {
-    const record = records[input.paymentId];
-    if (!record) throw new Error("Payment not found.");
+  const refund = await store.update(input.paymentId, (record) => {
     if (record.status !== "success") throw new Error("Only successful payments can be refunded.");
     const orderIds = order ? [order.id] : [...record.orderIds];
     if (order && !record.orderIds.includes(order.id)) throw new Error("That order was not paid by this payment.");
@@ -358,14 +352,14 @@ export async function requestRefund(input: RefundRequest): Promise<RefundRecord>
     event(record, "refund-requested", `${refund.id}: ${refund.reason}`);
     return clone(refund);
   });
+  if (!refund) throw new Error("Payment not found.");
+  return refund;
 }
 
 /** The successful payment that covered an order, if any. */
 export async function findPaymentForOrder(orderId: string): Promise<PaymentRecord | null> {
-  return mutate((records) => {
-    const record = Object.values(records).find((r) => r.status === "success" && r.orderIds.includes(orderId));
-    return record ? clone(record) : null;
-  });
+  const [record] = await store.find({ orderIds: orderId, status: "success" });
+  return record ?? null;
 }
 
 /**
@@ -374,11 +368,12 @@ export async function findPaymentForOrder(orderId: string): Promise<PaymentRecor
  * No order is ever shown as refunded before this runs.
  */
 export async function confirmRefund(refundId: string, providerReference?: string): Promise<RefundRecord | null> {
-  return mutate(async (records) => {
-    const record = Object.values(records).find((r) => r.refunds.some((f) => f.id === refundId));
-    const refund = record?.refunds.find((f) => f.id === refundId);
-    if (!record || !refund) return null;
-    if (refund.status !== "pending") return clone(refund);
+  const [owner] = await store.find({ refundIds: refundId });
+  if (!owner) return null;
+  const confirmed = await store.update(owner.id, async (record) => {
+    const refund = record.refunds.find((f) => f.id === refundId);
+    if (!refund) return null;
+    if (refund.status !== "pending") return { refund: clone(refund), changed: false };
 
     if (record.provider === "daraja" && !providerReference) {
       const result = await darajaReversal({
@@ -397,15 +392,20 @@ export async function confirmRefund(refundId: string, providerReference?: string
     refund.status = "confirmed";
     refund.confirmedAt = new Date().toISOString();
     event(record, "refund-confirmed", `${refund.id}${refund.providerReference ? ` (${refund.providerReference})` : ""}`);
-    for (const orderId of refund.orderIds) {
+    return { refund: clone(refund), changed: true };
+  });
+  if (!confirmed) return null;
+
+  if (confirmed.changed) {
+    for (const orderId of confirmed.refund.orderIds) {
       await updateOrder(orderId, { paymentState: "refunded" });
       const order = await getOrder(orderId);
-      if (order?.refund?.id === refund.id) {
-        await setOrderRefund(orderId, { ...order.refund, status: "confirmed", confirmedAt: refund.confirmedAt });
+      if (order?.refund?.id === confirmed.refund.id) {
+        await setOrderRefund(orderId, { ...order.refund, status: "confirmed", confirmedAt: confirmed.refund.confirmedAt });
       }
     }
-    return clone(refund);
-  });
+  }
+  return confirmed.refund;
 }
 
 // ---------------------------------------------------------------------------

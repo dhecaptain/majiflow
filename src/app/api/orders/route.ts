@@ -1,13 +1,10 @@
 import type { NextRequest } from "next/server";
 import { reportFailure } from "@/lib/monitoring";
 import { getOptionalCustomer } from "@/lib/server/auth";
-import { applyOrderRetention, createOrder, listOrders, publicOrder, staffOrder, validateOrder } from "@/lib/server/order-store";
+import { createOrder, listOrders, publicOrder, staffOrder, validateOrder } from "@/lib/server/order-store";
 import { asStaff } from "@/lib/server/staff-http";
 
 export const dynamic = "force-dynamic";
-
-const RETENTION_SWEEP_MS = 60 * 60 * 1000;
-let lastRetentionSweep = 0;
 
 /**
  * Order feed for station staff (their own stations only) and the platform
@@ -20,12 +17,10 @@ export async function GET(request: NextRequest) {
     if (principal.kind === "station" && businessId && !principal.stationIds.includes(businessId)) {
       return Response.json({ error: "You can only view orders for your own station." }, { status: 403 });
     }
-    if (Date.now() - lastRetentionSweep > RETENTION_SWEEP_MS) {
-      lastRetentionSweep = Date.now();
-      await applyOrderRetention().catch(() => undefined);
-    }
     const orders = await listOrders({
       businessId,
+      // A station account only ever reads its own stations' orders.
+      businessIds: principal.kind === "station" ? principal.stationIds : undefined,
       status: searchParams.get("status") ?? undefined,
       phone: searchParams.get("phone") ?? undefined,
     });

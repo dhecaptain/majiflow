@@ -2,9 +2,11 @@ import type { Order } from "@/lib/types";
 
 /** Test-only order factory. Not imported by application code. */
 export function makeOrder(partial: Partial<Order> = {}): Order {
+  const id = partial.id ?? "order-1";
   return {
-    id: "order-1",
-    orderNumber: "MF-10001",
+    id,
+    // Order numbers are unique in the store, so each order id gets its own.
+    orderNumber: `MF-${id.toUpperCase()}`,
     businessId: "bio-water-kasarani",
     businessName: "BioWater Refill Station",
     customerName: "Jane Wanjiku",

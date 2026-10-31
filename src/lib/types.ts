@@ -179,6 +179,8 @@ export interface Order {
    * Never accepted from the client; guest orders have none.
    */
   customerUserId?: string;
+  /** The checkout attempt that created the order. Server-only; never leaves the store. */
+  idempotencyKey?: string;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
