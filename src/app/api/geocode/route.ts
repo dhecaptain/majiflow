@@ -1,3 +1,4 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import type { NextRequest } from "next/server";
 import { reportFailure } from "@/lib/monitoring";
 
@@ -239,6 +240,8 @@ async function fetchGeocode(
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await limitResponse([{ key: `geocode:ip:${clientIp(request)}`, rule: LIMITS.geocodePerIp }]);
+  if (limited) return limited;
   const { searchParams } = request.nextUrl;
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));

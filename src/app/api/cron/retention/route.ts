@@ -1,11 +1,12 @@
 import { reportFailure } from "@/lib/monitoring";
 import { safeEqual } from "@/lib/server/admin";
 import { applyOrderRetention } from "@/lib/server/order-store";
+import { pruneRateLimits } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Daily retention sweep, run by Vercel Cron (see vercel.json). Vercel sends
+ * Daily housekeeping (order retention, stale rate-limit counters), run by Vercel Cron (see vercel.json). Vercel sends
  * `Authorization: Bearer $CRON_SECRET`; any other caller is refused.
  */
 export async function GET(request: Request) {
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
   }
   try {
     const redacted = await applyOrderRetention();
-    return Response.json({ ok: true, redacted });
+    const rateLimitsPruned = await pruneRateLimits();
+    return Response.json({ ok: true, redacted, rateLimitsPruned });
   } catch (error) {
     await reportFailure("store", "Order retention sweep failed.", {
       reason: error instanceof Error ? error.message : "unknown",

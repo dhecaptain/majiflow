@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  checkOtpRequestRate,
   generateOtpCode,
   hashOtpCode,
-  OtpError,
   OTP_CODE_LENGTH,
   OTP_MAX_ATTEMPTS,
   OTP_RESEND_COOLDOWN_MS,
@@ -29,23 +27,6 @@ describe("hashOtpCode", () => {
 
   it("never contains the code itself", () => {
     expect(hashOtpCode("123456", "0712345678")).not.toContain("123456");
-  });
-});
-
-describe("checkOtpRequestRate", () => {
-  it("lets a caller ask a few times and then stops them", () => {
-    const key = `test-${Math.random()}`;
-    for (let i = 0; i < 5; i += 1) {
-      expect(() => checkOtpRequestRate(key)).not.toThrow();
-    }
-    expect(() => checkOtpRequestRate(key)).toThrow(OtpError);
-  });
-
-  it("forgets a caller once the window has passed", () => {
-    const key = `test-${Math.random()}`;
-    const now = Date.now();
-    for (let i = 0; i < 5; i += 1) checkOtpRequestRate(key, now);
-    expect(() => checkOtpRequestRate(key, now + 11 * 60_000)).not.toThrow();
   });
 });
 

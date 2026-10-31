@@ -71,6 +71,13 @@
       "when": 1793440681750,
       "tag": "0010_station_products_and_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793443091849,
+      "tag": "0011_rate_limits",
+      "breakpoints": true
     }
   ]
 }

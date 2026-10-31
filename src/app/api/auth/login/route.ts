@@ -1,6 +1,9 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import { AuthenticationError, authenticateUser, createSession } from "@/lib/server/auth";
 
 export async function POST(request: Request) {
+  const limited = await limitResponse([{ key: `login:ip:${clientIp(request)}`, rule: LIMITS.loginPerIp }]);
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await request.json();
@@ -9,6 +12,11 @@ export async function POST(request: Request) {
   }
   try {
     const data = body && typeof body === "object" ? body as Record<string, unknown> : {};
+    const account = typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
+    if (account) {
+      const tooMany = await limitResponse([{ key: `login:account:${account}`, rule: LIMITS.loginPerAccount }]);
+      if (tooMany) return tooMany;
+    }
     const user = await authenticateUser(
       typeof data.email === "string" ? data.email : "",
       typeof data.password === "string" ? data.password : ""

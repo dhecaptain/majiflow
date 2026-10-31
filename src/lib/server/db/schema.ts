@@ -305,3 +305,10 @@ export const payments = pgTable(
     refundIdsIdx: index("payments_refund_ids_idx").using("gin", table.refundIds),
   })
 );
+
+/** Fixed-window request counters shared by every server instance (see rate-limit.ts). */
+export const rateLimits = pgTable("rate_limits", {
+  key: varchar("key", { length: 200 }).primaryKey(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  count: integer("count").notNull(),
+});

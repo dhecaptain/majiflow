@@ -17,10 +17,6 @@ export const OTP_TTL_MS = 10 * 60 * 1000;
 export const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 export const OTP_MAX_ATTEMPTS = 5;
 
-/** How many codes one caller may ask for in this window. */
-const OTP_REQUEST_WINDOW_MS = 10 * 60 * 1000;
-const OTP_REQUEST_LIMIT = 5;
-
 export type OtpPurpose = "register" | "login";
 
 export type OtpErrorCode = "invalid" | "expired" | "attempts" | "cooldown" | "rate";
@@ -68,20 +64,6 @@ function sameCode(expectedHash: string, code: string, phone: string): boolean {
   const actual = Buffer.from(hashOtpCode(code, phone), "hex");
   const expected = Buffer.from(expectedHash, "hex");
   return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
-
-/** In-memory throttle on how many codes a single caller may ask for. */
-const requestLog = new Map<string, number[]>();
-
-export function checkOtpRequestRate(key: string, now = Date.now()): void {
-  const recent = (requestLog.get(key) ?? []).filter((at) => now - at < OTP_REQUEST_WINDOW_MS);
-  if (recent.length >= OTP_REQUEST_LIMIT) {
-    requestLog.set(key, recent);
-    throw new OtpError("rate", MESSAGES.rate);
-  }
-  recent.push(now);
-  requestLog.set(key, recent);
-  if (requestLog.size > 5000) requestLog.clear();
 }
 
 export interface IssuedOtp {

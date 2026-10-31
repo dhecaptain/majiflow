@@ -63,12 +63,24 @@ async function postForm(url: string, form: URLSearchParams, headers: Record<stri
   }
 }
 
-/** Prints the message and, in development, returns the code it contains. */
+/** Masks a number for logs: 2547…678. */
+function maskPhone(to: string): string {
+  return to.length > 7 ? `${to.slice(0, 4)}…${to.slice(-3)}` : "…";
+}
+
+/**
+ * Development only: logs that a text would have gone out and, in development,
+ * returns the code it contains. It never runs in production (see
+ * `resolveSmsSender`), and the message body is only printed outside production.
+ */
 export const devSmsSender: SmsSender = {
   name: "dev",
   async send(message) {
+    if (process.env.NODE_ENV === "production") {
+      return { sent: false, provider: "dev", error: "No SMS provider is configured." };
+    }
     try {
-      console.info(`[majiflow:sms] to=${message.to} body=${message.body}`);
+      console.info(`[majiflow:sms] to=${maskPhone(message.to)} body=${message.body}`);
     } catch {
       /* logging must never throw */
     }
@@ -175,6 +187,11 @@ export const twilioSmsSender: SmsSender = {
   },
 };
 
+/** True when a real SMS provider (not the development logger) is configured. */
+export function smsProviderConfigured(): boolean {
+  return resolveSmsSender().name !== "dev";
+}
+
 /** The provider this deployment should use. */
 export function resolveSmsSender(): SmsSender {
   const explicit = baseEnv("MF_SMS_PROVIDER").toLowerCase();
@@ -182,14 +199,16 @@ export function resolveSmsSender(): SmsSender {
   if (explicit === "africastalking") return africaTalkingSmsSender;
   if (explicit === "twilio") return twilioSmsSender;
   if (explicit === "webhook") {
-    const url = baseEnv("MF_SMS_WEBHOOK_URL") || baseEnv("MF_NOTIFY_WEBHOOK_URL");
+    const url = baseEnv("MF_SMS_WEBHOOK_URL");
     if (url) return webhookSmsSender(url);
   }
 
   if (baseEnv("MF_SMS_AT_USERNAME") && baseEnv("MF_SMS_AT_API_KEY")) return africaTalkingSmsSender;
-  const webhookUrl = baseEnv("MF_SMS_WEBHOOK_URL") || baseEnv("MF_NOTIFY_WEBHOOK_URL");
+  const webhookUrl = baseEnv("MF_SMS_WEBHOOK_URL");
   if (webhookUrl) return webhookSmsSender(webhookUrl);
   if (baseEnv("MF_SMS_TWILIO_ACCOUNT_SID") && baseEnv("MF_SMS_TWILIO_AUTH_TOKEN")) return twilioSmsSender;
+  // In production the dev sender refuses to send, so a missing provider shows
+  // up as a failed text (and an alert) instead of a code nobody receives.
   return devSmsSender;
 }
 

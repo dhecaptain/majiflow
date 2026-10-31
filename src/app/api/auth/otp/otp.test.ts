@@ -9,7 +9,6 @@ const otp = vi.hoisted(() => ({
       super(message);
     }
   },
-  checkOtpRequestRate: vi.fn(),
   issueOtp: vi.fn(async () => ({
     code: "123456",
     expiresAt: new Date(Date.now() + 600_000),
@@ -31,6 +30,14 @@ const sms = vi.hoisted(() => ({
 vi.mock("@/lib/server/otp", () => otp);
 vi.mock("@/lib/server/auth", () => auth);
 vi.mock("@/lib/server/sms", () => sms);
+
+const rate = vi.hoisted(() => ({ limited: false }));
+vi.mock("@/lib/server/rate-limit", () => ({
+  clientIp: () => "203.0.113.7",
+  LIMITS: {},
+  limitResponse: async () =>
+    rate.limited ? Response.json({ error: "Too many requests.", code: "rate" }, { status: 429 }) : null,
+}));
 
 import { POST } from "./request/route";
 import { POST as verify } from "./verify/route";
@@ -69,12 +76,12 @@ describe("POST /api/auth/otp/request", () => {
   });
 
   it("answers 429 when the customer asks for codes too quickly", async () => {
-    otp.checkOtpRequestRate.mockImplementationOnce(() => {
-      throw new otp.OtpError("rate", "Too many requests.");
-    });
+    rate.limited = true;
     const response = await POST(post({ phone: "0712345678" }));
+    rate.limited = false;
 
     expect(response.status).toBe(429);
+    expect(otp.issueOtp).not.toHaveBeenCalled();
   });
 });
 

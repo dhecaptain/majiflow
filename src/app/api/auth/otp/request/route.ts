@@ -1,6 +1,7 @@
 import { reportFailure } from "@/lib/monitoring";
 import { findUserByPhone } from "@/lib/server/auth";
-import { checkOtpRequestRate, issueOtp, OtpError, otpErrorMessage } from "@/lib/server/otp";
+import { issueOtp, OtpError, otpErrorMessage } from "@/lib/server/otp";
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import { sendSms } from "@/lib/server/sms";
 import { normalizeKenyanPhone } from "@/lib/phone";
 
@@ -35,16 +36,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const caller = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  try {
-    checkOtpRequestRate(`phone:${phone}`);
-    checkOtpRequestRate(`ip:${caller}`);
-  } catch (error) {
-    if (error instanceof OtpError) {
-      return Response.json({ error: error.message, code: error.code }, { status: 429 });
-    }
-    throw error;
-  }
+  const limited = await limitResponse([
+    { key: `otp-request:phone:${phone}`, rule: LIMITS.otpRequestPerPhone },
+    { key: `otp-request:ip:${clientIp(request)}`, rule: LIMITS.otpRequestPerIp },
+  ]);
+  if (limited) return limited;
 
   try {
     const existing = await findUserByPhone(phone);

@@ -1,7 +1,10 @@
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 import { AuthenticationError, createSession, createUserAccount } from "@/lib/server/auth";
 import { reportFailure } from "@/lib/monitoring";
 
 export async function POST(request: Request) {
+  const limited = await limitResponse([{ key: `business-register:ip:${clientIp(request)}`, rule: LIMITS.registerPerIp }]);
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await request.json();

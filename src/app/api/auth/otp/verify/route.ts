@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/auth";
 import { hasLiveOtp, OtpError, otpErrorMessage, verifyOtp, type OtpPurpose } from "@/lib/server/otp";
 import { normalizeKenyanPhone } from "@/lib/phone";
+import { clientIp, limitResponse, LIMITS } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
       { status: 422 }
     );
   }
+  const limited = await limitResponse([
+    { key: `otp-verify:phone:${phone}`, rule: LIMITS.otpVerifyPerPhone },
+    { key: `otp-verify:ip:${clientIp(request)}`, rule: LIMITS.otpVerifyPerIp },
+  ]);
+  if (limited) return limited;
   const code = typeof data.code === "string" ? data.code : "";
   const name = typeof data.name === "string" ? data.name : "";
 
