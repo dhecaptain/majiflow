@@ -13,6 +13,7 @@ import { useFocusTrap } from "@/lib/use-focus-trap";
 import { CITIES } from "@/lib/constants";
 import { discoverStations } from "@/lib/station-discovery";
 import { cn } from "@/lib/utils";
+import { useStations } from "@/components/order/stations-provider";
 
 export function StationsDrawer({
   open,
@@ -25,6 +26,7 @@ export function StationsDrawer({
   onSetLocation: () => void;
   mounted: boolean;
 }) {
+  const catalog = useStations();
   const { location, selectedStation, selectStation, setCurrentStep, canGoToStep } = useBrowseContext();
   const { hydrated: sessionHydrated } = useOrderSession();
   const { reduce, transition } = useMotionSafe();
@@ -38,7 +40,7 @@ export function StationsDrawer({
   const city = CITIES.find((item) => item.toLowerCase() === location?.city?.toLowerCase()) ?? "All cities";
   const stations = useMemo(() => {
     const nearby = location
-      ? discoverStations({
+      ? discoverStations({ stations: catalog,
           city,
           location: hasCoordinates ? { lat: location.lat!, lng: location.lng! } : null,
           byDistance: hasCoordinates,
@@ -49,11 +51,11 @@ export function StationsDrawer({
       return nearby;
     }
 
-    const selected = discoverStations({ city: selectedStation.city }).results.find(
+    const selected = discoverStations({ stations: catalog, city: selectedStation.city }).results.find(
       ({ business }) => business.id === selectedStation.id
     );
     return selected ? [selected, ...nearby] : nearby;
-  }, [location, city, hasCoordinates, selectedStation]);
+  }, [location, city, hasCoordinates, selectedStation, catalog]);
 
   useEffect(() => {
     if (!open) return;

@@ -3,21 +3,22 @@
 import {
   createContext,
   useContext,
+  useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { businesses } from "@/lib/data/businesses";
+import { businesses as demoStations } from "@/lib/data/businesses";
 import type { Business } from "@/lib/types";
 
 /**
- * A business dashboard station may only be selected when the server has
- * associated it with an approved owner application (`approvedBusinessIds`,
- * resolved from the session in the business layout). Until that association
- * exists, the dashboard must not fall back to a seeded station. The server
- * enforces the same scoping on every order request.
+ * The dashboard works on one of the owner's own stations, loaded on the server
+ * from the session (see `listOwnerCatalogStations` in the business layout). A
+ * saved selection only counts when it is one of those stations, and the server
+ * enforces the same scoping on every order and product request.
  */
 
 const STORAGE_KEY = "mf:business";
+const PLACEHOLDER: Business = { ...demoStations[0], id: "", slug: "", name: "Your station", products: [] };
 interface BusinessContextValue {
   business: Business;
   hasBusiness: boolean;
@@ -37,10 +38,9 @@ function subscribe(listener: () => void) {
   };
 }
 
-export function resolveBusinessId(savedId: string | null, approvedBusinessIds: readonly string[] = []) {
-  const approved = approvedBusinessIds.filter((id) => businesses.some((business) => business.id === id));
-  if (savedId && approved.includes(savedId)) return savedId;
-  return approved[0] ?? null;
+export function resolveBusinessId(savedId: string | null, ownedIds: readonly string[] = []) {
+  if (savedId && ownedIds.includes(savedId)) return savedId;
+  return ownedIds[0] ?? null;
 }
 
 function readBusinessId(approvedBusinessIds: readonly string[]) {
@@ -53,18 +53,21 @@ function readBusinessId(approvedBusinessIds: readonly string[]) {
 
 export function BusinessProvider({
   children,
-  approvedBusinessIds = [],
+  stations = [],
 }: {
   children: ReactNode;
-  approvedBusinessIds?: readonly string[];
+  stations?: readonly Business[];
 }) {
+  const approvedBusinessIds = useMemo(() => stations.map((station) => station.id), [stations]);
   const businessId = useSyncExternalStore(
     subscribe,
     () => readBusinessId(approvedBusinessIds),
     () => resolveBusinessId(null, approvedBusinessIds)
   );
 
-  const business = businesses.find((b) => b.id === businessId) ?? businesses[0];
+  // Without a station of their own the dashboard shows its setup state; the
+  // placeholder only keeps components typed and is never shown as theirs.
+  const business = stations.find((b) => b.id === businessId) ?? stations[0] ?? PLACEHOLDER;
 
   return (
     <BusinessContext.Provider value={{ business, hasBusiness: businessId !== null }}>

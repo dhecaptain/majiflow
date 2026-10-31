@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { OrderStatusBadge, PAYMENT_STATE_META } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { CITY_COORDS, ESTATE_COORDS } from "@/lib/constants";
 import { useCart } from "@/components/order/cart-provider";
 import { useFlyToCart } from "@/components/order/fly-to-cart";
@@ -46,6 +46,7 @@ function moneyMessage(order: Order): string {
 }
 
 export function TrackOrderPage({ id }: { id: string }) {
+  const businesses = useStations();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();

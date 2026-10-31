@@ -2,8 +2,12 @@ import { desc, eq } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { businesses, businessApplications, subscriptions } from "@/lib/server/db/schema";
 import type { SubscriptionRecord } from "@/lib/server/subscriptions";
+import { parseWeeklyHours } from "@/lib/business-hours";
+import { productsForStations } from "@/lib/server/station-products";
+import type { WeeklyOperatingHours } from "@/lib/types";
 import {
   evaluateStationPublicationEligibility,
+  storefrontMissingFields,
   validateListingCompleteness,
   type StationPublicationEligibilityResult,
 } from "@/lib/server/station-publication";
@@ -15,6 +19,9 @@ export interface OwnerStationOverview {
     name: string;
     isComplete: boolean;
     isPublished: boolean;
+    openingHours: WeeklyOperatingHours | null;
+    freeDeliveryAbove: number;
+    productCount: number;
     createdAt: Date;
     updatedAt: Date;
   };
@@ -44,6 +51,8 @@ export interface OwnerStationOverview {
     currentPeriodEnd: Date | null;
   } | null;
   missingFields: string[];
+  /** Still needed before customers can order: "openingHours", "products". */
+  storefrontMissing: string[];
   eligibility: StationPublicationEligibilityResult["details"];
   eligible: boolean;
   ineligibilityReason: string | null;
@@ -72,7 +81,11 @@ export async function listOwnerStations(
     .where(eq(businesses.ownerUserId, ownerUserId))
     .orderBy(desc(businesses.createdAt));
 
+  const products = await productsForStations(rows.map((row) => row.business.id));
+
   return rows.map(({ business, application, subscription }) => {
+    const openingHours = parseWeeklyHours(business.openingHours);
+    const productCount = products.get(business.id)?.length ?? 0;
     const completeness = validateListingCompleteness(
       { name: business.name, slug: business.slug },
       application
@@ -91,6 +104,9 @@ export async function listOwnerStations(
         name: business.name,
         isComplete: business.isComplete,
         isPublished: business.isPublished,
+        openingHours,
+        freeDeliveryAbove: Number(business.freeDeliveryAbove) || 0,
+        productCount,
         createdAt: business.createdAt,
         updatedAt: business.updatedAt,
       },
@@ -122,6 +138,7 @@ export async function listOwnerStations(
           }
         : null,
       missingFields: completeness.missingFields,
+      storefrontMissing: storefrontMissingFields({ openingHours, visibleProductCount: productCount }),
       eligibility: gate.details,
       eligible: gate.eligible,
       ineligibilityReason: gate.eligible ? null : gate.reason ?? "Station is not eligible for publication.",

@@ -38,6 +38,7 @@ import { ButtonLoader } from "@/components/ui/button-loader";
 import { MIN_PLACE_QUERY, PLACE_SEARCH_DEBOUNCE_MS, searchPlaces } from "@/lib/places";
 import { requestStationInterest } from "@/lib/station-interest-client";
 import type { PlaceResult } from "@/lib/place-types";
+import { useStations } from "@/components/order/stations-provider";
 
 const CenterPinMap = dynamic(
   () => import("@/components/ui/center-pin-map").then((m) => m.CenterPinMap),
@@ -78,6 +79,7 @@ function oneLine(a: DeliveryAddress | null | undefined): string {
  * screen the controls move to a column beside a full-height map.
  */
 export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) {
+  const stations = useStations();
   const { profile } = useCustomer();
   const session = useOrderSession();
   const { items } = useCart();
@@ -177,11 +179,11 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
 
   const nearby = useMemo(() => {
     if (!point) return [];
-    return discoverStations({ city: "All cities", location: point, byDistance: true })
+    return discoverStations({ stations, city: "All cities", location: point, byDistance: true })
       .results.slice(0, 8)
       // Stations that can take orders right now come first; closed ones sink.
       .sort((a, b) => Number(b.open) - Number(a.open));
-  }, [point]);
+  }, [point, stations]);
 
   const applyGeo = useCallback(
     (address: GeocodedAddress | null, nextPoint: Point) => {

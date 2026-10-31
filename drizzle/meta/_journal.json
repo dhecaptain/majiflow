@@ -64,6 +64,13 @@
       "when": 1793440274928,
       "tag": "0009_orders_and_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793440681750,
+      "tag": "0010_station_products_and_hours",
+      "breakpoints": true
     }
   ]
 }

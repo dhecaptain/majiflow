@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AlertCircle, ShoppingCart } from "lucide-react";
 import type { Business } from "@/lib/types";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { resolveCart } from "@/lib/cart";
 import { lineSubtotal } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
@@ -41,6 +41,7 @@ export function StationAvailabilityNotice({ business, className }: { business: B
 
 /** Sticky summary of this station's items in the cart, with the next step one tap away. */
 export function StationCartBar({ business }: { business: Business }) {
+  const businesses = useStations();
   const { items, hydrated } = useCart();
   if (!hydrated) return null;
   const cart = resolveCart(items, businesses);

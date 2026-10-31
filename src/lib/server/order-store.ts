@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type {
+  Business,
   FulfillmentActor,
   FulfillmentMethod,
   Order,
@@ -95,8 +96,12 @@ interface ValidationResult {
 /**
  * Validate an untrusted create payload with field-level messages. Returns the
  * normalized order or a map of human-readable per-field errors.
+ *
+ * `station` is the authoritative station from the catalog (see
+ * `getOrderableStation`); null means it cannot take orders. Without it the
+ * seeded demo catalog is used, which only tests rely on.
  */
-export function validateOrder(input: unknown): ValidationResult {
+export function validateOrder(input: unknown, station?: Business | null): ValidationResult {
   if (typeof input !== "object" || input === null) {
     return { errors: { _form: "Missing order payload." } };
   }
@@ -114,9 +119,14 @@ export function validateOrder(input: unknown): ValidationResult {
   if (typeof o.businessName !== "string" || !o.businessName.trim())
     errors.businessName = "Station name is required.";
 
-  const business = typeof o.businessId === "string"
-    ? businesses.find((candidate) => candidate.id === o.businessId)
-    : undefined;
+  const business =
+    station !== undefined
+      ? station && station.id === o.businessId
+        ? station
+        : undefined
+      : typeof o.businessId === "string"
+        ? businesses.find((candidate) => candidate.id === o.businessId)
+        : undefined;
   if (typeof o.businessId === "string" && o.businessId.trim() && !business) {
     errors.businessId = "This station is no longer available.";
   } else if (business) {

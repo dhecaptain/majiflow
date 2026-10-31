@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getPublicStationSlugs } from "@/lib/server/station-publication";
+import { listStations } from "@/lib/server/catalog";
 import { SITE_URL } from "@/lib/constants";
 
 // Station URLs depend on live subscription eligibility, so the sitemap must
@@ -32,8 +32,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route.priority,
   }));
 
-  const stationSlugs = await getPublicStationSlugs(lastModified);
-  const stations = stationSlugs.map((slug) => ({
+  // A sitemap without station pages is still a valid sitemap.
+  const catalog = await listStations().catch(() => []);
+  const stations = catalog.map(({ slug }) => ({
     url: `${SITE_URL}/browse/${slug}`,
     lastModified,
     changeFrequency: "weekly" as const,

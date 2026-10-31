@@ -44,6 +44,7 @@ import { BrowseStationCard, BrowseStationCardSkeleton } from "@/components/marke
 import { LocationModal } from "@/components/order/location-modal";
 import { useBrowseContext } from "@/components/order/browse-context";
 import { BrowseCartStep, BrowseLocationStep, BrowseOrderStep } from "@/components/marketing/browse-steps";
+import { useStations } from "@/components/order/stations-provider";
 
 const StationMap = dynamic(() => import("@/components/ui/station-map").then((m) => m.StationMap), {
   ssr: false,
@@ -102,6 +103,7 @@ export function BrowsePage({
   initialQuery?: string;
   initialCategory?: string;
 }) {
+  const stations = useStations();
   const session = useOrderSession();
   const {
     cart,
@@ -192,13 +194,13 @@ export function BrowsePage({
 
   const discovery = useMemo(
     () =>
-      discoverStations({
+      discoverStations({ stations,
         city,
         query,
         location,
         byDistance: locationMode === "current",
       }),
-    [city, location, locationMode, query]
+    [city, location, locationMode, query, stations]
   );
 
   // Presentation-only filter/reorder of the discovered list - discovery itself is untouched.

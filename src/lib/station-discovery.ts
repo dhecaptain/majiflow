@@ -1,5 +1,4 @@
 import type { Business } from "@/lib/types";
-import { businesses, getBusinessesByCity } from "@/lib/data/businesses";
 import { haversineMeters } from "@/lib/geo";
 import { getBusinessOrderBlockReason } from "@/lib/business-hours";
 
@@ -21,6 +20,8 @@ export interface DiscoveredStation {
 }
 
 export interface DiscoveryQuery {
+  /** The catalog to search (the public stations from `useStations`). */
+  stations: readonly Business[];
   city: string;
   query?: string;
   location?: { lat: number; lng: number } | null;
@@ -90,13 +91,15 @@ export function deliverableStations(stations: DiscoveredStation[]): DiscoveredSt
  * radius/haversine rules live in exactly one place.
  */
 export function discoverStations({
+  stations,
   city,
   query = "",
   location,
   byDistance = false,
   now = new Date(),
 }: DiscoveryQuery): DiscoveryResult {
-  const source = byDistance ? businesses : getBusinessesByCity(city);
+  const inCity = !city || city === "All cities" ? stations : stations.filter((b) => b.city.toLowerCase() === city.toLowerCase());
+  const source = byDistance ? stations : inCity;
   const q = query.trim().toLowerCase();
   const searched = q ? source.filter((b) => matchesQuery(b, q)) : source;
 

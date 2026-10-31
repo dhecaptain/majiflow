@@ -7,21 +7,17 @@ import { StationBadge } from "@/components/shared/station-badge";
 import { BusinessAvailability } from "@/components/shared/business-availability";
 import { JourneyLink, JourneyRecorder } from "@/components/order/journey";
 import { StationMenu } from "@/components/order/station-menu";
-import { getBusiness, businesses } from "@/lib/data/businesses";
+import { getStationBySlug } from "@/lib/server/catalog";
 import { formatKES } from "@/lib/format";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  return businesses.map((b) => ({ slug: b.slug }));
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const business = getBusiness(slug);
-  if (!business) return { title: "Not found" };
+  const business = await getStationBySlug(slug);
+  if (!business) return { title: "Station not found", robots: { index: false, follow: false } };
   return {
     title: business.name,
     description: business.tagline,
@@ -30,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function BusinessProfile({ params }: PageProps) {
   const { slug } = await params;
-  const business = getBusiness(slug);
+  const business = await getStationBySlug(slug);
   if (!business) notFound();
 
   const lowStockCount = business.products.filter((p) => p.stock <= p.stockLow).length;
@@ -69,11 +65,15 @@ export default async function BusinessProfile({ params }: PageProps) {
           <p className="mt-2 max-w-2xl text-base leading-relaxed text-white/85">{business.tagline}</p>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/85">
-            <span className="inline-flex items-center gap-1.5 font-semibold text-white">
-              <Star className="size-4 fill-warning text-warning" aria-hidden />
-              {business.rating}
-              <span className="font-normal text-white/70">({business.reviewCount})</span>
-            </span>
+            {business.reviewCount > 0 ? (
+              <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+                <Star className="size-4 fill-warning text-warning" aria-hidden />
+                {business.rating}
+                <span className="font-normal text-white/70">({business.reviewCount})</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 font-semibold text-white">New on MajiFlow</span>
+            )}
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="size-4" aria-hidden /> {business.city}
             </span>

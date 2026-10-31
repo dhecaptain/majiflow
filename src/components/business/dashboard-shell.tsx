@@ -18,6 +18,7 @@ import { BrandMark } from "@/components/layout/brand-mark";
 import { SiteHeader } from "@/components/layout/site-header";
 import { PageTransition } from "@/components/layout/page-transition";
 import { BusinessProvider, useBusiness } from "@/components/business/business-provider";
+import type { Business } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; badge?: string };
@@ -40,13 +41,13 @@ const LOWER: NavItem[] = [
 
 export function DashboardShell({
   children,
-  stationIds = [],
+  stations = [],
 }: {
   children: React.ReactNode;
-  stationIds?: readonly string[];
+  stations?: readonly Business[];
 }) {
   return (
-    <BusinessProvider approvedBusinessIds={stationIds}>
+    <BusinessProvider stations={stations}>
       <DashboardShellInner>{children}</DashboardShellInner>
     </BusinessProvider>
   );

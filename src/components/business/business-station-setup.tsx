@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { plans } from "@/lib/data/plans";
+import type { Weekday, WeeklyOperatingHours } from "@/lib/types";
 
 interface StationSubscription {
   plan: string;
@@ -32,6 +33,9 @@ interface StationOverview {
     name: string;
     isComplete: boolean;
     isPublished: boolean;
+    openingHours: WeeklyOperatingHours | null;
+    freeDeliveryAbove: number;
+    productCount: number;
   };
   application: {
     id: string;
@@ -49,6 +53,7 @@ interface StationOverview {
   };
   subscription: StationSubscription | null;
   missingFields: string[];
+  storefrontMissing: string[];
   eligibility: {
     applicationApproved: boolean;
     listingComplete: boolean;
@@ -274,10 +279,26 @@ export function BusinessStationSetup() {
               />
             </div>
 
+            {station.business.isComplete && (
+              <StorefrontCard
+                station={station}
+                busy={busy}
+                onSubmit={(fields) =>
+                  runAction(
+                    station.business.id,
+                    "storefront",
+                    "/api/business/station/listing",
+                    fields,
+                    "Opening hours and delivery saved."
+                  )
+                }
+              />
+            )}
+
             <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-5">
               <Button
                 className="gap-2"
-                disabled={busy || station.business.isPublished || !station.eligible}
+                disabled={busy || station.business.isPublished || !station.eligible || station.storefrontMissing.length > 0}
                 onClick={() =>
                   void runAction(
                     station.business.id,
@@ -300,6 +321,14 @@ export function BusinessStationSetup() {
                 >
                   View public page <ExternalLink className="size-3.5" aria-hidden />
                 </Link>
+              )}
+              {!station.business.isPublished && station.eligible && station.storefrontMissing.length > 0 && (
+                <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+                  <span>
+                    Before publishing, add {station.storefrontMissing.map((field) => STOREFRONT_LABELS[field] ?? field).join(" and ")}.
+                  </span>
+                </p>
               )}
               {!station.business.isPublished && !station.eligible && station.ineligibilityReason && (
                 <p className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -503,6 +532,129 @@ function ListingCard({
           </form>
         </>
       )}
+    </div>
+  );
+}
+
+const STOREFRONT_LABELS: Record<string, string> = {
+  openingHours: "your opening hours",
+  products: "at least one product",
+};
+
+const DAYS: { key: Weekday; label: string }[] = [
+  { key: "monday", label: "Monday" },
+  { key: "tuesday", label: "Tuesday" },
+  { key: "wednesday", label: "Wednesday" },
+  { key: "thursday", label: "Thursday" },
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+];
+
+type DayDraft = { open: boolean; from: string; to: string };
+
+function draftHours(hours: WeeklyOperatingHours | null): Record<Weekday, DayDraft> {
+  return Object.fromEntries(
+    DAYS.map(({ key }) => {
+      const day = hours?.[key];
+      return [key, day ? { open: true, from: day.open, to: day.close } : { open: !hours && key !== "sunday", from: "07:00", to: "19:00" }];
+    })
+  ) as Record<Weekday, DayDraft>;
+}
+
+/**
+ * What customers need before they can order: opening hours (orders are
+ * refused when hours are unknown), the free-delivery threshold, and products.
+ */
+function StorefrontCard({
+  station,
+  busy,
+  onSubmit,
+}: {
+  station: StationOverview;
+  busy: boolean;
+  onSubmit: (fields: Record<string, unknown>) => Promise<void>;
+}) {
+  const [days, setDays] = React.useState(() => draftHours(station.business.openingHours));
+  const [freeAbove, setFreeAbove] = React.useState(String(station.business.freeDeliveryAbove || ""));
+  const update = (key: Weekday, change: Partial<DayDraft>) =>
+    setDays((current) => ({ ...current, [key]: { ...current[key], ...change } }));
+
+  return (
+    <div className="mt-5 rounded-2xl border border-border p-4">
+      <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <CheckCircle2 className="size-4 text-[var(--brand)]" aria-hidden /> Opening hours and menu
+      </h4>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {station.business.productCount > 0
+          ? `${station.business.productCount} product${station.business.productCount === 1 ? "" : "s"} on your menu. `
+          : "Your menu is empty. "}
+        <Link href="/business/products" className="font-medium text-[var(--brand)] hover:underline">
+          {station.business.productCount > 0 ? "Manage products" : "Add your first product"}
+        </Link>
+      </p>
+      <form
+        className="mt-4 space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const openingHours = Object.fromEntries(
+            DAYS.map(({ key }) => [key, days[key].open ? { open: days[key].from, close: days[key].to } : null])
+          );
+          void onSubmit({ openingHours, freeDeliveryAbove: freeAbove.trim() === "" ? 0 : freeAbove });
+        }}
+      >
+        <fieldset className="space-y-2" disabled={busy}>
+          <legend className="text-[13px] font-semibold text-foreground">Opening hours (Nairobi time)</legend>
+          {DAYS.map(({ key, label }) => (
+            <div key={key} className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="flex w-32 items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={days[key].open}
+                  onChange={(e) => update(key, { open: e.target.checked })}
+                  className="size-4 accent-[var(--brand)]"
+                />
+                {label}
+              </label>
+              {days[key].open ? (
+                <>
+                  <Input
+                    type="time"
+                    aria-label={`${label} opens`}
+                    value={days[key].from}
+                    onChange={(e) => update(key, { from: e.target.value })}
+                    className="w-32"
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input
+                    type="time"
+                    aria-label={`${label} closes`}
+                    value={days[key].to}
+                    onChange={(e) => update(key, { to: e.target.value })}
+                    className="w-32"
+                  />
+                </>
+              ) : (
+                <span className="text-muted-foreground">Closed</span>
+              )}
+            </div>
+          ))}
+        </fieldset>
+        <Field label="Free delivery from (KES)" hint="Orders at or above this subtotal deliver free. Leave empty for never." className="max-w-xs">
+          <Input
+            type="number"
+            min="0"
+            step="1"
+            value={freeAbove}
+            onChange={(e) => setFreeAbove(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+        <Button type="submit" className="gap-2" disabled={busy} loading={busy}>
+          {busy ? null : <CheckCircle2 className="size-4" aria-hidden />}
+          Save hours and delivery
+        </Button>
+      </form>
     </div>
   );
 }

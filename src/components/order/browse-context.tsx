@@ -13,7 +13,7 @@ import { usePathname } from "next/navigation";
 import type { Business, DeliveryAddress } from "@/lib/types";
 import type { CartLine } from "@/lib/cart";
 import { cartStationId } from "@/lib/cart";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { useCart } from "@/components/order/cart-provider";
 import { useOrderSession } from "@/components/order/order-session-provider";
 
@@ -96,6 +96,7 @@ function resolveRouteStep(pathname: string): BrowseStep | null {
 }
 
 export function BrowseContextProvider({ children }: { children: ReactNode }) {
+  const businesses = useStations();
   const pathname = usePathname();
   const session = useOrderSession();
   const { setAddress, setStationId } = session;

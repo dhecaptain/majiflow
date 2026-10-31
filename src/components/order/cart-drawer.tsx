@@ -9,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/ui/button-loader";
 import { cn } from "@/lib/utils";
 import { productImage } from "@/lib/product-images";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { itemHref, resolveCart } from "@/lib/cart";
 import { computeCartTotals, lineSubtotal } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
@@ -25,6 +25,7 @@ import { OrderTotalsList } from "@/components/shared/order-totals";
  * same resolution + pricing rules as the cart page so nothing drifts.
  */
 export function CartDrawer() {
+  const businesses = useStations();
   const { items, hydrated, updateQuantity, removeItem } = useCart();
   const { open, closeCart } = useCartUi();
   const { reduce, transition } = useMotionSafe();

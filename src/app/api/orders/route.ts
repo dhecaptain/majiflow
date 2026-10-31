@@ -3,6 +3,7 @@ import { reportFailure } from "@/lib/monitoring";
 import { getOptionalCustomer } from "@/lib/server/auth";
 import { createOrder, listOrders, publicOrder, staffOrder, validateOrder } from "@/lib/server/order-store";
 import { asStaff } from "@/lib/server/staff-http";
+import { getOrderableStation } from "@/lib/server/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,17 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { order, errors } = validateOrder(body);
+  const businessId = (body as Record<string, unknown> | null)?.businessId;
+  let station;
+  try {
+    station = typeof businessId === "string" && businessId.trim() ? await getOrderableStation(businessId.trim()) : null;
+  } catch (error) {
+    await reportFailure("store", "Could not load the station for an order.", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return Response.json({ error: "We could not reach this station right now. Please try again." }, { status: 503 });
+  }
+  const { order, errors } = validateOrder(body, station);
   if (!order || errors) {
     return Response.json(
       {

@@ -106,11 +106,45 @@ export const businesses = pgTable(
     name: varchar("name", { length: 160 }).notNull(),
     isComplete: boolean("is_complete").default(false).notNull(),
     isPublished: boolean("is_published").default(false).notNull(),
+    /** WeeklyOperatingHours: a missing day means unknown, null means closed. */
+    openingHours: jsonb("opening_hours"),
+    /** Orders at or above this subtotal deliver free; 0 means never free. */
+    freeDeliveryAbove: numeric("free_delivery_above", { precision: 10, scale: 2 }).default("0").notNull(),
     ...timestamps,
   },
   (table) => ({
     applicationUnique: uniqueIndex("businesses_application_unique").on(table.applicationId),
     slugUnique: uniqueIndex("businesses_slug_unique").on(table.slug),
+  })
+);
+
+/** What a station sells. Prices here are the ones checkout validates against. */
+export const businessProducts = pgTable(
+  "business_products",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    description: varchar("description", { length: 500 }).notNull(),
+    category: varchar("category", { length: 24 }).notNull(),
+    unit: varchar("unit", { length: 24 }).notNull(),
+    price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+    oldPrice: numeric("old_price", { precision: 10, scale: 2 }),
+    stock: integer("stock").default(0).notNull(),
+    stockLow: integer("stock_low").default(10).notNull(),
+    /** Key into the bundled product photos (can, bottle, glass, dispenser). */
+    image: varchar("image", { length: 24 }).default("bottle").notNull(),
+    popular: boolean("popular").default(false).notNull(),
+    /** ProductOption[]: choices such as handing back an empty can. */
+    options: jsonb("options"),
+    isVisible: boolean("is_visible").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    businessIdx: index("business_products_business_id_idx").on(table.businessId, table.sortOrder),
   })
 );
 

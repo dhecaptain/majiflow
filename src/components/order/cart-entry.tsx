@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Repeat2, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { businesses } from "@/lib/data/businesses";
+import { useStations } from "@/components/order/stations-provider";
 import { resolveCart } from "@/lib/cart";
 import { computeCartTotals } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
@@ -19,6 +19,7 @@ import { useBrowseContext } from "@/components/order/browse-context";
  * the drawer itself is open so the two never stack.
  */
 export function FloatingCartBar() {
+  const businesses = useStations();
   const { items, hydrated } = useCart();
   const { open, openCart } = useCartUi();
   const { reduce, transition } = useMotionSafe();

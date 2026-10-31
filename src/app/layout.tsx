@@ -6,7 +6,10 @@ import { PwaRegister } from "@/components/pwa-register";
 import { SplashLoader } from "@/components/motion/splash-loader";
 import { TopProgressBar } from "@/components/motion/top-progress-bar";
 import { SPLASH_SESSION_KEY } from "@/config/loader";
+import { connection } from "next/server";
 import { SITE_URL } from "@/lib/constants";
+import { reportFailure } from "@/lib/monitoring";
+import { listStations } from "@/lib/server/catalog";
 import "./globals.css";
 
 const inter = Inter({
@@ -114,7 +117,26 @@ const splashGateScript = `try{if(sessionStorage.getItem(${JSON.stringify(
   SPLASH_SESSION_KEY
 )})==="1"){document.documentElement.setAttribute("data-splash","off")}}catch(e){}`;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/**
+ * The station catalog every page shares. Rendered per request (the query
+ * itself is cached briefly) so a newly published station or price shows up
+ * without a redeploy. If the catalog cannot load, pages still render and
+ * browse shows its empty state.
+ */
+async function loadCatalog() {
+  await connection();
+  try {
+    return await listStations();
+  } catch (error) {
+    await reportFailure("store", "Could not load the station catalog.", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return [];
+  }
+}
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const stations = await loadCatalog();
   return (
     <html
       lang="en"
@@ -157,7 +179,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             }),
           }}
         />
-        <Providers>{children}</Providers>
+        <Providers stations={stations}>{children}</Providers>
         <Footer />
         <PwaRegister />
         <TopProgressBar />
