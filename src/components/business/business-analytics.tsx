@@ -102,7 +102,7 @@ export function BusinessAnalytics() {
                       className="w-full rounded-t-lg bg-foreground opacity-90 group-hover:opacity-100"
                       style={{ height: `${(c.revenue / maxRevenue) * 100}%` }}
                     />
-                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 font-mono text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 font-mono text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                       {formatKES(c.revenue)}
                     </span>
                   </div>

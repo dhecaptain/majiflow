@@ -8,6 +8,7 @@ export const metadata = {
   title: "FAQs",
   description:
     "Answers about ordering water, delivery fees, payments, and running a refill station on MajiFlow.",
+  alternates: { canonical: "/faqs" },
 };
 
 export default function Faqs() {

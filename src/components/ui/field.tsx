@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 const fieldBase =
-  "w-full rounded-lg border border-border bg-card px-3.5 text-sm text-foreground placeholder:text-muted-foreground/70 shadow-soft transition-colors min-h-11 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger";
+  "w-full rounded-lg border border-border bg-card px-3.5 text-sm text-foreground placeholder:text-muted-foreground shadow-soft transition-colors min-h-11 focus:outline-2 focus:outline-offset-2 focus:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;

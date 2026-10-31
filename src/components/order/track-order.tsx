@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bike, CheckCircle2, Clock, Inbox, MapPin, Phone, RefreshCcw, ShieldCheck, Smartphone, Truck, XCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
@@ -98,11 +98,15 @@ export function TrackOrderPage({ id }: { id: string }) {
       <Container className="py-20">
         <ErrorState
           title="Order not found"
-          message="We couldn't find that order on this device. Check the link, or browse for a station to place a new order."
+          message="We couldn't find that order. Check the link from your SMS, or sign in to see every order on your account."
           action={
-            <Link href="/browse">
-              <Button size="lg">Browse stations</Button>
-            </Link>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link href="/account/orders" className={buttonVariants({ size: "lg" })}>My orders</Link>
+              <Link href="/login" className={buttonVariants({ size: "lg", variant: "secondary" })}>
+                Sign in
+              </Link>
+              <Link href="/browse" className={buttonVariants({ size: "lg", variant: "ghost" })}>Browse stations</Link>
+            </div>
           }
         />
       </Container>
@@ -188,10 +192,8 @@ export function TrackOrderPage({ id }: { id: string }) {
               {moneyMessage(order)} Try another station nearby - there are usually several with water ready now.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link href="/browse">
-                <Button className="group">
-                  Find another station
-                </Button>
+              <Link href="/browse" className={buttonVariants({ className: "group" })}>
+                Find another station
               </Link>
               <Button variant="secondary" onClick={(e) => reorder(e.currentTarget)}>
                 <RefreshCcw className="size-4" aria-hidden /> Retry this order elsewhere
@@ -209,7 +211,7 @@ export function TrackOrderPage({ id }: { id: string }) {
               <h2 className="flex items-center gap-2.5 font-display text-lg text-foreground">
                 <MapPin className="size-5 text-[var(--brand)]" aria-hidden /> Live tracking
               </h2>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 {live ? "Updating live" : order.consent?.location ? "Waiting for your location" : "Station & address"}
               </span>
             </div>
@@ -272,7 +274,7 @@ export function TrackOrderPage({ id }: { id: string }) {
                         {step.label}
                         <span className="sr-only">{current ? " (current step)" : reached ? " (done)" : " (upcoming)"}</span>
                       </p>
-                      <p className={cn("mt-1 text-sm leading-relaxed", reached ? "text-muted-foreground" : "text-muted-foreground/60")}>
+                      <p className={cn("mt-1 text-sm leading-relaxed", reached ? "text-muted-foreground" : "text-muted-foreground")}>
                         {step.desc}
                       </p>
                     </div>

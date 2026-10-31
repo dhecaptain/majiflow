@@ -16,7 +16,7 @@ import {
   User,
 } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Field, Input } from "@/components/ui/field";
 import { Dialog } from "@/components/ui/dialog";
@@ -136,15 +136,11 @@ export function ProfilePage() {
               Sign in to save your delivery details and check out in two taps.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link href="/login">
-                <Button size="lg" className="w-full sm:w-auto">
-                  Sign in
-                </Button>
+              <Link href="/login" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>
+                Sign in
               </Link>
-              <Link href="/register">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                  Create account
-                </Button>
+              <Link href="/register" className={buttonVariants({ variant: "outline", size: "lg", className: "w-full sm:w-auto" })}>
+                Create account
               </Link>
             </div>
           </div>
@@ -301,7 +297,7 @@ export function ProfilePage() {
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 {profile.phone || "No phone yet"}
-                <span className="px-1.5 text-muted-foreground/50">·</span>
+                <span className="px-1.5 text-muted-foreground">·</span>
                 {profile.email || "No email yet"}
               </p>
               <div className="mt-3">
@@ -356,7 +352,7 @@ export function ProfilePage() {
                   value={form.phone}
                   invalid={Boolean(errors.phone)}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="+254 7XX XXX XXX"
+                  placeholder="07XX XXX XXX"
                   autoComplete="tel"
                 />
               </Field>

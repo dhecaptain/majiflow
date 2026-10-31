@@ -2,32 +2,33 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { WATER_CATEGORY_LABELS } from "@/lib/categories";
 
 const CATEGORIES = [
   {
     id: "refills",
-    label: "Refills",
+    label: WATER_CATEGORY_LABELS.refills,
     href: "/browse?category=refills",
     image: "/categories/refills.jpg",
     alt: "Reusable bottle being filled at a filtered water tap",
   },
   {
     id: "new-bottles",
-    label: "New bottles",
+    label: WATER_CATEGORY_LABELS["new-bottles"],
     href: "/browse?category=new-bottles",
     image: "/categories/new-bottles.jpg",
     alt: "Three clear water bottles filled with drinking water",
   },
   {
     id: "bottled-packs",
-    label: "Bottled packs",
+    label: WATER_CATEGORY_LABELS["bottled-packs"],
     href: "/browse?category=bottled-packs",
     image: "/categories/bottled-packs.jpg",
     alt: "Rows of blue-capped bottled water grouped together",
   },
   {
     id: "dispensers",
-    label: "Dispensers",
+    label: WATER_CATEGORY_LABELS.dispensers,
     href: "/browse?category=dispensers",
     image: "/categories/dispensers.jpg",
     alt: "A clear bottle fitted to a water dispenser",

@@ -149,7 +149,7 @@ export function resolveCart(
         max: 0,
         problem: business
           ? `${business.name} no longer sells this item.`
-          : "This station is no longer on MajiConnect.",
+          : "This station is no longer on MajiFlow.",
       };
     }
     // An option the customer picked is priced by the catalog, never by the

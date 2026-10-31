@@ -71,7 +71,6 @@ export const metadata: Metadata = {
   authors: [{ name: "MajiFlow" }],
   creator: "MajiFlow",
   publisher: "MajiFlow",
-  alternates: { canonical: "/" },
   robots: {
     index: true,
     follow: true,
@@ -87,7 +86,6 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "MajiFlow",
     locale: "en_KE",
-    url: "/",
     title: "MajiFlow - Clean water, delivered simply",
     description:
       "Order clean drinking water from refill stations near you. Compare prices, pay with M-Pesa, and track your delivery.",
@@ -109,11 +107,12 @@ export const viewport: Viewport = {
 };
 
 /**
- * Runs before the first paint. On a repeat visit inside the same session the
- * splash is hidden outright, so the page appears straight away without the
- * splash flashing back on screen.
+ * Runs before the first paint. The splash only greets a first visit to the
+ * home page: deep links (an order tracking or rider link from an SMS,
+ * checkout, a station page) and repeat visits in the same session show the
+ * page straight away.
  */
-const splashGateScript = `try{if(sessionStorage.getItem(${JSON.stringify(
+const splashGateScript = `try{if(location.pathname!=="/"||sessionStorage.getItem(${JSON.stringify(
   SPLASH_SESSION_KEY
 )})==="1"){document.documentElement.setAttribute("data-splash","off")}}catch(e){}`;
 
@@ -153,6 +152,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </noscript>
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[300] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-foreground focus:shadow-card"
+        >
+          Skip to content
+        </a>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

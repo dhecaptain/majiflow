@@ -25,7 +25,8 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'any',
       },
       {
-        src: '/logo-512.png',
+        // Full-bleed background so Android's icon mask never crops the drop.
+        src: '/logo-maskable-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

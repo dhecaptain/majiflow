@@ -7,7 +7,7 @@ export function VendorBanner() {
       <div className="flex flex-col items-start gap-4 rounded-3xl border border-border bg-white px-6 py-8 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <div>
           <h2 className="font-display text-xl font-semibold text-foreground sm:text-2xl">
-            Own a refill station? Join Majiflow
+            Own a refill station? Join MajiFlow
           </h2>
           <p className="mt-1 text-sm text-foreground/70">
             Grow your business with doorstep orders and a simple dashboard.

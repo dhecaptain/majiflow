@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
@@ -14,6 +15,7 @@ import { itemHref, resolveCart } from "@/lib/cart";
 import { computeCartTotals, lineSubtotal } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
 import { useMotionSafe } from "@/lib/motion";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 import { useCart } from "@/components/order/cart-provider";
 import { useCartUi } from "@/components/order/cart-ui-provider";
 import { QuantityStepper } from "@/components/order/quantity-stepper";
@@ -29,6 +31,22 @@ export function CartDrawer() {
   const { items, hydrated, updateQuantity, removeItem } = useCart();
   const { open, closeCart } = useCartUi();
   const { reduce, transition } = useMotionSafe();
+  const panelRef = useFocusTrap<HTMLElement>(open);
+
+  // A modal: Escape closes it and the page behind does not scroll.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCart();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, closeCart]);
 
   const panelTransition = reduce ? { duration: 0 } : (transition ?? { duration: 0.35, ease: [0.16, 1, 0.3, 1] });
   const cart = resolveCart(items, businesses);
@@ -56,6 +74,7 @@ export function CartDrawer() {
         >
           <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={closeCart} aria-hidden />
           <motion.aside
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Your order"

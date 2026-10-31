@@ -83,7 +83,7 @@ export function AdminOrders() {
           </Link>
           <h1 className="mt-2 flex items-center gap-3 font-display text-3xl text-foreground sm:text-4xl">
             Live orders
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-success">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-success">
               <Radio className="size-3 animate-pulse-dot" aria-hidden /> {inFlight} in flight
             </span>
           </h1>

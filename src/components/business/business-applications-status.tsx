@@ -4,7 +4,7 @@ import Link from "next/link";
 import * as React from "react";
 import { ClipboardCheck, RefreshCw } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 
 type ApplicationStatus = "submitted" | "under_review" | "approved" | "rejected";
@@ -70,7 +70,7 @@ export function BusinessApplicationsStatus() {
         message={error}
         action={
           error.includes("required") ? (
-            <Link href="/login"><Button>Sign in</Button></Link>
+            <Link href="/login" className={buttonVariants()}>Sign in</Link>
           ) : (
             <Button onClick={() => void load()}><RefreshCw className="size-4" aria-hidden /> Try again</Button>
           )
@@ -85,7 +85,7 @@ export function BusinessApplicationsStatus() {
         icon={<ClipboardCheck className="size-6" aria-hidden />}
         title="No applications yet"
         description="Submit your business details to start your owner application."
-        action={<Link href="/business/register"><Button>Start an application</Button></Link>}
+        action={<Link href="/business/register" className={buttonVariants()}>Start an application</Link>}
       />
     );
   }

@@ -275,7 +275,7 @@ export function SendWaterModal({ open, initial, onClose, onConfirm }: SendWaterM
           >
             <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
               <div className="min-w-0 flex-1">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   {step === "place" ? "Step 1 of 2 - Destination" : "Step 2 of 2 - Recipient"}
                 </p>
                 <h2 className="font-display text-lg text-foreground">
@@ -419,7 +419,7 @@ export function SendWaterModal({ open, initial, onClose, onConfirm }: SendWaterM
                     )}
 
                     <div className="rounded-2xl border border-border bg-surface-2 p-4">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         Delivering to
                       </p>
                       <p className="mt-1 text-sm font-semibold text-foreground">

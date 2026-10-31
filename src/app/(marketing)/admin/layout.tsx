@@ -2,6 +2,9 @@ import { AdminSignIn, AdminSignOut } from "@/components/admin/admin-session";
 import { Container } from "@/components/ui/container";
 import { hasAdminSession } from "@/lib/server/admin";
 
+/** Private pages: never indexed. */
+export const metadata = { robots: { index: false, follow: false } };
+
 interface LayoutProps {
   children: React.ReactNode;
 }

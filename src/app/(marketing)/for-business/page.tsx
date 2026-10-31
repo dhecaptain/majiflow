@@ -3,7 +3,7 @@ import { BarChart3, Coins, PackagePlus, Store, Users } from "lucide-react";
 import { PageHero } from "@/components/shared/page-hero";
 import { Container } from "@/components/ui/container";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Stagger, StaggerItem } from "@/components/ui/animated-section";
 import { listStations } from "@/lib/server/catalog";
 import { cn } from "@/lib/utils";
@@ -59,6 +59,7 @@ export const metadata = {
   title: "For businesses",
   description:
     "A storefront, a dashboard and simple monthly pricing for water refill businesses. Start with a 14-day free trial.",
+  alternates: { canonical: "/for-business" },
 };
 
 export default async function ForBusiness() {
@@ -76,15 +77,11 @@ export default async function ForBusiness() {
         description="A storefront, a dashboard and simple monthly pricing."
       >
         <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
-          <Link href="/business/register">
-            <Button size="lg" className="group w-full sm:w-auto">
-              Create your station
-            </Button>
+          <Link href="/business/register" className={buttonVariants({ size: "lg", className: "group w-full sm:w-auto" })}>
+            Create your station
           </Link>
-          <Link href="/business">
-            <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-              Open the dashboard
-            </Button>
+          <Link href="/business" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
+            Open the dashboard
           </Link>
         </div>
       </PageHero>
@@ -170,10 +167,8 @@ export default async function ForBusiness() {
             ))}
           </Stagger>
           <div className="mt-10 text-center">
-            <Link href="/business/register">
-              <Button size="lg" className="group">
-                Create your station
-              </Button>
+            <Link href="/business/register" className={buttonVariants({ size: "lg", className: "group" })}>
+              Create your station
             </Link>
           </div>
         </Container>

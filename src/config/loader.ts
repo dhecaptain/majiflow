@@ -35,7 +35,7 @@ export const LOADER_TIMINGS = {
 export const SPLASH_COPY = {
   tagline: "Fresh water, at your door",
   /** Screen-reader status while the splash is up. */
-  status: "Loading Majiflow",
+  status: "Loading MajiFlow",
 } as const;
 
 /** Dark navy to aqua wash over the footage, so the type stays readable. */

@@ -1,6 +1,7 @@
 import { TrackOrderPage } from "@/components/order/track-order";
 
-export const metadata = { title: "Track your order" };
+// A tracking link is private to whoever holds it.
+export const metadata = { title: "Track your order", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
 
 interface PageProps {
   params: Promise<{ id: string }>;

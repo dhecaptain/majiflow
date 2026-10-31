@@ -49,6 +49,7 @@ export const metadata = {
   title: "About us",
   description:
     "MajiFlow connects homes to independent water refill stations across Kenya and gives those businesses the tools to grow.",
+  alternates: { canonical: "/about" },
 };
 
 export default function About() {

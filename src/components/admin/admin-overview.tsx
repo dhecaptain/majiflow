@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BadgeCheck, Banknote, Building2, ClipboardCheck, Download, MapPin, Package, Radio, Search, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { AnimatedSection, Stagger, StaggerItem } from "@/components/ui/animated-section";
 import { formatKES } from "@/lib/format";
 import { useStations } from "@/components/order/stations-provider";
@@ -107,15 +107,11 @@ export function AdminOverview() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Link href="/admin/orders">
-              <Button variant="secondary" className="gap-2">
-                <Radio className="size-4" aria-hidden /> Live orders
-              </Button>
+            <Link href="/admin/orders" className={buttonVariants({ variant: "secondary", className: "gap-2" })}>
+              <Radio className="size-4" aria-hidden /> Live orders
             </Link>
-            <Link href="/admin/applications">
-              <Button variant="secondary" className="gap-2">
-                <ClipboardCheck className="size-4" aria-hidden /> Applications
-              </Button>
+            <Link href="/admin/applications" className={buttonVariants({ variant: "secondary", className: "gap-2" })}>
+              <ClipboardCheck className="size-4" aria-hidden /> Applications
             </Link>
             <Button
               className="gap-2"
@@ -150,7 +146,7 @@ export function AdminOverview() {
               </span>
               <p className="mt-3 font-display text-2xl text-foreground">{k.value}</p>
               <p className="text-xs font-medium text-muted-foreground">{k.label}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground/70">{k.hint}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{k.hint}</p>
             </div>
           </StaggerItem>
         ))}

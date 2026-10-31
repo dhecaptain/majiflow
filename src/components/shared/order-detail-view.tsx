@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Clock, MapPin, Phone, Radio, Truck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
@@ -113,9 +113,7 @@ export function OrderDetailView({
           title="Order not available"
           message="This order does not exist, or it belongs to another station."
           action={
-            <Link href={backHref}>
-              <Button size="lg">{backLabel}</Button>
-            </Link>
+            <Link href={backHref} className={buttonVariants({ size: "lg" })}>{backLabel}</Link>
           }
         />
       </div>
@@ -162,7 +160,7 @@ export function OrderDetailView({
               <MapPin className="size-5 text-[var(--brand)]" aria-hidden /> Live tracking
             </h2>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-widest ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-widest ${
                 liveFresh ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"
               }`}
             >

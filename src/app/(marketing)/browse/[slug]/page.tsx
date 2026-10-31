@@ -21,6 +21,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: business.name,
     description: business.tagline,
+    alternates: { canonical: `/browse/${business.slug}` },
+    openGraph: { title: `${business.name} · MajiFlow`, description: business.tagline, url: `/browse/${business.slug}` },
   };
 }
 

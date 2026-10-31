@@ -121,7 +121,7 @@ export function JourneyStepper() {
             );
           })}
           <li className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-[var(--brand)]">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
               {effectiveActive + 1}/{STEPS.length}
             </span>
             {STEPS[effectiveActive]?.label}
@@ -154,7 +154,7 @@ export function JourneyStepper() {
                     <span
                       className={cn(
                         "text-xs font-semibold",
-                        current ? "text-foreground" : "text-muted-foreground/70"
+                        current ? "text-foreground" : "text-muted-foreground"
                       )}
                     >
                       {step.label}
@@ -190,7 +190,7 @@ function StepChip({ icon: Icon, done, current }: { icon: LucideIcon; done: boole
           ? "bg-[var(--brand)] text-white"
           : current
             ? "bg-cta-soft text-[var(--brand)] ring-2 ring-[var(--brand)]"
-            : "bg-muted text-muted-foreground/70"
+            : "bg-muted text-muted-foreground"
       )}
     >
       {done ? <Check className="size-3.5" strokeWidth={3} /> : <Icon className="size-3.5" />}

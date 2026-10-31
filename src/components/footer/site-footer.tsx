@@ -52,7 +52,7 @@ export function Footer() {
           <div className="mf-blue" aria-hidden="true">
             <div className="mf-photo">
               <Image
-                src="/images/footer-water.jpg"
+                src="/images/footer-water.webp"
                 alt=""
                 fill
                 sizes="100vw"

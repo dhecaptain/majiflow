@@ -28,7 +28,7 @@ export const HERO_SLIDES: HeroSlide[] = [
   {
     id: "majiflow-door",
     eyebrow: "Delivered",
-    headline: "Majiflow, straight to your door.",
+    headline: "MajiFlow, straight to your door.",
     body: "Fast, reliable doorstep delivery across Nairobi and beyond.",
     image: waterCansBg,
     alt: "Refill containers ready to be delivered",
@@ -51,4 +51,5 @@ export const HERO_SLIDES: HeroSlide[] = [
   },
 ];
 
-export const HERO_SLIDE_INTERVAL = 3000;
+/** Long enough to read a headline; the slider also has a pause button. */
+export const HERO_SLIDE_INTERVAL = 6500;

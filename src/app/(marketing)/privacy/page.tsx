@@ -1,6 +1,12 @@
 import { ContentPage, ProseList, ProseSection } from "@/components/shared/content-page";
 import { LEGAL_UPDATED } from "@/lib/constants";
 
+export const metadata = {
+  title: "Privacy Policy",
+  description: "How MajiFlow collects, uses and protects your personal information.",
+  alternates: { canonical: "/privacy" },
+};
+
 export default function Privacy() {
   return (
     <ContentPage

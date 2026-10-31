@@ -699,13 +699,9 @@ function CheckoutForm() {
             Thanks for ordering. We&apos;ll text you as it moves along, and you can follow it live from here.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href={`/order/${lastOrder.id}`}>
-              <Button size="lg" className="w-full sm:w-auto">Track order</Button>
-            </Link>
-            <Link href="/browse">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Continue browsing
-              </Button>
+            <Link href={`/order/${lastOrder.id}`} className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>Track order</Link>
+            <Link href="/browse" className={buttonVariants({ variant: "outline", size: "lg", className: "w-full sm:w-auto" })}>
+              Continue browsing
             </Link>
           </div>
         </div>
@@ -791,7 +787,7 @@ function CheckoutForm() {
                 <User className="size-4.5" />
               </span>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Step 1</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 1</p>
                 <h2 className="font-display text-lg text-foreground">Contact</h2>
                 <p className="text-xs text-muted-foreground">Who we call when your water arrives.</p>
               </div>
@@ -816,7 +812,7 @@ function CheckoutForm() {
                   invalid={Boolean(touch && errors.phone)}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+254 7XX XXX XXX"
+                  placeholder="07XX XXX XXX"
                   autoComplete="tel"
                 />
               </Field>
@@ -847,7 +843,7 @@ function CheckoutForm() {
                 {pickup ? <Store className="size-4.5" /> : <MapPin className="size-4.5" />}
               </span>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Step 2</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 2</p>
                 <h2 className="font-display text-lg text-foreground">
                   {pickup ? "Collection" : "Delivery"}
                 </h2>
@@ -1011,7 +1007,7 @@ function CheckoutForm() {
                 <ShieldCheck className="size-4.5" />
               </span>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Step 3</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 3</p>
                 <h2 className="font-display text-lg text-foreground">Payment</h2>
                 <p className="text-xs text-muted-foreground">
                   {mpesaOffered ? "Pay when your water arrives, or pay now with M-Pesa." : "Pay when your water arrives."}
@@ -1153,7 +1149,7 @@ function CheckoutForm() {
               >
                 {method === "mpesa" ? `Pay ${formatKES(total)} with M-Pesa` : `Place order · ${formatKES(total)}`}
               </Button>
-              <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <p className="mt-3 text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 {method === "mpesa" ? "You'll confirm on your phone" : pickup ? "Pay when you collect" : "Pay when it arrives"}
               </p>
             </>
@@ -1214,7 +1210,7 @@ function CheckoutForm() {
         <div className="fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-white/95 px-4 pb-3 pt-3 backdrop-blur lg:hidden">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 Total
               </p>
               <p className="font-display text-xl leading-tight text-foreground">
@@ -1288,7 +1284,7 @@ function PaymentOption({
         <span className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">{title}</span>
           {badge && (
-            <span className="rounded-full bg-success-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-success">
+            <span className="rounded-full bg-success-soft px-2 py-0.5 font-mono text-[11px] font-semibold uppercase text-success">
               {badge}
             </span>
           )}
@@ -1457,7 +1453,7 @@ function PaymentOverlay({
             </div>
             {testMode && (
               <div className="mt-2 w-full rounded-xl border border-dashed border-warning/60 bg-warning/5 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-warning">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-warning">
                   Development mode - no real charge
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">

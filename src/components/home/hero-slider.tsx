@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { usePrefersReducedMotion } from "@/lib/motion";
 import { markLoaded } from "@/lib/load-progress";
 import { HERO_WASH, type HeroSlide } from "@/config/hero-slides";
@@ -23,6 +23,8 @@ export function HeroSlider({ slides, interval = 7000 }: HeroSliderProps) {
 
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  /** Stopped by the visitor with the pause button; stays stopped until they press play. */
+  const [stopped, setStopped] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dragX, setDragX] = useState(0);
@@ -47,10 +49,10 @@ export function HeroSlider({ slides, interval = 7000 }: HeroSliderProps) {
   );
 
   useEffect(() => {
-    if (reduce || paused || hidden || dragging || count < 2) return;
+    if (reduce || stopped || paused || hidden || dragging || count < 2) return;
     const timer = setTimeout(() => goTo(indexRef.current + 1), interval);
     return () => clearTimeout(timer);
-  }, [reduce, paused, hidden, dragging, count, interval, goTo, index]);
+  }, [reduce, stopped, paused, hidden, dragging, count, interval, goTo, index]);
 
   useEffect(() => {
     const onVisibilityChange = () => setHidden(document.hidden);
@@ -160,6 +162,14 @@ export function HeroSlider({ slides, interval = 7000 }: HeroSliderProps) {
             <ChevronRight className="size-5" aria-hidden />
           </ArrowButton>
         </div>
+        {!reduce && count > 1 && (
+          <ArrowButton
+            label={stopped ? "Play slideshow" : "Pause slideshow"}
+            onClick={() => setStopped((value) => !value)}
+          >
+            {stopped ? <Play className="size-4" aria-hidden /> : <Pause className="size-4" aria-hidden />}
+          </ArrowButton>
+        )}
         <div className="flex items-center gap-1" role="group" aria-label="Choose a slide">
           {slides.map((slide, i) => {
             const active = i === index;
@@ -182,7 +192,8 @@ export function HeroSlider({ slides, interval = 7000 }: HeroSliderProps) {
         </div>
       </div>
 
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
+      {/* Announce slide changes only when the visitor is driving them, not on every auto-advance. */}
+      <p className="sr-only" aria-live={stopped || reduce ? "polite" : "off"} aria-atomic="true">
         {`Slide ${index + 1} of ${count}: ${activeSlide.headline}`}
       </p>
     </div>

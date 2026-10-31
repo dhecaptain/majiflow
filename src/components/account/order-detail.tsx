@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, MapPin, Navigation, PackageX, RotateCcw, XCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
@@ -59,9 +59,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             title="Order not found"
             description="This order doesn't exist or belongs to a different account."
             action={
-              <Link href="/account/orders">
-                <Button>See your orders</Button>
-              </Link>
+              <Link href="/account/orders" className={buttonVariants()}>See your orders</Link>
             }
           />
         ) : (
@@ -189,10 +187,8 @@ export function OrderDetailPage({ id }: { id: string }) {
             </h2>
             <div className="flex flex-col gap-2">
               {active && (
-                <Link href={`/order/${order.id}`}>
-                  <Button className="w-full">
-                    <Navigation className="size-4" aria-hidden /> Track live
-                  </Button>
+                <Link href={`/order/${order.id}`} className={buttonVariants({ className: "w-full" })}>
+                  <Navigation className="size-4" aria-hidden /> Track live
                 </Link>
               )}
               <Button

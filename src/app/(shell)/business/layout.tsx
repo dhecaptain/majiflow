@@ -4,7 +4,7 @@ import { listOwnerCatalogStations } from "@/lib/server/catalog";
 import type { Business } from "@/lib/types";
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "MajiFlow Business" };
+export const metadata = { title: "MajiFlow Business", robots: { index: false, follow: false } };
 
 interface LayoutProps {
   children: React.ReactNode;

@@ -199,7 +199,7 @@ export function CartPage() {
               </p>
             </>
           )}
-          <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          <p className="mt-3 text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
             1 of 2 · Next: delivery & payment
           </p>
         </div>

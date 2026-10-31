@@ -272,7 +272,7 @@ export function BrowseSiteHeader() {
             >
               <Store className="size-[18px]" aria-hidden />
               {browse.selectedStation ? (
-                <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-5 text-white">
+                <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[11px] font-bold leading-5 text-white">
                   1
                 </span>
               ) : null}

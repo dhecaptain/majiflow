@@ -150,7 +150,7 @@ export function RegisterForm() {
           <Input
             required
             type="tel"
-            placeholder="+254 7XX XXX XXX"
+            placeholder="07XX XXX XXX"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             autoComplete="tel"

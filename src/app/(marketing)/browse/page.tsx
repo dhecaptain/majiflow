@@ -4,6 +4,7 @@ export const metadata = {
   title: "Browse stations",
   description:
     "Search and compare water refill stations across Kenya by city, estate, price and delivery fee.",
+  alternates: { canonical: "/browse" },
 };
 
 interface PageProps {

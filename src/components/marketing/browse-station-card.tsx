@@ -36,10 +36,10 @@ export function BrowseStationCard({
         <StationBadge
           verified={business.verified}
           paid={business.paid}
-          className="absolute left-2 top-2 !gap-1 !px-2 !py-0.5 !text-[10px]"
+          className="absolute left-2 top-2 !gap-1 !px-2 !py-0.5 !text-[11px]"
         />
         {hasRating && (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-semibold text-foreground shadow-soft">
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-foreground shadow-soft">
             <Star className="size-3 fill-warning text-warning" aria-hidden />
             {business.rating.toFixed(1)}
             <span className="font-normal text-muted-foreground">({business.reviewCount})</span>

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import {
   ArrowLeft, Building2, Check, CreditCard, MapPin, MapPinCheck, Navigation, PartyPopper, Store, TriangleAlert } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
@@ -449,15 +449,11 @@ export function BusinessRegister() {
           </dl>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Link href="/business">
-              <Button size="lg" className="group w-full sm:w-auto">
-                Open my dashboard
-              </Button>
+            <Link href="/business" className={buttonVariants({ size: "lg", className: "group w-full sm:w-auto" })}>
+              Open my dashboard
             </Link>
-            <Link href="/business">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                Take the tour first
-              </Button>
+            <Link href="/business" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
+              Take the tour first
             </Link>
           </div>
         </div>
@@ -576,7 +572,7 @@ export function BusinessRegister() {
                 <Field label="Phone (M-Pesa)" required error={errors.phone}>
                   <Input
                     type="tel"
-                    placeholder="+254 712 345 678"
+                    placeholder="07XX XXX XXX"
                     value={draft.phone}
                     onChange={(e) => update("phone", e.target.value)}
                     invalid={Boolean(errors.phone)}
@@ -899,7 +895,7 @@ export function BusinessRegister() {
               <Field label="M-Pesa number for billing" hint="Optional - you can add it later.">
                 <Input
                   type="tel"
-                  placeholder="+254 712 345 678"
+                  placeholder="07XX XXX XXX"
                   value={draft.billingPhone}
                   onChange={(e) => update("billingPhone", e.target.value)}
                   autoComplete="tel"

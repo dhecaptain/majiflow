@@ -236,7 +236,7 @@ interface DragState {
 }
 
 /**
- * Uber/Glovo-style bottom sheet that floats over the map. It snaps between
+ * Bottom sheet that floats over the map. It snaps between
  * three heights - peek (just the handle), half and full - and can be dragged
  * with a pointer or a finger.
  */

@@ -79,7 +79,7 @@ describe("resolveCart", () => {
       OPEN
     );
     expect(cart.lines.map((l) => l.status)).toEqual(["missing", "missing"]);
-    expect(cart.lines[0].problem).toMatch(/no longer on MajiConnect/);
+    expect(cart.lines[0].problem).toMatch(/no longer on MajiFlow/);
     expect(cart.lines[1].problem).toMatch(new RegExp(`${station.name} no longer sells`));
     expect(cart.orderable).toEqual([]);
     expect(cart.canCheckout).toBe(false);

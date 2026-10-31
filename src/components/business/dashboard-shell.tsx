@@ -58,12 +58,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       {NAV.map((item) => (
         <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} />
       ))}
-      <p className="px-3 pb-1 pt-5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Account</p>
+      <p className="px-3 pb-1 pt-5 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Account</p>
       {LOWER.map((item) => (
         <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} badge={item.badge} />
       ))}
       <div className="mt-auto rounded-xl bg-brand/5 p-3">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--brand)]">Trial</p>
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--brand)]">Trial</p>
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-brand/15">
           <div className="h-full w-[60%] rounded-full bg-foreground" />
         </div>
@@ -86,7 +86,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="min-h-[calc(100svh-4rem)] md:min-h-[calc(100svh-5.625rem)] lg:pl-64">
-        <main className="p-4 pb-10 sm:p-6 lg:pb-6">
+        <main id="main-content" tabIndex={-1} className="p-4 pb-10 outline-none sm:p-6 lg:pb-6">
           <PageTransition>{hasBusiness || pathname === "/business/applications" ? children : <PendingBusinessState />}</PageTransition>
         </main>
       </div>
@@ -141,7 +141,7 @@ function SidebarLink({
       <Icon className={cn("size-4.5", active && "text-[var(--brand)]")} aria-hidden />
       {label}
       {badge && (
-        <span className="ml-auto rounded-full bg-warning-soft px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-warning">
+        <span className="ml-auto rounded-full bg-warning-soft px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-warning">
           {badge}
         </span>
       )}
