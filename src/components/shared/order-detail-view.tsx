@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Clock, MapPin, Phone, Radio, Truck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
+import { OrderStatusBadge, paymentMeta, paymentMethodLabel } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { FulfilmentPanel } from "@/components/shared/fulfilment-panel";
@@ -246,7 +246,7 @@ export function OrderDetailView({
             </dl>
             <div className="mt-4 flex items-center justify-between rounded-lg bg-muted/60 px-3.5 py-2.5">
               <span className="text-xs text-muted-foreground">
-                Paid via {order.payment === "mpesa" ? "M-Pesa" : "Card"}
+                {paymentMethodLabel(order.payment)}
               </span>
               <Badge variant={paymentMeta(order).tone}>
                 {paymentMeta(order).label}

@@ -38,6 +38,17 @@ export function unitPriceFor(
   return product.price + (option?.priceDelta ?? 0);
 }
 
+/**
+ * The price to advertise on cards and headlines: the cheapest option, flagged
+ * `from` when options make the price vary, so the headline never shows more
+ * than the customer will actually be charged for the default choice.
+ */
+export function listPrice(product: Pick<BusinessProduct, "price" | "options">): { amount: number; from: boolean } {
+  const prices = product.options?.length ? product.options.map((o) => unitPriceFor(product, o)) : [product.price];
+  const amount = Math.min(...prices);
+  return { amount, from: new Set(prices).size > 1 };
+}
+
 /** Refundable deposit collected per unit for the chosen option. */
 export function depositFor(option?: Pick<ProductOption, "deposit">): number {
   return option?.deposit ?? 0;

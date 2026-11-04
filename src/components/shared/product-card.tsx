@@ -18,7 +18,7 @@ import { useOptionalCartUi } from "@/components/order/cart-ui-provider";
 import { useFlyToCart } from "@/components/order/fly-to-cart";
 import { useBusinessAvailability } from "@/components/shared/business-availability";
 import { QuantityStepper } from "@/components/order/quantity-stepper";
-import { itemHref, maxOrderQuantity } from "@/lib/cart";
+import { itemHref, maxOrderQuantity, listPrice } from "@/lib/cart";
 
 interface ProductCardProps {
   product: BusinessProduct;
@@ -153,7 +153,8 @@ export function ProductCard({ product, businessId, businessSlug, openingHours, c
         </p>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-lg font-bold tracking-tight text-foreground">{formatKES(product.price)}</span>
+          {listPrice(product).from && <span className="text-xs font-medium text-muted-foreground">From</span>}
+          <span className="text-lg font-bold tracking-tight text-foreground">{formatKES(listPrice(product).amount)}</span>
           <span className="font-mono text-[11px] uppercase text-muted-foreground">/ {product.unit}</span>
           {product.oldPrice && (
             <span className="text-xs text-muted-foreground line-through">{formatKES(product.oldPrice)}</span>

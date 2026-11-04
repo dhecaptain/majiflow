@@ -158,7 +158,9 @@ export function CartPage() {
 
           <p className="mt-4 flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2.5 text-xs text-success">
             <Droplets className="size-4 shrink-0" aria-hidden />
-            Payment is collected with M-Pesa before dispatch.
+            {cart.orderable.length > 0 && cart.orderable.every((r) => r.business?.acceptsMpesa)
+              ? "Pay when it arrives, or with M-Pesa now. You choose at checkout."
+              : "Pay when it arrives: cash or M-Pesa to the rider."}
           </p>
 
           {stationBlockers.length > 0 && (
@@ -200,7 +202,7 @@ export function CartPage() {
             </>
           )}
           <p className="mt-3 text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-            1 of 2 · Next: delivery & payment
+            Next: contact, delivery & payment
           </p>
         </div>
       </div>

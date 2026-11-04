@@ -9,6 +9,7 @@ import {
   maxOrderQuantity,
   optionFor,
   type CartLine,
+  listPrice,
 } from "@/lib/cart";
 import { resolveCart } from "@/lib/cart";
 import { computeCartTotals, lineSubtotal, lineDeposit } from "@/lib/pricing";
@@ -394,7 +395,8 @@ function BrowseProductCard({
         <h2 className="line-clamp-2 min-h-11 text-base font-bold leading-snug text-foreground">{product.name}</h2>
         <p className="mt-1 line-clamp-2 min-h-10 text-xs leading-relaxed text-muted-foreground">{product.description}</p>
         <div className="mt-3 flex items-baseline justify-center gap-2">
-          <span className="text-lg font-bold tracking-tight text-foreground">{formatKES(product.price)}</span>
+          {listPrice(product).from && <span className="text-xs font-medium text-muted-foreground">From</span>}
+          <span className="text-lg font-bold tracking-tight text-foreground">{formatKES(listPrice(product).amount)}</span>
           <span className="font-mono text-[11px] uppercase text-muted-foreground">/ {product.unit}</span>
         </div>
         <div className="mt-4 flex w-full flex-col items-center gap-2">

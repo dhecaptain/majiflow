@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, MapPin, Pencil, Search, Store, Truck, X } from "lucide-react";
+import { ChevronDown, MapPin, Pencil, Search, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/layout/brand-mark";
@@ -14,6 +14,8 @@ import { LocationModal } from "@/components/order/location-modal";
 import { StationsDrawer } from "@/components/order/stations-drawer";
 import { useBrowseContext } from "@/components/order/browse-context";
 import { useCustomer } from "@/components/order/customer-provider";
+import { useCart } from "@/components/order/cart-provider";
+import { useCartUi } from "@/components/order/cart-ui-provider";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 import { browseHref } from "@/lib/journey";
 
@@ -112,10 +114,17 @@ function StationSearchOverlay({
   );
 }
 
-/** Keep the shared, original header everywhere except the browse route segment. */
+/** Routes that are part of placing or following an order share the shop header. */
+function isOrderFlowRoute(pathname: string) {
+  return pathname === "/cart" || pathname === "/checkout" || pathname.startsWith("/order/");
+}
+
+/** Keep the shared, original header everywhere except the ordering flow. */
 export function SiteHeader() {
   const pathname = usePathname();
+  // /browse renders its own copy of the shop header from its layout.
   if (pathname === "/browse" || pathname.startsWith("/browse/")) return null;
+  if (isOrderFlowRoute(pathname)) return <BrowseSiteHeader />;
   if (pathname === "/") return <LandingSiteHeader />;
   return <OriginalSiteHeader />;
 }
@@ -202,6 +211,39 @@ function OriginalSiteHeader() {
   );
 }
 
+/** Cart button with a live item count: opens the cart drawer, or goes to the cart page from checkout. */
+function HeaderCartButton() {
+  const { items, hydrated } = useCart();
+  const { openCart } = useCartUi();
+  const pathname = usePathname();
+  const count = hydrated ? items.reduce((n, item) => n + item.quantity, 0) : 0;
+  const label = count > 0 ? `Cart, ${count} ${count === 1 ? "item" : "items"}` : "Cart";
+  const className =
+    "relative flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-white text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:size-11";
+  const badge =
+    count > 0 ? (
+      <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[11px] font-bold leading-5 text-white">
+        {count > 99 ? "99+" : count}
+      </span>
+    ) : null;
+
+  // On the cart/checkout pages the drawer would only duplicate the page.
+  if (pathname === "/cart" || pathname === "/checkout") {
+    return (
+      <Link href="/cart" aria-label={label} className={className}>
+        <ShoppingCart className="size-[18px]" aria-hidden />
+        {badge}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={openCart} aria-label={label} className={className}>
+      <ShoppingCart className="size-[18px]" aria-hidden />
+      {badge}
+    </button>
+  );
+}
+
 export function BrowseSiteHeader() {
   const browse = useBrowseContext();
   const [locationOpen, setLocationOpen] = useState(false);
@@ -231,7 +273,7 @@ export function BrowseSiteHeader() {
       <header className="sticky top-0 z-50 border-b border-border bg-white pt-[env(safe-area-inset-top)]">
         <div className="flex h-16 w-full items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:gap-6 lg:px-8 md:h-[90px]">
           <MobileMenu />
-          <BrandMark compact className="shrink-0" />
+          <BrandMark compact iconOnlyOnMobile className="shrink-0" />
 
           <button
             type="button"
@@ -277,6 +319,7 @@ export function BrowseSiteHeader() {
                 </span>
               ) : null}
             </button>
+            <HeaderCartButton />
           </div>
         </div>
       </header>

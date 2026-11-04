@@ -7,12 +7,15 @@ export function BrandMark({
   dark,
   showTagline = false,
   compact = false,
+  iconOnlyOnMobile = false,
 }: {
   className?: string;
   dark?: boolean;
   showTagline?: boolean;
   /** Tighter icon and wordmark sized for the fixed header. */
   compact?: boolean;
+  /** Hide the wordmark below the `sm` breakpoint (crowded headers); the link keeps its label. */
+  iconOnlyOnMobile?: boolean;
 }) {
   return (
     <Link
@@ -31,7 +34,7 @@ export function BrandMark({
       >
         <MajiMark />
       </span>
-      <span className="flex flex-col leading-none">
+      <span className={cn("flex-col leading-none", iconOnlyOnMobile ? "hidden sm:flex" : "flex")}>
         <span
           className={cn(
             "font-display font-semibold tracking-tight",
