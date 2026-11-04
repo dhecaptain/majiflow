@@ -43,6 +43,13 @@ export const PAYMENT_STATE_META: Record<PaymentState, { label: string; tone: "wa
 };
 
 /** How an order's payment reads to people: an unpaid pay-on-delivery order is not "pending payment". */
+/** How the customer pays, in their words. */
+export function paymentMethodLabel(method: Order["payment"]): string {
+  if (method === "mpesa") return "M-Pesa";
+  if (method === "cod") return "Cash or M-Pesa to the rider";
+  return "Card";
+}
+
 export function paymentMeta(order: Pick<Order, "payment" | "paymentState">) {
   if (order.payment === "cod" && order.paymentState === "pending") {
     return { label: "Pay on delivery", tone: "warning" as const };

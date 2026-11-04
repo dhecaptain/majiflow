@@ -100,7 +100,7 @@ function addressLocation(a: DeliveryAddress | undefined): CapturedLocation | nul
   return { lat: a.lat, lng: a.lng, accuracy: a.accuracy, at: a.locationAt ?? "" };
 }
 
-/** Delivery fields prefilled from the location saved in the user's profile. */
+/** Delivery fields prefilled from the picked location or the profile's saved one. */
 function prefillFromAddress(a: DeliveryAddress | undefined) {
   const location = addressLocation(a);
   const near = location ? nearestPlace(location.lat, location.lng) : {};
@@ -117,8 +117,11 @@ function prefillFromAddress(a: DeliveryAddress | undefined) {
 
 export function CheckoutPage() {
   const { hydrated, accountSynced } = useCustomer();
-  // Re-prefill once when a signed-in customer's saved details arrive from the server.
-  return <CheckoutForm key={!hydrated ? "initial" : accountSynced ? "account" : "hydrated"} />;
+  const { hydrated: sessionHydrated } = useOrderSession();
+  // Re-prefill once the stored order session (the pin picked on the map) and,
+  // for a signed-in customer, their saved details arrive.
+  const profileKey = !hydrated ? "initial" : accountSynced ? "account" : "hydrated";
+  return <CheckoutForm key={`${profileKey}-${sessionHydrated ? "session" : "nosession"}`} />;
 }
 
 function CheckoutForm() {
@@ -126,7 +129,7 @@ function CheckoutForm() {
   const router = useRouter();
   const { items, clear, hydrated: cartHydrated } = useCart();
   const { profile, loggedIn, saveProfileDetails } = useCustomer();
-  const { fulfilment } = useOrderSession();
+  const { fulfilment, address: sessionAddress } = useOrderSession();
   const { toast } = useToast();
   // Collection from the station: no delivery fee, and the order is collected
   // at the station's own address.
@@ -135,7 +138,8 @@ function CheckoutForm() {
   const [name, setName] = useState(profile.name);
   const [phone, setPhone] = useState(profile.phone);
   const [email, setEmail] = useState(profile.email ?? "");
-  const [prefill] = useState(() => prefillFromAddress(defaultAddress(profile)));
+  // The location picked in this session (guest or signed in) wins over the profile default.
+  const [prefill] = useState(() => prefillFromAddress(sessionAddress ?? defaultAddress(profile)));
   const [city, setCity] = useState(prefill.city);
   const [estate, setEstate] = useState(prefill.estate);
   const [street, setStreet] = useState(prefill.street);

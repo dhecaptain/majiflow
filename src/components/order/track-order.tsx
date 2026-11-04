@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Bike, CheckCircle2, Clock, Inbox, MapPin, Phone, RefreshCcw, ShieldCheck, Smartphone, Truck, XCircle } from "lucide-react";
+import { Banknote, Bike, CheckCircle2, Clock, Inbox, MapPin, Phone, RefreshCcw, ShieldCheck, Smartphone, Truck, XCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
+import { OrderStatusBadge, paymentMeta, paymentMethodLabel } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { useStations } from "@/components/order/stations-provider";
+import { useCustomer } from "@/components/order/customer-provider";
 import { CITY_COORDS, ESTATE_COORDS } from "@/lib/constants";
 import { useCart } from "@/components/order/cart-provider";
 import { useFlyToCart } from "@/components/order/fly-to-cart";
@@ -47,6 +48,7 @@ function moneyMessage(order: Order): string {
 
 export function TrackOrderPage({ id }: { id: string }) {
   const businesses = useStations();
+  const { loggedIn } = useCustomer();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
@@ -306,7 +308,13 @@ export function TrackOrderPage({ id }: { id: string }) {
             <div className="mt-6 flex items-start gap-3 rounded-xl border border-warning/25 bg-warning/10 p-4">
               <Inbox className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
               <p className="text-sm leading-relaxed text-foreground/85">
-                {order.paymentState === "success" ? (
+                {order.payment === "cod" ? (
+                  <>
+                    <strong className="font-semibold text-foreground">Waiting for the station.</strong>{" "}
+                    {order.businessName} will confirm your order shortly. You pay {formatKES(order.total)} when it
+                    arrives, in cash or by M-Pesa to the rider.
+                  </>
+                ) : order.paymentState === "success" ? (
                   <>
                     <strong className="font-semibold text-foreground">Waiting for the station.</strong>{" "}
                     Your payment of {formatKES(order.total)} is held safely and released to{" "}
@@ -355,7 +363,12 @@ export function TrackOrderPage({ id }: { id: string }) {
             />
             <div className="mt-4 flex items-center justify-between rounded-lg bg-muted/60 px-3.5 py-2.5">
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Smartphone className="size-4 text-[var(--brand)]" aria-hidden /> {order.payment === "mpesa" ? "M-Pesa" : "Card"}
+                {order.payment === "cod" ? (
+                  <Banknote className="size-4 text-[var(--brand)]" aria-hidden />
+                ) : (
+                  <Smartphone className="size-4 text-[var(--brand)]" aria-hidden />
+                )}{" "}
+                {paymentMethodLabel(order.payment)}
               </span>
               <Badge variant={payment.tone}>{payment.label}</Badge>
             </div>
@@ -384,10 +397,9 @@ export function TrackOrderPage({ id }: { id: string }) {
             <Button variant="secondary" onClick={(e) => reorder(e.currentTarget)} className="group">
               <RefreshCcw className="size-4" aria-hidden /> Reorder this
             </Button>
-            <Link href="/account/orders" className="flex-1">
-              <Button className="group w-full">
-                View all orders
-              </Button>
+            {/* Guests have no order history to open; send them back to shopping instead. */}
+            <Link href={loggedIn ? "/account/orders" : "/browse"} className="flex-1">
+              <Button className="group w-full">{loggedIn ? "View all orders" : "Order more water"}</Button>
             </Link>
           </div>
 

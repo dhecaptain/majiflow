@@ -11,7 +11,7 @@ import { JourneyLink, JourneyRecorder } from "@/components/order/journey";
 import { ItemPurchasePanel } from "@/components/order/item-purchase-panel";
 import { StationAvailabilityNotice, StationCartBar } from "@/components/order/station-status";
 import { getStationBySlug } from "@/lib/server/catalog";
-import { itemHref, maxOrderQuantity, productRequirements } from "@/lib/cart";
+import { itemHref, maxOrderQuantity, productRequirements, listPrice } from "@/lib/cart";
 import { productImage } from "@/lib/product-images";
 import { formatKES } from "@/lib/format";
 
@@ -135,7 +135,8 @@ export default async function ItemPage({ params }: PageProps) {
             </div>
 
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="text-3xl font-bold tracking-tight text-foreground">{formatKES(product.price)}</span>
+              {listPrice(product).from && <span className="text-sm font-medium text-muted-foreground">From</span>}
+              <span className="text-3xl font-bold tracking-tight text-foreground">{formatKES(listPrice(product).amount)}</span>
               <span className="text-sm text-muted-foreground">per {product.unit}</span>
               {product.oldPrice && (
                 <span className="text-sm text-muted-foreground">
@@ -213,7 +214,7 @@ export default async function ItemPage({ params }: PageProps) {
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-foreground">{p.name}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {maxOrderQuantity(p) === 0 ? "Out of stock" : `${formatKES(p.price)} / ${p.unit}`}
+                        {maxOrderQuantity(p) === 0 ? "Out of stock" : `${listPrice(p).from ? "From " : ""}${formatKES(listPrice(p).amount)} / ${p.unit}`}
                       </span>
                     </span>
                   </Link>

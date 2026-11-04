@@ -135,7 +135,7 @@ export default async function BusinessProfile({ params }: PageProps) {
                   <Smartphone className="size-4 text-[var(--brand)]" aria-hidden /> Payment
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {business.acceptsMpesa ? "M-Pesa" : "Pay on delivery"}
+                  {business.acceptsMpesa ? "Pay on delivery or M-Pesa" : "Pay on delivery"}
                   {business.acceptsCard && " · Card"}
                 </p>
               </div>
