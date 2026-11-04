@@ -2,14 +2,14 @@ import type { NextConfig } from "next";
 
 /**
  * Security headers for every response. The CSP allows inline scripts and
- * styles (the splash gate, JSON-LD and motion styles are inline) and the two
- * map tile hosts; everything else must come from this site.
+ * styles (the splash gate, JSON-LD and motion styles are inline) and the OSM
+ * map tile host; everything else must come from this site.
  */
 const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://tile.openstreetmap.org",
+  "img-src 'self' data: blob: https://tile.openstreetmap.org",
   "font-src 'self' data:",
   "connect-src 'self'",
   "worker-src 'self'",
@@ -30,7 +30,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["*.trycloudflare.com", "10.162.122.91"],
+  allowedDevOrigins: ["*.trycloudflare.com", "127.0.0.1", "10.30.2.176", "10.125.155.205", "10.162.122.91"],
   // Pin the Turbopack root so it does not scan parent directories, which
   // makes the first dev compile much faster.
   turbopack: {

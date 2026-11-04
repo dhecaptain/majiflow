@@ -959,3 +959,8 @@
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* Muted basemap (location picker): soften OSM's colors so pins stand out. */
+.mf-muted-tiles {
+  filter: grayscale(0.85) brightness(1.06) contrast(0.9);
+}
