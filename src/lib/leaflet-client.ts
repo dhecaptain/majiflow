@@ -27,24 +27,26 @@ export function loadLeaflet(): Promise<LeafletNS> {
   }
   return leafletPromise;
 }
+const OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
 /**
- * A calm basemap with the POI clutter stripped out, so brand-colored station
- * pins are the loudest thing on the map. CARTO's light tiles are keyless.
+ * A calm basemap so brand-colored pins are the loudest thing on the map: the
+ * standard OSM tiles, desaturated by the `mf-muted-tiles` CSS filter. (CARTO's
+ * light tiles used to do this but now need an API key.)
  */
 function mutedTiles(L: LeafletNS, map: Leaflet.Map) {
-  return L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 20,
-    subdomains: "abcd",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  return L.tileLayer(OSM_TILES, {
+    maxZoom: 19,
+    className: "mf-muted-tiles",
+    attribution: OSM_ATTRIBUTION,
   }).addTo(map);
 }
 
 function streetsTiles(L: LeafletNS, map: Leaflet.Map) {
-  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  return L.tileLayer(OSM_TILES, {
     maxZoom: 19,
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    attribution: OSM_ATTRIBUTION,
   }).addTo(map);
 }
 

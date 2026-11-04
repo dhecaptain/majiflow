@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import {
   captureLocationBestEffort,
   geolocationErrorMessage,
+  formatDistance,
+  haversineMeters,
   nearestPlace,
   resolveCity,
   reverseGeocode,
@@ -99,6 +101,8 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
     results: [],
   });
   const [locating, setLocating] = useState(false);
+  /** The customer's own GPS fix ("you are here"), separate from the pin they place. */
+  const [userLoc, setUserLoc] = useState<CapturedLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingFulfilment, setPendingFulfilment] = useState<FulfillmentMethod | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -204,20 +208,65 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
     setFocusTarget({ ...next, nonce: Date.now() });
   }, []);
 
-  const useCurrentLocation = async () => {
+  const locateCustomer = async ({ silent = false }: { silent?: boolean } = {}) => {
     setLocating(true);
-    setError(null);
+    if (!silent) setError(null);
     try {
       const loc: CapturedLocation = await captureLocationBestEffort();
+      if (!loc.approx) setUserLoc(loc);
       movePin({ lat: loc.lat, lng: loc.lng });
       const address = await reverseGeocode(loc.lat, loc.lng, loc.accuracy);
       applyGeo(address, { lat: loc.lat, lng: loc.lng });
     } catch (err) {
-      setError(geolocationErrorMessage(err));
+      // An automatic attempt on open stays quiet; the customer can still search or tap "locate".
+      if (!silent) setError(geolocationErrorMessage(err));
     } finally {
       setLocating(false);
     }
   };
+
+  // Like a ride-hailing app: with no saved spot, start from where the customer is.
+  const autoLocatedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autoLocatedRef.current = false;
+      return;
+    }
+    if (autoLocatedRef.current || session.address?.lat) return;
+    autoLocatedRef.current = true;
+    void locateCustomer({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per opening
+  }, [open]);
+
+  const pickerStations = useMemo(
+    () =>
+      nearby.map((s) => ({
+        id: s.business.id,
+        name: s.business.name,
+        lat: s.business.lat,
+        lng: s.business.lng,
+        open: s.open,
+      })),
+    [nearby]
+  );
+
+  // The bubble over the pin: where it is, how far from the customer, and the nearest station.
+  const pinLabel = useMemo(() => {
+    if (!point) return null;
+    const title = geo?.street || geo?.estate || geo?.area || estate.trim() || "Dropped pin";
+    const parts: string[] = [];
+    if (userLoc) {
+      const m = haversineMeters(userLoc, point);
+      parts.push(m < 30 ? "You are here" : `${formatDistance(m)} from you`);
+    }
+    const nearest = nearby.find((s) => s.distanceKm !== undefined);
+    if (nearest?.distanceKm !== undefined) {
+      parts.push(
+        `Nearest station ${formatDistance(nearest.distanceKm * 1000)}${nearest.etaMinutes ? ` · ~${nearest.etaMinutes} min` : ""}`
+      );
+    }
+    return { title, detail: parts.join(" · ") || undefined };
+  }, [point, geo, estate, userLoc, nearby]);
 
   const choosePlace = (place: PlaceResult) => {
     movePin({ lat: place.lat, lng: place.lng });
@@ -384,7 +433,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
 
                     <button
                       type="button"
-                      onClick={useCurrentLocation}
+                      onClick={() => void locateCustomer()}
                       disabled={locating}
                       className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand)]/30 bg-cta-soft px-4 py-3 text-left text-sm font-semibold text-[var(--brand)] transition-colors hover:border-[var(--brand)]"
                     >
@@ -505,6 +554,11 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                     focus={focusTarget}
                     onChange={(p) => setPoint(p)}
                     onAddress={applyGeo}
+                    userLocation={userLoc}
+                    onLocate={() => void locateCustomer()}
+                    locating={locating}
+                    stations={pickerStations}
+                    label={pinLabel}
                     className="h-full w-full"
                   />
                   {nearby.length > 0 && (

@@ -211,3 +211,11 @@ export function composeArea(
     ""
   );
 }
+
+/** "350 m", "1.2 km", "14 km": short distance labels for map bubbles and lists. */
+export function formatDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) return "";
+  if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
+  const km = meters / 1000;
+  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+}
