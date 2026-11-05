@@ -183,7 +183,7 @@ export function ContactPage() {
               </Button>
               <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-                We only use your details to answer your enquiry and never share them.
+                Your information is used only to respond to your enquiry and is handled securely in line with our Privacy Policy.
               </p>
             </form>
           </div>
