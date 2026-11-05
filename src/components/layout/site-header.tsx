@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, MapPin, Pencil, Search, Store, Truck, X } from "lucide-react";
+import { Bell, ChevronDown, MapPin, Pencil, Search, Store, Truck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/layout/brand-mark";
@@ -117,6 +117,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   if (pathname === "/browse" || pathname.startsWith("/browse/")) return null;
   if (pathname === "/") return <LandingSiteHeader />;
+  if (pathname === "/account" || pathname.startsWith("/account/")) return <CustomerSiteHeader />;
   return <OriginalSiteHeader />;
 }
 
@@ -187,18 +188,47 @@ function OriginalSiteHeader() {
             </button>
           </div>
 
-          <Link href={loggedIn ? "/browse" : "/register"}>
+          <Link href={loggedIn ? "/account" : "/browse"}>
             <Button
               className="min-h-10 rounded-full px-6 text-sm font-semibold"
               style={{ backgroundColor: "var(--brand)" }}
             >
-              Get started
+              {loggedIn ? "My account" : "Browse water"}
             </Button>
           </Link>
         </div>
       </header>
       <LocationModal open={locationOpen} onClose={() => setLocationOpen(false)} />
     </>
+  );
+}
+
+function CustomerSiteHeader() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-border bg-white pt-[env(safe-area-inset-top)]">
+      <div className="flex h-16 w-full items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:gap-6 lg:px-8 md:h-[90px]">
+        <div className="order-first shrink-0">
+          <MobileMenu />
+        </div>
+        <BrandMark compact className="shrink-0" />
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          <Link
+            href="/account/notifications"
+            aria-label="Notifications"
+            className="flex size-10 items-center justify-center rounded-full border border-border bg-white text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:size-11"
+          >
+            <Bell className="size-[18px]" aria-hidden />
+          </Link>
+          <Link
+            href="/browse"
+            className="hidden min-h-10 items-center rounded-full bg-brand px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:inline-flex"
+          >
+            Browse water
+          </Link>
+        </div>
+      </div>
+    </header>
   );
 }
 

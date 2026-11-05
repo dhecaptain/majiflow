@@ -13,7 +13,6 @@ import {
   Users,
 } from "lucide-react";
 import { BrandMark } from "@/components/layout/brand-mark";
-import { SiteHeader } from "@/components/layout/site-header";
 import { PageTransition } from "@/components/layout/page-transition";
 import { BusinessProvider, useBusiness } from "@/components/business/business-provider";
 import type { Business } from "@/lib/types";
@@ -76,12 +75,16 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-muted/40">
-      <SiteHeader />
+      <header className="sticky top-0 z-50 border-b border-border bg-white pt-[env(safe-area-inset-top)]">
+        <div className="flex h-16 w-full items-center px-4 sm:px-6 lg:px-8 md:h-[90px]">
+          <Link href="/business" aria-label="Business dashboard" className="shrink-0">
+            <BrandMark compact />
+          </Link>
+          <span className="ml-auto text-sm font-semibold text-foreground">Business dashboard</span>
+        </div>
+      </header>
       {/* Desktop sidebar */}
       <aside className="fixed bottom-0 left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 hidden w-64 flex-col border-r border-border bg-white lg:top-[calc(90px+env(safe-area-inset-top))] lg:flex">
-        <div className="flex h-16 items-center border-b border-border px-5">
-          <BrandMark className="scale-90" />
-        </div>
         {nav}
       </aside>
 
