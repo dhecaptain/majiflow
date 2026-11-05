@@ -235,7 +235,10 @@ function SlideCopy({ slide }: { slide: HeroSlide }) {
         />
         <div className="relative py-4 text-left">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
-            <span className="size-1.5 rounded-full bg-[var(--aqua)]" aria-hidden />
+            <span
+              className="size-1.5 rounded-full border border-[var(--aqua)]/60 bg-[var(--aqua)]"
+              aria-hidden
+            />
             {slide.eyebrow}
           </span>
           <p className="mt-3 font-display text-xl font-semibold leading-[1.2] tracking-tight text-white sm:text-2xl lg:text-[1.7rem]">
