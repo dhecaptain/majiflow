@@ -230,7 +230,9 @@ export function BrowseSiteHeader() {
     <>
       <header className="sticky top-0 z-50 border-b border-border bg-white pt-[env(safe-area-inset-top)]">
         <div className="flex h-16 w-full items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:gap-6 lg:px-8 md:h-[90px]">
-          <MobileMenu />
+          <div className="order-first shrink-0">
+            <MobileMenu />
+          </div>
           <BrandMark compact className="shrink-0" />
 
           <button

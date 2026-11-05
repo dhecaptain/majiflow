@@ -38,7 +38,7 @@ export function Footer() {
         <div className="mf-marquee-band">
           <Marquee
             items={marqueeItems}
-            speed={52}
+            speed={80}
             separator={
               <Droplet
                 aria-hidden="true"

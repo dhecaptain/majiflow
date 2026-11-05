@@ -76,11 +76,11 @@ export function BrowseSidebar({
         )}
       </div>
 
-      <aside className="sticky top-[calc(5.625rem+env(safe-area-inset-top))] hidden h-[calc(100dvh-5.625rem-env(safe-area-inset-top))] w-[475px] shrink-0 overflow-y-auto border-r border-border bg-white lg:block">
-        <div className="ml-auto w-full max-w-[260px] py-8 pr-8">
+      <aside className="sticky top-[calc(5.625rem+env(safe-area-inset-top))] hidden h-[calc(100dvh-5.625rem-env(safe-area-inset-top))] w-[320px] shrink-0 overflow-y-auto border-r border-border bg-white lg:block">
+        <div className="mx-auto w-full max-w-[240px] px-2 py-7">
           <h2 className="font-display text-3xl font-bold leading-tight text-foreground">Steps</h2>
-          <nav aria-label="Order steps" className="mt-7">
-            <ol className="space-y-5">
+          <nav aria-label="Order steps" className="mt-4">
+            <ol className="space-y-3">
               {STEPS.map((step, index) => (
                 <BrowseStepItem
                   key={step.id}

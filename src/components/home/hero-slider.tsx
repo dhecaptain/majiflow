@@ -233,7 +233,7 @@ function SlideCopy({ slide }: { slide: HeroSlide }) {
               "radial-gradient(130% 160% at 50% 50%, rgba(2,18,40,0.93) 0%, rgba(2,18,40,0.88) 40%, rgba(2,18,40,0.62) 72%, rgba(2,18,40,0) 100%)",
           }}
         />
-        <div className="relative py-4 text-left">
+        <div className="relative py-5 text-left sm:py-4">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
             <span
               className="size-1.5 rounded-full border border-[var(--aqua)]/60 bg-[var(--aqua)]"
@@ -241,10 +241,10 @@ function SlideCopy({ slide }: { slide: HeroSlide }) {
             />
             {slide.eyebrow}
           </span>
-          <p className="mt-3 font-display text-xl font-semibold leading-[1.2] tracking-tight text-white sm:text-2xl lg:text-[1.7rem]">
+          <p className="mt-4 font-display text-xl font-semibold leading-[1.2] tracking-tight text-white sm:mt-3 sm:text-2xl lg:text-[1.7rem]">
             {slide.headline}
           </p>
-          <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-white/85">
+          <p className="mt-3 max-w-[38ch] text-sm leading-relaxed text-white/85 sm:mt-2">
             {slide.body}
           </p>
         </div>
