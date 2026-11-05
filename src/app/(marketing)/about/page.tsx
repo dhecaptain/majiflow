@@ -64,6 +64,7 @@ export default function About() {
           </>
         }
         description="The software a water refill business runs its shop on."
+        className="min-h-0 justify-start [&>div:last-child]:py-12 lg:[&>div:last-child]:py-16"
       />
 
       <section className="py-16 lg:py-20">
@@ -107,10 +108,10 @@ export default function About() {
               </>
             }
           />
-          <Stagger className="mx-auto mt-12 max-w-2xl" stagger={0.1}>
+          <Stagger className="mx-auto mt-12 max-w-2xl space-y-6" stagger={0.1}>
             {timeline.map((t) => (
               <StaggerItem key={t.marker}>
-                <div className="relative flex gap-6 pb-14 last:pb-0">
+                <div className="relative flex gap-6">
                   <div className="flex flex-col items-center">
                     <span className="z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-cta-soft font-mono text-[11px] font-bold text-[var(--brand)]">
                       {t.marker}
@@ -133,7 +134,7 @@ export default function About() {
       <section className="py-16 lg:py-20">
         <Container size="md">
           <div className="rounded-3xl border border-[var(--brand)]/20 bg-card p-8 text-center shadow-card sm:p-12">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">
               What we stand for
             </p>
             <p className="mx-auto mt-4 max-w-xl font-display text-2xl leading-snug text-foreground sm:text-3xl">

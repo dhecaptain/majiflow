@@ -80,7 +80,7 @@ export function BrowseSidebar({
         <div className="mx-auto w-full max-w-[240px] px-2 py-7">
           <h2 className="font-display text-3xl font-bold leading-tight text-foreground">Steps</h2>
           <nav aria-label="Order steps" className="mt-4">
-            <ol className="space-y-3">
+            <ol className="space-y-5">
               {STEPS.map((step, index) => (
                 <BrowseStepItem
                   key={step.id}
