@@ -1,1 +1,2 @@
-ALTER TYPE "public"."user_role" ADD VALUE 'operations';
+ALTER TYPE "public"."user_role"
+ADD VALUE IF NOT EXISTS 'operations';

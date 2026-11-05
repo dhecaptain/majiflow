@@ -82,7 +82,7 @@ export function BrowseOrderStep({
   const ready = Boolean(choice.category && choice.size && choice.quantity > 0);
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6 sm:py-10 lg:px-4">
       <div className="max-w-2xl">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Step 1 · Order</p>
         <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">

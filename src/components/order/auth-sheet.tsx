@@ -273,7 +273,7 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
           <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
             <MessageSquare className="mt-0.5 size-4 shrink-0 text-[var(--brand)]" aria-hidden />
             Prefer your old sign-in?{" "}
-            <Link href="/login" className="font-semibold text-[var(--brand)] hover:underline">
+            <Link href="/login" onClick={onClose} className="font-semibold text-[var(--brand)] hover:underline">
               Use email and password
             </Link>
           </p>

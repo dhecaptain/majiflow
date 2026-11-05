@@ -345,7 +345,7 @@ export function BrowsePage({
   const currentStep: BrowseJourneyStep = journeyStep ?? "order";
 
   return (
-    <div className="grid w-full grid-cols-1 items-start lg:grid-cols-[475px_minmax(0,1fr)]">
+    <div className="grid w-full grid-cols-1 items-start lg:grid-cols-[320px_minmax(0,1fr)]">
       <BrowseSidebar
         currentStep={currentStep}
         canGoToStep={canGoToStep}

@@ -3,11 +3,13 @@ import { cn } from "@/lib/utils";
 import { MajiMark } from "@/components/layout/maji-mark";
 
 export function BrandMark({
+  href = "/",
   className,
   dark,
   showTagline = false,
   compact = false,
 }: {
+  href?: string;
   className?: string;
   dark?: boolean;
   showTagline?: boolean;
@@ -16,7 +18,7 @@ export function BrandMark({
 }) {
   return (
     <Link
-      href="/"
+      href={href}
       aria-label="MajiFlow home"
       className={cn(
         "group inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]",

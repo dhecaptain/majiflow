@@ -16,6 +16,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { plans } from "@/lib/data/plans";
 import type { Weekday, WeeklyOperatingHours } from "@/lib/types";
+import { getTrialProgress } from "@/lib/trial";
 
 interface StationSubscription {
   plan: string;
@@ -208,6 +209,14 @@ export function BusinessStationSetup() {
         const message = messages[station.business.id];
         const trialEnd = formatDate(station.subscription?.trialEndsAt ?? null);
         const periodEnd = formatDate(station.subscription?.currentPeriodEnd ?? null);
+        const trialProgress = getTrialProgress(
+          station.subscription?.trialStartedAt,
+          station.subscription?.trialEndsAt
+        );
+        const subscriptionStatus =
+          station.subscription?.status === "trialing" && trialProgress?.expired
+            ? "expired"
+            : station.subscription?.status;
 
         return (
           <article
@@ -225,11 +234,15 @@ export function BusinessStationSetup() {
                 <Badge variant={station.business.isComplete ? "success" : "warning"}>
                   {station.business.isComplete ? "Listing complete" : "Listing incomplete"}
                 </Badge>
-                <Badge variant={station.subscription ? subscriptionVariants[station.subscription.status] : "muted"}>
-                  {station.subscription ? subscriptionLabels[station.subscription.status] : "Trial not started"}
+                <Badge variant={subscriptionStatus ? subscriptionVariants[subscriptionStatus] : "muted"}>
+                  {subscriptionStatus ? subscriptionLabels[subscriptionStatus] : "Trial not started"}
                 </Badge>
-                <Badge variant={station.business.isPublished ? "success" : "muted"}>
-                  {station.business.isPublished ? "Published" : "Not published"}
+                <Badge variant={station.business.isPublished && !trialProgress?.expired ? "success" : "muted"}>
+                  {station.business.isPublished
+                    ? trialProgress?.expired
+                      ? "Hidden - trial ended"
+                      : "Published"
+                    : "Not published"}
                 </Badge>
               </div>
             </div>
@@ -253,6 +266,7 @@ export function BusinessStationSetup() {
                 busy={busy}
                 trialEnd={trialEnd}
                 periodEnd={periodEnd}
+                trialProgress={trialProgress}
                 onStart={(plan) =>
                   runAction(
                     station.business.id,
@@ -313,7 +327,7 @@ export function BusinessStationSetup() {
                 {busy ? null : <Rocket className="size-4" aria-hidden />}
                 {station.business.isPublished ? "Published" : "Publish station"}
               </Button>
-              {station.business.isPublished && (
+              {station.business.isPublished && !trialProgress?.expired && (
                 <Link
                   href={`/browse/${station.business.slug}`}
                   target="_blank"
@@ -349,12 +363,14 @@ function TrialCard({
   busy,
   trialEnd,
   periodEnd,
+  trialProgress,
   onStart,
 }: {
   station: StationOverview;
   busy: boolean;
   trialEnd: string | null;
   periodEnd: string | null;
+  trialProgress: ReturnType<typeof getTrialProgress>;
   onStart: (plan: string) => Promise<void>;
 }) {
   const defaultPlan = plans.some((plan) => plan.id === station.application.plan)
@@ -390,10 +406,13 @@ function TrialCard({
           </div>
         </>
       )}
-      {station.subscription?.status === "trialing" && (
+      {station.subscription?.status === "trialing" && trialProgress && (
         <p className="mt-2 text-sm text-muted-foreground">
-          Your free trial is running{trialEnd ? ` and ends on ${trialEnd}` : ""}. Publish before it
-          ends to stay in the directory.
+          {trialProgress.expired
+            ? "Your free trial has ended. A paid subscription is required to stay in the directory."
+            : `Your free trial has ${trialProgress.daysRemaining} ${
+                trialProgress.daysRemaining === 1 ? "day" : "days"
+              } remaining${trialEnd ? ` and ends on ${trialEnd}` : ""}.`}
         </p>
       )}
       {station.subscription?.status === "active" && (
