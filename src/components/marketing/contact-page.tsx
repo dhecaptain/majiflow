@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Clock, Inbox, Mail, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { PageHero } from "@/components/shared/page-hero";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -87,19 +86,16 @@ export function ContactPage() {
 
   return (
     <>
-      <PageHero
-        label="Contact"
-        pulseLabel
-        title={
-          <>
-            Questions about an order? <span className="text-gradient">We are here to help.</span>
-          </>
-        }
-        description="Send us a message and our support team will get back to you within one business day."
-      />
-
-      <section className="py-16 lg:py-24">
+      <section className="py-12 lg:py-16">
         <Container>
+          <div className="mb-8 max-w-3xl">
+            <h1 className="font-display text-4xl leading-[1.08] tracking-tight text-foreground sm:text-5xl">
+              Questions about an order? <span className="text-gradient">We are here to help.</span>
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Send us a message and our support team will get back to you within one business day.
+            </p>
+          </div>
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
             <div>
               <h2 className="font-display text-2xl text-foreground">How to reach us</h2>
@@ -126,8 +122,8 @@ export function ContactPage() {
               </p>
             </div>
 
-            <form onSubmit={(e) => void submit(e)} className="rounded-3xl border border-border bg-white p-6 shadow-layered sm:p-8" aria-label="Contact form">
-              <div className="grid gap-5 sm:grid-cols-2">
+            <form onSubmit={(e) => void submit(e)} className="rounded-3xl border border-border bg-white p-5 shadow-layered sm:p-6" aria-label="Contact form">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Your name" required error={fieldErrors.name}>
                   <Input
                     required
@@ -182,7 +178,7 @@ export function ContactPage() {
                   </Field>
                 </div>
               </div>
-              <Button type="submit" size="lg" className="mt-6 w-full group" disabled={sending} loading={sending}>
+              <Button type="submit" size="lg" className="mt-4 w-full group" disabled={sending} loading={sending}>
                 Email us
               </Button>
               <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">

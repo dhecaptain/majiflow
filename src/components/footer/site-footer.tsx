@@ -30,22 +30,25 @@ export function Footer() {
   if (!shouldShowFooter(pathname)) return null;
 
   const year = new Date().getFullYear();
+  const isLandingPage = pathname === "/";
 
   return (
     <>
-      <div className="mf-marquee-band">
-        <Marquee
-          items={marqueeItems}
-          speed={52}
-          separator={
-            <Droplet
-              aria-hidden="true"
-              className="size-3.5 shrink-0 text-[var(--footer-sky)]"
-            />
-          }
-          className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90 sm:text-base lg:text-lg"
-        />
-      </div>
+      {isLandingPage && (
+        <div className="mf-marquee-band">
+          <Marquee
+            items={marqueeItems}
+            speed={52}
+            separator={
+              <Droplet
+                aria-hidden="true"
+                className="size-3.5 shrink-0 text-[var(--footer-sky)]"
+              />
+            }
+            className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90 sm:text-base lg:text-lg"
+          />
+        </div>
+      )}
 
       <footer className="mf-footer">
         <div className="mf-brand">
