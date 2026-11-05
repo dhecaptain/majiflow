@@ -1,14 +1,13 @@
 import { eq } from "drizzle-orm";
 import { getDatabase } from "@/lib/server/db";
 import { businesses, businessApplications, subscriptions } from "@/lib/server/db/schema";
+import { TRIAL_DURATION_DAYS } from "@/lib/trial";
 
 export const subscriptionStatuses = ["trialing", "active", "expired", "cancelled"] as const;
 export type SubscriptionStatus = (typeof subscriptionStatuses)[number];
 
 export const planNames = ["starter", "growth", "pro"] as const;
 export type PlanName = (typeof planNames)[number];
-
-export const TRIAL_DURATION_DAYS = 14;
 
 export interface SubscriptionRecord {
   id?: string;
@@ -83,7 +82,7 @@ export function evaluateSubscriptionEligibility(
       return { eligible: false, reason: "Trial period has not started yet." };
     }
 
-    if (current > end) {
+    if (current >= end) {
       return { eligible: false, reason: "Free trial period has expired." };
     }
 

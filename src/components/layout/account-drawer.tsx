@@ -159,7 +159,7 @@ export function AccountDrawer({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loggedIn, profile, logout } = useCustomer();
+  const { loggedIn, role, profile, logout } = useCustomer();
   const { openAuth } = useOrderEntry();
   const { openSendWater } = useSendWater();
   const drawerRef = useFocusTrap<HTMLElement>(open);
@@ -205,7 +205,8 @@ export function AccountDrawer({
   };
 
   const name = profile.name.trim();
-  const business = pathname.startsWith("/business");
+  const business = role === "business_owner" || pathname.startsWith("/business");
+  const signedIn = loggedIn || role === "business_owner";
 
   return (
     <>
@@ -247,7 +248,7 @@ export function AccountDrawer({
           <BrandMark compact />
         </div>
 
-        {loggedIn ? (
+        {signedIn ? (
           <div className="flex items-center gap-3 px-4 py-4">
             <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] font-display text-xl font-bold text-white">
               {initialsFor(name)}
@@ -257,7 +258,7 @@ export function AccountDrawer({
                 {name ? `Hi ${firstName(name)}!` : "Hi there!"}
               </p>
               <Link
-                href="/account/profile"
+                href={business ? "/business/settings" : "/account/profile"}
                 onClick={close}
                 className="flex items-center gap-1 text-sm text-foreground underline underline-offset-2"
               >
@@ -303,7 +304,7 @@ export function AccountDrawer({
             ? BUSINESS_LINKS.map((item) => <DrawerRow key={item.href} item={item} onClose={close} />)
             : null}
 
-          {loggedIn ? (
+          {signedIn ? (
             <button
               type="button"
               onClick={() => setConfirmSignOut(true)}

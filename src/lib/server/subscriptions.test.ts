@@ -160,6 +160,21 @@ describe("Subscription Eligibility Service", () => {
         expect(result.reason).toContain("expired");
       });
 
+      it("rejects at the exact trial end timestamp", () => {
+        const sub: SubscriptionRecord = {
+          businessId: "biz-1",
+          plan: "growth",
+          status: "trialing",
+          trialStartedAt: new Date("2026-10-10T00:00:00Z"),
+          trialEndsAt: new Date("2026-10-16T12:00:00Z"),
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+        };
+        const result = evaluateSubscriptionEligibility(sub, baseNow);
+        expect(result.eligible).toBe(false);
+        expect(result.reason).toContain("expired");
+      });
+
       it("rejects when trial has not yet started", () => {
         const sub: SubscriptionRecord = {
           businessId: "biz-1",
