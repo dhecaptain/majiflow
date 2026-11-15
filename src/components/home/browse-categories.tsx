@@ -1,66 +1,47 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
-import { WATER_CATEGORY_LABELS } from "@/lib/categories";
+import { WATER_CATEGORY_LABELS, type WaterCategoryId } from "@/lib/categories";
 
-const CATEGORIES = [
-  {
-    id: "refills",
-    label: WATER_CATEGORY_LABELS.refills,
-    href: "/browse?category=refills",
-    image: "/categories/refills.jpg",
-    alt: "Reusable bottle being filled at a filtered water tap",
-  },
-  {
-    id: "new-bottles",
-    label: WATER_CATEGORY_LABELS["new-bottles"],
-    href: "/browse?category=new-bottles",
-    image: "/categories/new-bottles.jpg",
-    alt: "Three clear water bottles filled with drinking water",
-  },
-  {
-    id: "bottled-packs",
-    label: WATER_CATEGORY_LABELS["bottled-packs"],
-    href: "/browse?category=bottled-packs",
-    image: "/categories/bottled-packs.jpg",
-    alt: "Rows of blue-capped bottled water grouped together",
-  },
-  {
-    id: "dispensers",
-    label: WATER_CATEGORY_LABELS.dispensers,
-    href: "/browse?category=dispensers",
-    image: "/categories/dispensers.jpg",
-    alt: "A clear bottle fitted to a water dispenser",
-  },
+const CATEGORIES: { id: WaterCategoryId; note: string; image: string }[] = [
+  { id: "refills", note: "Top up your own can", image: "/categories/refills.jpg" },
+  { id: "new-bottles", note: "Sealed and ready", image: "/categories/new-bottles.jpg" },
+  { id: "bottled-packs", note: "Small bottles, multipacks", image: "/categories/bottled-packs.jpg" },
+  { id: "dispensers", note: "Buy or rent", image: "/categories/dispensers.jpg" },
 ];
 
+/** "What do you need?": four square tiles on a phone, four wide cards on a desktop. */
 export function BrowseCategories() {
   return (
-    <section className="mx-auto max-w-[1100px] px-4 py-8 sm:px-6 lg:px-8">
-      <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Browse Categories</h2>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <section aria-labelledby="need-title" className="mx-auto w-full max-w-[1200px] px-4 pt-7 sm:px-6 lg:pt-14">
+      <h2 id="need-title" className="text-lg font-extrabold tracking-tight text-foreground lg:text-2xl">
+        What do you need?
+      </h2>
+      <ul className="mt-3 grid grid-cols-4 gap-2.5 lg:mt-4 lg:gap-4">
         {CATEGORIES.map((cat) => (
-          <Link
-            key={cat.id}
-            href={cat.href}
-            className="group relative overflow-hidden rounded-2xl bg-muted"
-          >
-            <div className="relative aspect-[4/3]">
-              <Image
-                src={cat.image}
-                alt={cat.alt}
-                fill
-                className="object-cover transition duration-300 group-hover:scale-105"
-                sizes="(min-width: 1024px) 25vw, 50vw"
-              />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-              <p className="text-sm font-semibold text-white">{cat.label}</p>
-            </div>
-          </Link>
+          <li key={cat.id}>
+            <Link
+              href={`/browse?category=${cat.id}`}
+              className="group flex flex-col items-center gap-2 rounded-lg text-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] lg:flex-row lg:gap-3.5 lg:border lg:border-border lg:p-3 lg:transition-colors lg:hover:border-[var(--brand)]/40 lg:hover:bg-surface-2"
+            >
+              <span className="relative block aspect-square w-full overflow-hidden rounded-lg bg-surface-3 lg:size-[72px] lg:w-[72px] lg:shrink-0 lg:rounded-md">
+                <Image
+                  src={cat.image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 72px, 25vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </span>
+              <span className="flex flex-col text-center lg:text-left">
+                <span className="text-[12.5px] font-semibold leading-tight lg:text-base lg:font-bold">
+                  {WATER_CATEGORY_LABELS[cat.id]}
+                </span>
+                <span className="hidden text-[13px] text-muted-foreground lg:block">{cat.note}</span>
+              </span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

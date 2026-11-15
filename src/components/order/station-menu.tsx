@@ -6,13 +6,10 @@ import type { Business, BusinessProduct } from "@/lib/types";
 import { ProductCard } from "@/components/shared/product-card";
 import { CategoryChips, type CategoryChip } from "@/components/order/category-chips";
 import { ProductSheet } from "@/components/order/product-sheet";
-import { PromotionsStrip } from "@/components/order/promotions-strip";
 import { StationAvailabilityNotice } from "@/components/order/station-status";
 import { EmptyState } from "@/components/ui/feedback";
-import { Badge } from "@/components/ui/badge";
 import { JourneyLink } from "@/components/order/journey";
 import { useOrderSession } from "@/components/order/order-session-provider";
-import { formatKES } from "@/lib/format";
 
 const CATEGORY_ORDER = ["refill", "bottled", "dispenser", "remineralised"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -50,48 +47,18 @@ export function StationMenu({ business }: { business: Business }) {
 
   const categories: CategoryChip[] = groups.map((g) => ({ id: g.id, label: g.label }));
 
-  const promotions = useMemo(() => {
-    const promos: { id: string; title: string; detail?: string }[] = [];
-    if (business.freeDeliveryAbove > 0) {
-      promos.push({
-        id: "free-delivery",
-        title: `Free delivery over ${formatKES(business.freeDeliveryAbove)}`,
-        detail: "Automatically applied at checkout",
-      });
-    }
-    if (business.deliveryFee > 0) {
-      promos.push({
-        id: "delivery-fee",
-        title: `${formatKES(business.deliveryFee)} delivery`,
-        detail: `~${business.avgDeliveryMinutes} min to your door`,
-      });
-    }
-    promos.push({
-      id: "sealed",
-      title: "Sealed at source",
-      detail: "Every bottle checked before dispatch",
-    });
-    return promos;
-  }, [business]);
-
   return (
     <>
-      <section id="menu" className="scroll-mt-40 border-t border-border pt-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="font-display text-3xl text-foreground sm:text-4xl">Choose your water</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Tap an item to pick a size or pack, or add it straight to your order.
-            </p>
-          </div>
-          <Badge variant="mono">{business.products.length} products</Badge>
-        </div>
+      <section id="menu" aria-labelledby="menu-title" className="scroll-mt-24">
+        <h2 id="menu-title" className="sr-only">
+          Menu
+        </h2>
 
         <StationAvailabilityNotice business={business} className="mb-4" />
 
         {business.products.length === 0 ? (
           <EmptyState
-            className="mt-10"
+            className="mt-6"
             icon={<Droplets className="size-7" aria-hidden />}
             title="No items listed yet"
             description={`${business.name} hasn't published its menu. Try another station nearby.`}
@@ -103,14 +70,14 @@ export function StationMenu({ business }: { business: Business }) {
           />
         ) : (
           <>
-            <PromotionsStrip promotions={promotions} className="mb-4" />
-            <CategoryChips categories={categories} className="mb-6" />
-
-            <div className="space-y-12 pb-40 lg:pb-32">
+            <CategoryChips categories={categories} className="mb-2" />
+            <div className="flex flex-col gap-6 sm:gap-8">
               {groups.map((group) => (
-                <section key={group.id} id={`cat-${group.id}`} className="scroll-mt-40">
-                  <h3 className="mb-4 text-lg font-semibold text-foreground">{group.label}</h3>
-                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <section key={group.id} id={`cat-${group.id}`} aria-labelledby={`cat-title-${group.id}`} className="scroll-mt-24">
+                  <h3 id={`cat-title-${group.id}`} className="pt-2 text-[17px] font-extrabold tracking-tight text-foreground sm:pb-3">
+                    {group.label}
+                  </h3>
+                  <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-3">
                     {group.products.map((product) => (
                       <ProductCard
                         key={product.id}

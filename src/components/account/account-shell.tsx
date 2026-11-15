@@ -15,9 +15,7 @@ import {
   User,
 } from "lucide-react";
 import { SiteHeader } from "@/components/layout/site-header";
-import { BlurImage } from "@/components/ui/blur-image";
 import { PageTransition } from "@/components/layout/page-transition";
-import waterLiquid from "@/assets/images/backdrops/water-liquid.webp";
 import { useCart } from "@/components/order/cart-provider";
 import { useCustomer } from "@/components/order/customer-provider";
 import { cn } from "@/lib/utils";
@@ -45,124 +43,120 @@ const HELP: NavItem[] = [
   { href: "/contact", label: "Support", icon: Headphones },
 ];
 
+function isActive(pathname: string, href: string) {
+  return pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
+}
+
 export function AccountShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/account";
   const { count } = useCart();
   const { profile } = useCustomer();
 
   const name = profile.name || "";
   const initial = name ? name.trim().slice(0, 1).toUpperCase() : "U";
 
-  const nav = (
-    <nav aria-label="Account" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-      {NAV.map((item) => (
-        <SidebarLink
-          key={item.href}
-          href={item.href}
-          label={item.label}
-          icon={item.icon}
-          active={pathname === item.href || (item.href !== "/account" && pathname.startsWith(`${item.href}/`))}
-        />
-      ))}
-
-      <p className="px-3 pb-1 pt-5 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground">
-        Shop
-      </p>
-      {SHOP.map((item) => (
-        <SidebarLink
-          key={item.href}
-          href={item.href}
-          label={item.label}
-          icon={item.icon}
-          active={pathname === item.href}
-        />
-      ))}
-      <SidebarLink
-        href="/cart"
-        label="Cart"
-        icon={ShoppingCart}
-        active={pathname === "/cart"}
-        badge={count > 0 ? String(count) : undefined}
-      />
-
-      <p className="px-3 pb-1 pt-5 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground">
-        Help
-      </p>
-      {HELP.map((item) => (
-        <SidebarLink
-          key={item.href}
-          href={item.href}
-          label={item.label}
-          icon={item.icon}
-        />
-      ))}
-
-      {/* User card */}
-      <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-border bg-white px-3 py-2.5">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted font-display text-sm text-foreground">
-          {initial}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{name || "Guest"}</p>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {profile.phone || "Sign in to sync orders"}
-          </p>
-        </div>
-      </div>
-    </nav>
-  );
-
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div className="flex min-h-screen flex-col bg-surface-2">
       <SiteHeader />
-      {/* Desktop sidebar */}
-      <aside className="fixed bottom-0 left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 hidden w-64 flex-col border-r border-border bg-white lg:top-[calc(90px+env(safe-area-inset-top))] lg:flex">
-        {nav}
-      </aside>
 
-      {/* Content column */}
-      <div className="relative flex min-h-[calc(100svh-4rem)] flex-col md:min-h-[calc(100svh-5.625rem)] lg:pl-64">
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-y-0 left-0 right-0 z-0 lg:left-64"
-        >
-          <BlurImage
-            src={waterLiquid}
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover opacity-80"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/25 via-background/50 to-background/80" />
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 gap-8 lg:px-6 lg:py-8">
+        {/* Desktop sidebar */}
+        <aside className="hidden w-60 shrink-0 lg:block">
+          <nav
+            aria-label="Account"
+            className="sticky top-[calc(5.5rem+env(safe-area-inset-top))] flex flex-col gap-1 rounded-xl border border-border bg-white p-3"
+          >
+            <div className="mb-2 flex items-center gap-2.5 border-b border-[#eef3fa] px-2 pb-3 pt-1">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-navy text-sm font-extrabold text-white">
+                {initial}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-foreground">{name || "Guest"}</p>
+                <p className="truncate text-xs text-muted-foreground">{profile.phone || "Sign in to sync orders"}</p>
+              </div>
+            </div>
+
+            {NAV.map((item) => (
+              <SidebarLink
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={isActive(pathname, item.href)}
+              />
+            ))}
+
+            <p className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Shop</p>
+            {SHOP.map((item) => (
+              <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} />
+            ))}
+            <SidebarLink
+              href="/cart"
+              label="Cart"
+              icon={ShoppingCart}
+              active={pathname === "/cart"}
+              badge={count > 0 ? String(count) : undefined}
+            />
+
+            <p className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Help</p>
+            {HELP.map((item) => (
+              <SidebarLink key={item.href} href={item.href} label={item.label} icon={item.icon} />
+            ))}
+          </nav>
+        </aside>
+
+        {/* Content column */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Phone: account sections as scrollable pills */}
+          <nav
+            aria-label="Account"
+            className="-mb-1 flex gap-2 overflow-x-auto px-4 pt-4 [scrollbar-width:none] sm:px-6 lg:hidden [&::-webkit-scrollbar]:hidden"
+          >
+            {NAV.map((item) => {
+              const active = isActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "inline-flex h-10 shrink-0 items-center rounded-full border px-4 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]",
+                    active
+                      ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                      : "border-border bg-white text-foreground hover:bg-brand-soft"
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
+            <PageTransition>{children}</PageTransition>
+          </main>
+
+          {/* The site footer is marketing-only, so the signed-in shell carries its own short one (desktop). */}
+          <footer className="mt-8 hidden border-t border-border lg:block">
+            <div className="flex flex-wrap items-center justify-between gap-4 py-4 text-xs text-muted-foreground">
+              <p>MajiFlow - Water refill, delivered.</p>
+              <nav className="flex items-center gap-4" aria-label="Footer">
+                <Link href="/" className="hover:text-foreground hover:underline">
+                  Home
+                </Link>
+                <Link href="/for-business" className="hover:text-foreground hover:underline">
+                  For businesses
+                </Link>
+                <Link href="/pricing" className="hover:text-foreground hover:underline">
+                  Pricing
+                </Link>
+                <Link href="/contact" className="hover:text-foreground hover:underline">
+                  Support
+                </Link>
+              </nav>
+            </div>
+          </footer>
         </div>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-radial-glow"
-        />
-
-        <main id="main-content" tabIndex={-1} className="relative flex-1 p-4 pb-10 outline-none sm:p-6 lg:pb-6">
-          <PageTransition>{children}</PageTransition>
-        </main>
-
-        <footer className="relative border-t border-border bg-white/60">
-          <div className="mx-auto flex max-w-[80rem] flex-wrap items-center justify-between gap-4 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 text-xs text-foreground sm:px-6 lg:pb-3">
-            <p>MajiFlow - Water refill, delivered.</p>
-            <nav className="flex items-center gap-4" aria-label="Footer">
-              <Link href="/" className="hover:underline">
-                Home
-              </Link>
-              <Link href="/for-business" className="hover:underline">
-                For businesses
-              </Link>
-              <Link href="/pricing" className="hover:underline">
-                Pricing
-              </Link>
-              <Link href="/contact" className="hover:underline">
-                Support
-              </Link>
-            </nav>
-          </div>
-        </footer>
       </div>
     </div>
   );
@@ -189,16 +183,16 @@ function SidebarLink({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        "flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--brand)]",
         active
-          ? "bg-cta-soft text-[var(--brand)]"
-          : "text-foreground hover:bg-muted hover:text-foreground"
+          ? "bg-brand-soft font-bold text-brand-deep"
+          : "font-semibold text-foreground hover:bg-surface-2"
       )}
     >
-      <Icon className={cn("size-4.5", active && "text-[var(--brand)]")} aria-hidden />
+      <Icon className={cn("size-[18px]", active ? "text-brand-deep" : "text-muted-foreground")} aria-hidden />
       {label}
       {badge && (
-        <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">
+        <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[11px] font-bold text-white">
           {badge}
         </span>
       )}

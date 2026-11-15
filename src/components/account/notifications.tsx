@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Bell, CheckCheck, CheckCircle2, Clock, Truck, XCircle } from "lucide-react";
-import { Container } from "@/components/ui/container";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { AccountError, AccountPageHeader, useAccountResource } from "@/components/account/account-ui";
+import { ACCOUNT_PAGE, AccountError, AccountPageHeader, useAccountResource } from "@/components/account/account-ui";
 import { accountApi } from "@/lib/account-client";
 import type { CustomerPreferences } from "@/lib/account";
 import { formatKES, formatRelativeTime } from "@/lib/format";
@@ -119,7 +118,7 @@ export function NotificationsPage() {
   };
 
   return (
-    <Container className="py-6 lg:py-8">
+    <div className={ACCOUNT_PAGE}>
       <AccountPageHeader
         title="Notifications"
         description="Status updates on every order you have placed."
@@ -139,7 +138,7 @@ export function NotificationsPage() {
       ) : (
         <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
           <section aria-labelledby="activity">
-            <h2 id="activity" className="mb-3 flex items-center gap-2 font-display text-lg text-foreground">
+            <h2 id="activity" className="mb-3 flex items-center gap-2 text-[15px] font-extrabold text-foreground">
               Activity
               {resource.data.unread > 0 && <Badge variant="accent">{resource.data.unread} new</Badge>}
             </h2>
@@ -163,11 +162,11 @@ export function NotificationsPage() {
                       <Link
                         href={`/account/orders/${n.orderId}`}
                         className={cn(
-                          "flex items-start gap-3 rounded-2xl border bg-card p-4 shadow-card transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "flex items-start gap-3 rounded-xl border bg-white p-4 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           unread ? "border-[var(--brand)]/40" : "border-border"
                         )}
                       >
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-[var(--brand)]">
                           <Icon className="size-5" aria-hidden />
                         </span>
                         <div className="min-w-0 flex-1">
@@ -192,8 +191,8 @@ export function NotificationsPage() {
             )}
           </section>
 
-          <section aria-labelledby="preferences" className="h-fit rounded-2xl border border-border bg-white p-5 shadow-card">
-            <h2 id="preferences" className="font-display text-lg text-foreground">
+          <section aria-labelledby="preferences" className="h-fit rounded-xl border border-border bg-white p-4 sm:p-5">
+            <h2 id="preferences" className="text-[15px] font-extrabold text-foreground">
               Preferences
             </h2>
             <div className="mt-2 divide-y divide-border">
@@ -214,6 +213,6 @@ export function NotificationsPage() {
           </section>
         </div>
       )}
-    </Container>
+    </div>
   );
 }

@@ -250,7 +250,7 @@ export function NearbySheet({
   containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { reduce } = useMotionSafe();
-  const [snap, setSnap] = useState<Snap>("half");
+  const [snap, setSnap] = useState<Snap>("peek");
   const [liveHeight, setLiveHeight] = useState<number | null>(null);
   const [containerH, setContainerH] = useState(0);
   const drag = useRef<DragState | null>(null);

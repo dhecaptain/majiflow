@@ -10,7 +10,9 @@ import { useCart } from "@/components/order/cart-provider";
 import { useToast } from "@/components/ui/toast";
 import { accountApi, type AccountResult } from "@/lib/account-client";
 import { formatKES } from "@/lib/format";
-import type { Order } from "@/lib/types";
+import type { Order, OrderStatus } from "@/lib/types";
+import { ORDER_STATUS_META } from "@/components/ui/order-status-badge";
+import { cn } from "@/lib/utils";
 
 export type Resource<T> =
   | { status: "loading" }
@@ -86,18 +88,105 @@ export function AccountPageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        {eyebrow && (
-          <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            {eyebrow}
-          </p>
-        )}
-        <h1 className="mt-2 font-display text-3xl text-foreground sm:text-4xl">{title}</h1>
-        {description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        {eyebrow && <p className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground">{eyebrow}</p>}
+        <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-foreground">{title}</h1>
+        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
       {action}
     </div>
+  );
+}
+
+/** Page wrapper inside the account shell: phone gutters, flush with the sidebar column on desktop. */
+export const ACCOUNT_PAGE = "w-full px-4 py-5 sm:px-6 lg:px-0 lg:py-0";
+
+/** Shared card surface for the customer account and tracking screens. */
+export const CARD = "rounded-xl border border-border bg-white p-4";
+
+/** Customer-facing status pill colours: on the way, delivered, closed, waiting. */
+function statusPillClass(status: OrderStatus): string {
+  if (status === "delivered") return "bg-success-soft text-success";
+  if (status === "cancelled" || status === "rejected") return "bg-danger-soft text-danger";
+  if (status === "pending") return "bg-warning-soft text-warning";
+  return "bg-aqua-soft text-[#00707d]";
+}
+
+export function CustomerStatusPill({ status, className }: { status: OrderStatus; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-[26px] shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-bold",
+        statusPillClass(status),
+        className
+      )}
+    >
+      {ORDER_STATUS_META[status].label}
+    </span>
+  );
+}
+
+export const PROGRESS_STEPS = ["Placed", "Accepted", "Preparing", "On the way", "Delivered"] as const;
+
+/** Index of the step an order is on (0-4), or -1 once it closed without delivery. */
+export function progressIndex(status: OrderStatus): number {
+  switch (status) {
+    case "pending":
+      return 0;
+    case "accepted":
+      return 1;
+    case "preparing":
+      return 2;
+    case "rider_assigned":
+    case "out_for_delivery":
+      return 3;
+    case "delivered":
+      return 4;
+    default:
+      return -1;
+  }
+}
+
+/**
+ * Five-segment order progress: done steps in brand blue, the current one in
+ * aqua, the rest in the border colour. Labels are optional (tiny, under the bar).
+ */
+export function OrderProgress({
+  status,
+  labels = false,
+  className,
+}: {
+  status: OrderStatus;
+  labels?: boolean;
+  className?: string;
+}) {
+  const current = progressIndex(status);
+  const delivered = status === "delivered";
+  return (
+    <ol aria-label="Order progress" className={cn("grid grid-cols-5 gap-1", className)}>
+      {PROGRESS_STEPS.map((label, i) => {
+        const done = i < current || (delivered && i === current);
+        const now = i === current && !delivered;
+        return (
+          <li key={label} className="flex flex-col gap-1.5" aria-current={now ? "step" : undefined}>
+            <span
+              aria-hidden
+              className={cn("block h-1.5 rounded-full", done ? "bg-[var(--brand)]" : now ? "bg-aqua" : "bg-border")}
+            />
+            <span
+              className={cn(
+                labels ? "text-[11px] leading-tight" : "sr-only",
+                now ? "font-extrabold text-foreground" : done ? "font-semibold text-foreground" : "font-semibold text-muted-foreground"
+              )}
+            >
+              {label}
+              <span className="sr-only">{now ? " (current step)" : done ? " (done)" : " (upcoming)"}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

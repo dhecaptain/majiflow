@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Banknote, Bike, CheckCircle2, Clock, Inbox, MapPin, Phone, RefreshCcw, ShieldCheck, Smartphone, Truck, XCircle } from "lucide-react";
+import { Banknote, Bike, ChevronLeft, CircleHelp, Clock, Inbox, MapPin, Phone, RefreshCcw, ShieldCheck, Smartphone, XCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusBadge, paymentMeta, paymentMethodLabel } from "@/components/ui/order-status-badge";
+import { paymentMeta, paymentMethodLabel } from "@/components/ui/order-status-badge";
 import { LoadingState, ErrorState } from "@/components/ui/feedback";
 import { OrderMap, type MapPoint } from "@/components/ui/order-map";
 import { useStations } from "@/components/order/stations-provider";
@@ -21,15 +21,23 @@ import { isActiveStatus } from "@/lib/order-status";
 import { formatKES, formatPhone } from "@/lib/format";
 import type { Order, OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { OrderTotalsList } from "@/components/shared/order-totals";
+import { OrderProgress } from "@/components/account/account-ui";
 
-const STEPS: { status: OrderStatus; label: string; desc: string }[] = [
-  { status: "accepted", label: "Order received", desc: "The station confirmed your order." },
-  { status: "preparing", label: "Being prepared", desc: "Your water is being filled and sealed." },
-  { status: "rider_assigned", label: "Rider assigned", desc: "A rider is collecting your order." },
-  { status: "out_for_delivery", label: "Out for delivery", desc: "The rider is on the road and will call before arrival." },
-  { status: "delivered", label: "Delivered", desc: "Your refills are at the door." },
-];
+/** Status card copy per order status (eyebrow, fallback heading, one-line explanation). */
+const STATUS_COPY: Record<OrderStatus, { eyebrow: string; heading: string; desc: string }> = {
+  pending: { eyebrow: "Order placed", heading: "Waiting for the station", desc: "The station will confirm your order shortly." },
+  accepted: { eyebrow: "Order received", heading: "Order accepted", desc: "The station confirmed your order." },
+  preparing: { eyebrow: "Being prepared", heading: "Your water is being prepared", desc: "Your water is being filled and sealed." },
+  rider_assigned: { eyebrow: "Rider assigned", heading: "A rider is collecting your order", desc: "A rider is collecting your order." },
+  out_for_delivery: {
+    eyebrow: "On the way",
+    heading: "On the way to you",
+    desc: "The rider is on the road and will call before arrival.",
+  },
+  delivered: { eyebrow: "Delivered", heading: "Delivered", desc: "Your refills are at the door." },
+  rejected: { eyebrow: "Rejected", heading: "Order not dispatched", desc: "" },
+  cancelled: { eyebrow: "Cancelled", heading: "Order not dispatched", desc: "" },
+};
 
 /** What happens to the customer's money once an order closes without delivery. */
 function moneyMessage(order: Order): string {
@@ -118,7 +126,6 @@ export function TrackOrderPage({ id }: { id: string }) {
   const cancelled = order.status === "cancelled" || order.status === "rejected";
   const delivered = order.status === "delivered";
   const active = isActiveStatus(order.status);
-  const reachedIndex = STEPS.findIndex((step) => step.status === order.status);
   const payment = paymentMeta(order);
   const rider = order.rider && (order.status === "rider_assigned" || order.status === "out_for_delivery") ? order.rider : null;
 
@@ -158,256 +165,283 @@ export function TrackOrderPage({ id }: { id: string }) {
     });
   };
 
+  const meta = STATUS_COPY[order.status];
+  const etaText = order.eta?.replace(/^[≈~]\s*/, "").trim();
+  const heading = cancelled
+    ? order.status === "rejected"
+      ? "The station couldn't accept this order"
+      : "This order was cancelled"
+    : order.status === "out_for_delivery" && etaText
+      ? `Arriving in about ${etaText}`
+      : order.status === "pending" && order.payment !== "cod" && order.paymentState !== "success"
+        ? "Waiting for payment"
+        : meta.heading;
+  const placed = new Date(order.placedAt).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
+  const backHref = loggedIn ? "/account/orders" : "/browse";
+  const riderInitials = rider
+    ? rider.name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("")
+    : "";
+  const addressLine = [
+    [...new Set([order.address.street, order.address.estate, order.address.city].filter(Boolean))].join(", ") ||
+      order.address.estate,
+    [order.address.building, order.address.floor].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const payOnDelivery = order.payment === "cod" && !cancelled && order.paymentState !== "success";
+
+  const backButton = (
+    <Link
+      href={backHref}
+      aria-label={loggedIn ? "Back to orders" : "Back to stations"}
+      className="flex size-11 items-center justify-center rounded-full bg-white text-foreground shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+    >
+      <ChevronLeft className="size-5" aria-hidden />
+    </Link>
+  );
+  const orderPill = (
+    <span className="inline-flex h-[30px] items-center rounded-full bg-white px-3 text-xs font-bold text-foreground shadow-card">
+      Order {order.orderNumber}
+    </span>
+  );
+
   return (
-    <Container className="py-10 lg:py-16">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span className={cn("size-1.5 rounded-full animate-pulse-dot", cancelled ? "bg-danger" : "bg-foreground")} />
-            Order tracking · {order.orderNumber}
-          </p>
-          <h1 className="mt-2 font-display text-3xl text-foreground sm:text-4xl">
-            {delivered ? "Delivered" : cancelled ? "Order not dispatched" : `${order.businessName} is on it`}
-          </h1>
-          <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="size-4" aria-hidden />
-            Placed {new Date(order.placedAt).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}
-            {order.eta && <span>· ETA {order.eta}</span>}
-          </p>
-        </div>
-        <OrderStatusBadge status={order.status} className="text-sm" />
-      </div>
-
-      {cancelled && (
-        <div className="mb-10 flex items-start gap-4 rounded-2xl border border-danger/25 bg-danger/10 p-6">
-          <XCircle className="mt-0.5 size-6 shrink-0 text-danger" aria-hidden />
-          <div>
-            <h2 className="font-display text-lg text-danger">
-              {order.status === "rejected" ? "The station couldn't accept this order" : "This order was cancelled"}
-            </h2>
-            {order.closedReason && (
-              <p className="mt-1 max-w-xl text-sm leading-relaxed text-foreground">
-                <span className="font-semibold">Reason:</span> {order.closedReason}
-              </p>
-            )}
-            <p role="status" className="mt-1 max-w-xl text-sm leading-relaxed text-foreground/80">
-              {moneyMessage(order)} Try another station nearby - there are usually several with water ready now.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link href="/browse" className={buttonVariants({ className: "group" })}>
-                Find another station
-              </Link>
-              <Button variant="secondary" onClick={(e) => reorder(e.currentTarget)}>
-                <RefreshCcw className="size-4" aria-hidden /> Retry this order elsewhere
-              </Button>
+    <div className="min-h-svh bg-surface-2 pb-10 lg:pb-16">
+      <div className="mx-auto max-w-[1200px] lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8 lg:px-6 lg:pt-8">
+        {/* Map + status */}
+        <div className="flex min-w-0 flex-col">
+          {cancelled ? (
+            <div className="flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+0.875rem)] lg:px-0 lg:pt-0">
+              {backButton}
+              {orderPill}
             </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        {/* Live map */}
-        {!cancelled && (
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card sm:p-8 lg:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2.5 font-display text-lg text-foreground">
-                <MapPin className="size-5 text-[var(--brand)]" aria-hidden /> Live tracking
-              </h2>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+          ) : (
+            <div className="relative isolate h-[300px] lg:h-[420px]">
+              <OrderMap
+                station={stationPoint}
+                address={addressPoint}
+                location={live}
+                history={history}
+                className="size-full rounded-none! border-0! lg:rounded-2xl! lg:border!"
+              />
+              <div className="pointer-events-none absolute inset-x-4 top-[calc(env(safe-area-inset-top)+0.875rem)] z-[1000] flex items-center justify-between">
+                <span className="pointer-events-auto">{backButton}</span>
+                {orderPill}
+              </div>
+              <span className="pointer-events-none absolute bottom-9 left-4 z-[1000] inline-flex h-7 items-center gap-1.5 rounded-full bg-white px-2.5 text-[11px] font-bold text-foreground shadow-card lg:bottom-4">
+                <MapPin className="size-3.5 text-[var(--brand)]" aria-hidden />
                 {live ? "Updating live" : order.consent?.location ? "Waiting for your location" : "Station & address"}
               </span>
             </div>
-            <OrderMap
-              station={stationPoint}
-              address={addressPoint}
-              location={live}
-              history={history}
-              className="mt-5 h-[320px] sm:h-[380px]"
-            />
-          </section>
-        )}
-
-        {/* Timeline */}
-        <section className="rounded-2xl border border-border bg-white p-6 shadow-card sm:p-8">
-          <h2 className="flex items-center gap-2.5 font-display text-lg text-foreground">
-            <Truck className="size-5 text-[var(--brand)]" aria-hidden /> Delivery progress
-          </h2>
-          {cancelled ? (
-            <p className="mt-6 text-sm text-muted-foreground">This order closed before delivery.</p>
-          ) : (
-            <ol className="mt-8" aria-label="Delivery progress">
-              {STEPS.map((step, i) => {
-                const reached = reachedIndex >= 0 && i <= reachedIndex;
-                const current = i === reachedIndex && !delivered;
-                return (
-                  <li
-                    key={step.status}
-                    className="relative flex gap-5 pb-8 last:pb-0"
-                    aria-current={current ? "step" : undefined}
-                  >
-                    {i < STEPS.length - 1 && (
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "absolute left-[23px] top-12 h-[calc(100%-2.4rem)] w-px",
-                          reachedIndex > i ? "bg-[var(--brand)]" : "bg-border"
-                        )}
-                      />
-                    )}
-                    <span
-                      className={cn(
-                        "relative z-10 flex size-12 shrink-0 items-center justify-center rounded-full text-white",
-                        reached ? "bg-[var(--brand)] shadow-accent" : "border-2 border-border bg-white text-muted-foreground"
-                      )}
-                    >
-                      {current ? (
-                        <span className="relative flex size-3">
-                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-white opacity-50" />
-                          <span className="relative inline-flex size-3 rounded-full bg-white" />
-                        </span>
-                      ) : reached ? (
-                        <CheckCircle2 className="size-5" aria-hidden />
-                      ) : (
-                        <Clock className="size-5" aria-hidden />
-                      )}
-                    </span>
-                    <div className="pt-1.5">
-                      <p className={cn("font-semibold", reached ? "text-foreground" : "text-muted-foreground")}>
-                        {step.label}
-                        <span className="sr-only">{current ? " (current step)" : reached ? " (done)" : " (upcoming)"}</span>
-                      </p>
-                      <p className={cn("mt-1 text-sm leading-relaxed", reached ? "text-muted-foreground" : "text-muted-foreground")}>
-                        {step.desc}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
           )}
 
-          {rider && (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
-              <p className="flex items-center gap-2 text-sm text-foreground">
-                <Bike className="size-5 text-[var(--brand)]" aria-hidden />
-                <span>
-                  Your rider is <span className="font-semibold">{rider.name}</span>
-                </span>
-              </p>
-              <a
-                href={`tel:${rider.phone}`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-muted"
-                aria-label={`Call ${rider.name} on ${formatPhone(rider.phone)}`}
-              >
-                <Phone className="size-4" aria-hidden /> {formatPhone(rider.phone)}
-              </a>
-            </div>
-          )}
-
-          {order.status === "pending" && (
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-warning/25 bg-warning/10 p-4">
-              <Inbox className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
-              <p className="text-sm leading-relaxed text-foreground/85">
-                {order.payment === "cod" ? (
-                  <>
-                    <strong className="font-semibold text-foreground">Waiting for the station.</strong>{" "}
-                    {order.businessName} will confirm your order shortly. You pay {formatKES(order.total)} when it
-                    arrives, in cash or by M-Pesa to the rider.
-                  </>
-                ) : order.paymentState === "success" ? (
-                  <>
-                    <strong className="font-semibold text-foreground">Waiting for the station.</strong>{" "}
-                    Your payment of {formatKES(order.total)} is held safely and released to{" "}
-                    {order.businessName} only when your order is accepted.
-                  </>
-                ) : (
-                  <>
-                    <strong className="font-semibold text-foreground">Waiting for payment.</strong>{" "}
-                    Approve the M-Pesa prompt on your phone. The station starts once payment is confirmed.
-                  </>
+          <div className={cn("relative z-10 flex flex-col gap-3.5 px-4 lg:px-0", cancelled ? "mt-4" : "-mt-6 lg:mt-5")}>
+            <section
+              aria-labelledby="order-status-heading"
+              className="flex flex-col gap-4 rounded-2xl bg-white px-[18px] py-5 shadow-card"
+            >
+              <div className="flex flex-col gap-1">
+                <p
+                  className={cn(
+                    "flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.06em]",
+                    cancelled ? "text-danger" : delivered ? "text-success" : "text-aqua-deep"
+                  )}
+                >
+                  {active && <span aria-hidden className="size-1.5 rounded-full bg-current animate-pulse-dot" />}
+                  {meta.eyebrow}
+                </p>
+                <h1 id="order-status-heading" className="font-display text-[26px] font-bold leading-[1.15] text-foreground lg:text-[32px]">
+                  {heading}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {cancelled ? `${order.businessName} · placed ${placed}` : meta.desc}
+                </p>
+                {!cancelled && (
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
+                    <Clock className="size-3.5" aria-hidden />
+                    Placed {placed}
+                    {order.eta && !delivered && order.status !== "out_for_delivery" && <span>· ETA {order.eta}</span>}
+                  </p>
                 )}
-              </p>
-            </div>
-          )}
-        </section>
+              </div>
 
-        {/* Order details */}
-        <div className="flex flex-col gap-6">
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <h2 className="font-display text-lg text-foreground">Order details</h2>
-            <ul className="mt-4 space-y-2.5">
+              {!cancelled && <OrderProgress status={order.status} labels />}
+
+              {cancelled && (
+                <div className="flex flex-col gap-3">
+                  {order.closedReason && (
+                    <p className="text-sm leading-relaxed text-foreground">
+                      <span className="font-semibold">Reason:</span> {order.closedReason}
+                    </p>
+                  )}
+                  <p role="status" className="flex items-start gap-2.5 rounded-md bg-danger-soft p-3 text-sm leading-relaxed text-foreground">
+                    <XCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                    <span>
+                      {moneyMessage(order)} Try another station nearby - there are usually several with water ready now.
+                    </span>
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Link
+                      href="/browse"
+                      className="flex h-12 items-center justify-center rounded-lg bg-[var(--brand)] px-4 text-[15px] font-bold text-white transition-colors hover:bg-[var(--cta-hover)]"
+                    >
+                      Find another station
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => reorder(e.currentTarget)}
+                      className="flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-soft px-4 text-[15px] font-bold text-brand-deep transition-colors hover:bg-brand-soft/70"
+                    >
+                      <RefreshCcw className="size-4" aria-hidden /> Retry this order elsewhere
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {order.status === "pending" && (
+                <div className="flex items-start gap-3 rounded-md bg-warning-soft p-3.5">
+                  <Inbox className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+                  <p className="text-sm leading-relaxed text-foreground/85">
+                    {order.payment === "cod" ? (
+                      <>
+                        <strong className="font-semibold text-foreground">Waiting for the station.</strong>{" "}
+                        {order.businessName} will confirm your order shortly. You pay {formatKES(order.total)} when it
+                        arrives, in cash or by M-Pesa to the rider.
+                      </>
+                    ) : order.paymentState === "success" ? (
+                      <>
+                        <strong className="font-semibold text-foreground">Waiting for the station.</strong>{" "}
+                        Your payment of {formatKES(order.total)} is held safely and released to{" "}
+                        {order.businessName} only when your order is accepted.
+                      </>
+                    ) : (
+                      <>
+                        <strong className="font-semibold text-foreground">Waiting for payment.</strong>{" "}
+                        Approve the M-Pesa prompt on your phone. The station starts once payment is confirmed.
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {rider && (
+              <section aria-label="Your rider" className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3.5">
+                <span
+                  aria-hidden
+                  className="flex size-12 shrink-0 items-center justify-center rounded-full bg-navy font-extrabold text-white"
+                >
+                  {riderInitials || <Bike className="size-5" />}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-[15px] font-bold text-foreground">{rider.name}</span>
+                  <span className="text-[13px] text-muted-foreground">Your rider · {formatPhone(rider.phone)}</span>
+                </span>
+                <a
+                  href={`tel:${rider.phone}`}
+                  aria-label={`Call ${rider.name} on ${formatPhone(rider.phone)}`}
+                  className="flex size-12 shrink-0 items-center justify-center rounded-full bg-success-soft text-success transition-colors hover:bg-success/20"
+                >
+                  <Phone className="size-5" aria-hidden />
+                </a>
+              </section>
+            )}
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="mt-3.5 flex flex-col gap-3.5 px-4 lg:mt-0 lg:px-0">
+          <section aria-labelledby="order-details-heading" className="flex flex-col gap-2.5 rounded-xl border border-border bg-white p-4">
+            <h2 id="order-details-heading" className="mb-0.5 text-[15px] font-extrabold text-foreground">
+              Order details
+            </h2>
+            <p className="text-[13px] font-semibold text-muted-foreground">{order.businessName}</p>
+            <div className="flex items-start gap-2.5 text-sm text-foreground">
+              <MapPin className="mt-0.5 size-[18px] shrink-0 text-muted-foreground" aria-hidden />
+              <span className="min-w-0">
+                {addressLine || "No address details"}
+                {order.address.notes && (
+                  <span className="mt-0.5 block text-xs italic text-muted-foreground">“{order.address.notes}”</span>
+                )}
+              </span>
+            </div>
+            <p className="flex items-center gap-2.5 text-sm text-foreground">
+              <Phone className="size-[18px] shrink-0 text-muted-foreground" aria-hidden /> {formatPhone(order.customerPhone)}
+            </p>
+            <div aria-hidden className="h-px bg-[#eef3fa]" />
+            <ul className="flex flex-col gap-2.5">
               {order.items.map((item) => (
-                <li key={`${item.productId}-${item.optionId ?? ""}`} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-muted-foreground">
+                <li key={`${item.productId}-${item.optionId ?? ""}`} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="min-w-0 text-foreground">
                     {item.quantity} × {item.name}
                     {item.optionLabel && (
                       <span className="block text-xs font-medium text-[var(--brand)]">{item.optionLabel}</span>
                     )}
                   </span>
-                  <span className="shrink-0 font-semibold text-foreground">
-                    {formatKES(item.unitPrice * item.quantity)}
-                  </span>
+                  <span className="shrink-0 font-semibold text-foreground">{formatKES(item.unitPrice * item.quantity)}</span>
                 </li>
               ))}
             </ul>
-            <OrderTotalsList
-              totals={{
-                subtotal: order.subtotal,
-                deliveryFee: order.deliveryFee,
-                deposit: order.deposit ?? 0,
-                total: order.total,
-              }}
-              pickup={order.fulfilment === "pickup"}
-              className="mt-4 space-y-1.5 border-t border-border pt-4"
-              totalClassName="font-display text-xl"
-            />
-            <div className="mt-4 flex items-center justify-between rounded-lg bg-muted/60 px-3.5 py-2.5">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <dl className="flex flex-col gap-2.5 text-sm">
+              {(order.deposit ?? 0) > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Refundable deposit</dt>
+                  <dd className="font-semibold text-foreground">{formatKES(order.deposit ?? 0)}</dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">{order.fulfilment === "pickup" ? "Collection" : "Delivery"}</dt>
+                <dd className="font-semibold text-foreground">
+                  {order.deliveryFee === 0 ? <span className="text-success">Free</span> : formatKES(order.deliveryFee)}
+                </dd>
+              </div>
+              <div className="flex justify-between pt-1 text-base font-extrabold text-foreground">
+                <dt>{payOnDelivery ? "To pay on delivery" : "Total"}</dt>
+                <dd>{formatKES(order.total)}</dd>
+              </div>
+            </dl>
+            <div className="mt-1 flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3.5 py-2.5">
+              <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                 {order.payment === "cod" ? (
-                  <Banknote className="size-4 text-[var(--brand)]" aria-hidden />
+                  <Banknote className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
                 ) : (
-                  <Smartphone className="size-4 text-[var(--brand)]" aria-hidden />
-                )}{" "}
+                  <Smartphone className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
+                )}
                 {paymentMethodLabel(order.payment)}
               </span>
               <Badge variant={payment.tone}>{payment.label}</Badge>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
-              <MapPin className="size-5 text-[var(--brand)]" aria-hidden /> Delivery address
-            </h2>
-            <p className="mt-3 text-sm font-semibold text-foreground">
-              {[...new Set([order.address.street, order.address.estate, order.address.city].filter(Boolean))].join(", ") ||
-                order.address.estate}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {[order.address.building, order.address.floor].filter(Boolean).join(" · ") || "No building info"}
-            </p>
-            {order.address.notes && (
-              <p className="mt-2 text-xs italic text-muted-foreground">“{order.address.notes}”</p>
-            )}
-            <p className="mt-3 flex items-center gap-2 text-sm text-foreground/80">
-              <Phone className="size-4 text-[var(--brand)]" aria-hidden /> {formatPhone(order.customerPhone)}
-            </p>
-          </section>
+          {!cancelled && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={(e) => reorder(e.currentTarget)}
+                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-soft px-3 text-sm font-bold text-brand-deep transition-colors hover:bg-brand-soft/70"
+              >
+                <RefreshCcw className="size-4" aria-hidden /> Reorder this
+              </button>
+              {/* Guests have no order history to open; send them back to shopping instead. */}
+              <Link
+                href={loggedIn ? "/account/orders" : "/browse"}
+                className="flex h-12 items-center justify-center rounded-lg bg-[var(--brand)] px-3 text-sm font-bold text-white transition-colors hover:bg-[var(--cta-hover)]"
+              >
+                {loggedIn ? "View all orders" : "Order more water"}
+              </Link>
+            </div>
+          )}
 
-          <div className="flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={(e) => reorder(e.currentTarget)} className="group">
-              <RefreshCcw className="size-4" aria-hidden /> Reorder this
-            </Button>
-            {/* Guests have no order history to open; send them back to shopping instead. */}
-            <Link href={loggedIn ? "/account/orders" : "/browse"} className="flex-1">
-              <Button className="group w-full">{loggedIn ? "View all orders" : "Order more water"}</Button>
-            </Link>
-          </div>
-
-          <section aria-labelledby="privacy-heading" className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <h2 id="privacy-heading" className="flex items-center gap-2 font-display text-lg text-foreground">
-              <ShieldCheck className="size-5 text-[var(--brand)]" aria-hidden /> Privacy & updates
+          <section aria-labelledby="privacy-heading" className="rounded-xl border border-border bg-white p-4">
+            <h2 id="privacy-heading" className="flex items-center gap-2 text-[15px] font-extrabold text-foreground">
+              <ShieldCheck className="size-[18px] text-[var(--brand)]" aria-hidden /> Privacy & updates
             </h2>
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-3">
               <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
@@ -445,8 +479,15 @@ export function TrackOrderPage({ id }: { id: string }) {
               </p>
             )}
           </section>
+
+          <Link
+            href="/contact"
+            className="flex h-[52px] items-center justify-center gap-2 rounded-lg border border-border bg-white text-[15px] font-bold text-foreground transition-colors hover:bg-surface-2"
+          >
+            <CircleHelp className="size-5" aria-hidden /> Get help with this order
+          </Link>
         </div>
       </div>
-    </Container>
+    </div>
   );
 }

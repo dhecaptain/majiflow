@@ -31,6 +31,9 @@ type Step = "details" | "code";
 
 const CODE_LENGTH = 6;
 
+const inputClass = "h-12 rounded-md text-[15px] shadow-none";
+const submitClass = "h-14 w-full rounded-lg text-base font-bold";
+
 export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthSheetProps) {
   const { toast } = useToast();
   const { login } = useCustomer();
@@ -175,11 +178,19 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
       onClose={onClose}
       title={title}
       description={subtitle}
-      className="sm:max-w-md"
+      className={[
+        // Bottom sheet on a phone (with a drag-handle bar), centred card on desktop.
+        "max-h-[92svh] overflow-y-auto rounded-t-2xl border-0 pt-3 sm:max-w-md sm:border sm:rounded-2xl sm:pt-0",
+        "before:mx-auto before:mb-1 before:block before:h-1 before:w-10 before:rounded-full before:bg-border before:content-[''] sm:before:hidden",
+        "[&>div:first-child]:border-b-0 [&>div:first-child]:px-5 [&>div:first-child]:pb-1 [&>div:first-child]:pt-3 sm:[&>div:first-child]:pt-6",
+        "[&>div:first-child>button]:flex [&>div:first-child>button]:size-11 [&>div:first-child>button]:shrink-0 [&>div:first-child>button]:items-center [&>div:first-child>button]:justify-center [&>div:first-child>button]:rounded-full [&>div:first-child>button]:bg-surface-2",
+        "[&_#dialog-title]:font-sans [&_#dialog-title]:text-2xl [&_#dialog-title]:font-extrabold [&_#dialog-title]:tracking-tight",
+        "[&>div:last-child]:px-5 [&>div:last-child]:pb-[calc(1.5rem+env(safe-area-inset-bottom))] [&>div:last-child]:pt-4",
+      ].join(" ")}
     >
       <div className="space-y-5">
         {error && (
-          <p role="alert" className="rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+          <p role="alert" className="rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
             {error}
           </p>
         )}
@@ -195,6 +206,7 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
                 placeholder="e.g. Amina Yusuf"
                 autoComplete="name"
                 invalid={Boolean(fieldError.name)}
+                className={inputClass}
               />
             </Field>
             <Field
@@ -213,9 +225,10 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
                 placeholder="07XX XXX XXX"
                 autoComplete="tel"
                 invalid={Boolean(fieldError.phone)}
+                className={inputClass}
               />
             </Field>
-            <Button type="submit" size="lg" className="w-full" loading={sending}>
+            <Button type="submit" size="lg" className={submitClass} loading={sending}>
               Send my code
             </Button>
           </form>
@@ -231,11 +244,11 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="000000"
-                className="text-center font-mono text-lg tracking-[0.4em]"
+                className={`${inputClass} text-center font-mono text-lg tracking-[0.4em]`}
                 invalid={Boolean(fieldError.code)}
               />
             </Field>
-            <Button type="submit" size="lg" className="w-full" loading={verifying}>
+            <Button type="submit" size="lg" className={submitClass} loading={verifying}>
               {accountType === "registered" ? "Sign in" : "Create my account"}
             </Button>
             <div className="flex items-center justify-between text-sm">
@@ -247,7 +260,7 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
                   setError("");
                   setFieldError({});
                 }}
-                className="inline-flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground"
+                className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="size-4" aria-hidden />
                 Change number
@@ -256,7 +269,7 @@ export function AuthSheet({ open, onClose, onSignedIn, intent = "order" }: AuthS
                 type="button"
                 onClick={() => requestCode(normalizeKenyanPhone(phone) ?? phone.trim())}
                 disabled={resendIn > 0 || sending}
-                className="font-medium text-[var(--brand)] disabled:text-muted-foreground disabled:opacity-70"
+                className="min-h-11 font-semibold text-[var(--brand)] disabled:text-muted-foreground disabled:opacity-70"
               >
                 {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}
               </button>
