@@ -62,6 +62,7 @@ export function profileFromAccount(account: CustomerAccountProfile, addresses: S
 
 interface CustomerContextValue {
   profile: CustomerProfile;
+  role: "customer" | "business_owner" | null;
   /** True once the persisted profile has been read from localStorage. */
   hydrated: boolean;
   /** True once the user has signed in (MajiFlow uses a lightweight session flag). */
@@ -134,6 +135,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<CustomerProfile>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [role, setRole] = useState<"customer" | "business_owner" | null>(null);
   const [accountSynced, setAccountSynced] = useState(false);
 
   const applyAccount = useCallback((account: CustomerAccountProfile, addresses: SavedAddress[]) => {
@@ -177,6 +179,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         }) => {
           if (!active) return;
           setProfile((current) => profileForSession(current, body.user ?? null));
+          setRole(body.user?.role ?? null);
           setLoggedIn(body.user?.role === "customer");
           if (body.user?.role === "customer") return refreshAccount();
         }
@@ -247,6 +250,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const login = useCallback((seed?: Partial<CustomerProfile>) => {
     if (seed) setProfile((prev) => ({ ...prev, ...seed, phone: seed.phone?.trim() || prev.phone }));
     setLoggedIn(true);
+    setRole("customer");
     void (async () => {
       // Registration collects a first address; persist it before the server copy replaces the cache.
       for (const address of seed?.addresses ?? []) {
@@ -258,12 +262,14 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     setLoggedIn(false);
+    setRole(null);
     setAccountSynced(false);
   }, []);
 
   const forgetLocalAccount = useCallback(() => {
     setProfile(EMPTY);
     setLoggedIn(false);
+    setRole(null);
     setAccountSynced(false);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -279,6 +285,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     <CustomerContext.Provider
       value={{
         profile,
+        role,
         hydrated,
         loggedIn,
         accountSynced,

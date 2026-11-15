@@ -522,34 +522,6 @@ export function BusinessRegister() {
                   </Button>
                 </div>
               )}
-              {ownerSession === "anonymous" && (
-                <div className="rounded-2xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4">
-                  <p className="text-sm font-semibold text-foreground">Create your business owner account</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Your application is private to this account. We never save your password in the registration draft.
-                  </p>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <Field label="Password" required>
-                      <Input
-                        type="password"
-                        minLength={8}
-                        value={accountPassword}
-                        onChange={(e) => setAccountPassword(e.target.value)}
-                        autoComplete="new-password"
-                      />
-                    </Field>
-                    <Field label="Confirm password" required>
-                      <Input
-                        type="password"
-                        minLength={8}
-                        value={accountPasswordConfirm}
-                        onChange={(e) => setAccountPasswordConfirm(e.target.value)}
-                        autoComplete="new-password"
-                      />
-                    </Field>
-                  </div>
-                </div>
-              )}
               <Field label="Business name" required error={errors.businessName}>
                 <Input
                   placeholder="e.g. BioWater Refill Station"
@@ -916,6 +888,34 @@ export function BusinessRegister() {
               <p className="text-xs text-muted-foreground">
                 No card, no hidden fees. We&apos;ll remind you before any charge.
               </p>
+              {ownerSession === "anonymous" && (
+                <div className="rounded-2xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4">
+                  <p className="text-sm font-semibold text-foreground">Create your business owner account</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Your application is private to this account. We never save your password in the registration draft.
+                  </p>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <Field label="Password" required>
+                      <Input
+                        type="password"
+                        minLength={8}
+                        value={accountPassword}
+                        onChange={(e) => setAccountPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </Field>
+                    <Field label="Confirm password" required>
+                      <Input
+                        type="password"
+                        minLength={8}
+                        value={accountPasswordConfirm}
+                        onChange={(e) => setAccountPasswordConfirm(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
