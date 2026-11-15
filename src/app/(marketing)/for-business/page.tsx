@@ -1,44 +1,23 @@
 import Link from "next/link";
-import { BarChart3, Coins, PackagePlus, Store, Users } from "lucide-react";
-import { PageHero } from "@/components/shared/page-hero";
-import { Container } from "@/components/ui/container";
+import { ArrowRight, BarChart3, Coins, Megaphone, PackagePlus, Store, Users } from "lucide-react";
+import { PageHero, PageSection } from "@/components/shared/page-hero";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { buttonVariants } from "@/components/ui/button";
-import { Stagger, StaggerItem } from "@/components/ui/animated-section";
 import { listStations } from "@/lib/server/catalog";
-import { cn } from "@/lib/utils";
 
 const pillars = [
-  {
-    icon: Store,
-    title: "A storefront for your station",
-    text: "Your products, prices and delivery fees on one page.",
-  },
-  {
-    icon: BarChart3,
-    title: "Numbers from your own orders",
-    text: "Sales, top products and stock alerts from real orders.",
-  },
-  {
-    icon: Coins,
-    title: "Payments that settle to you",
-    text: "Customers pay on delivery by cash or M-Pesa, recorded against each order.",
-  },
-  {
-    icon: Users,
-    title: "Staff and customers together",
-    text: "Staff access, customer history and status updates.",
-  },
-  {
-    icon: PackagePlus,
-    title: "Change the menu from the dashboard",
-    text: "Update prices and stock, and the customer pages follow.",
-  },
-  {
-    icon: BarChart3,
-    title: "Promotions that bring customers back",
-    text: "Discounts for dormant or repeat customers, with tracking.",
-  },
+  { icon: Store, title: "A storefront for your station", text: "Your products, prices and delivery fees on one page customers can order from." },
+  { icon: PackagePlus, title: "Change the menu any time", text: "Update prices and stock from the dashboard and your page follows." },
+  { icon: Coins, title: "Paid on delivery, straight to you", text: "Customers pay your rider or counter by cash or M-Pesa, recorded against each order." },
+  { icon: BarChart3, title: "Numbers from your own orders", text: "Sales, top products and stock alerts, built from the orders you actually took." },
+  { icon: Users, title: "Know your customers", text: "Order history per customer, and status updates sent as you move each order along." },
+  { icon: Megaphone, title: "Bring customers back", text: "Promotions for repeat or quiet customers, with the results tracked." },
+];
+
+const steps = [
+  { t: "Create your profile", d: "Business name, location and a delivery fee." },
+  { t: "List your products", d: "Cans, bottles, dispensers and prices in KES." },
+  { t: "Set delivery zones", d: "Choose estates and a free-delivery minimum." },
+  { t: "Go live", d: "Once verified, your station starts taking orders." },
 ];
 
 /** Live platform numbers. A count that is still zero is left out rather than shown. */
@@ -46,14 +25,20 @@ async function platformNumbers() {
   const stations = await listStations().catch(() => []);
   const counts = [
     { count: stations.length, label: "stations live" },
-    { count: stations.reduce((total, b) => total + b.products.length, 0), label: "products in the catalogue" },
+    { count: stations.reduce((total, b) => total + b.products.length, 0), label: "products listed" },
     { count: new Set(stations.map((b) => b.city)).size, label: "cities covered" },
   ];
   return [
     ...counts.filter(({ count }) => count > 0).map(({ count, label }) => ({ value: `${count}`, label })),
-    { value: "14", label: "day free trial on every plan" },
+    { value: "14", label: "day free trial" },
+    { value: "0%", label: "commission on orders" },
   ];
 }
+
+const primary =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[var(--brand)] px-6 text-[15px] font-bold text-white transition-colors hover:bg-[var(--cta-hover)]";
+const secondary =
+  "inline-flex h-12 items-center justify-center rounded-lg border border-border bg-white px-6 text-[15px] font-bold text-foreground transition-colors hover:border-[var(--brand)]/40";
 
 export const metadata = {
   title: "For businesses",
@@ -67,112 +52,82 @@ export default async function ForBusiness() {
   return (
     <>
       <PageHero
-        label="For businesses"
-        pulseLabel
-        title={
-          <>
-            Your station, your prices. <span className="text-gradient">Our storefront</span>
-          </>
+        label="For refill stations"
+        title="Your station, your prices. Our storefront."
+        description="Take orders from customers nearby, with a dashboard for every order and a flat monthly fee."
+        aside={
+          <dl className="grid grid-cols-2 gap-3">
+            {numbers.slice(0, 4).map((n) => (
+              <div key={n.label} className="rounded-xl border border-border bg-white p-4">
+                <dd className="text-[28px] font-extrabold leading-none tracking-tight text-foreground">{n.value}</dd>
+                <dt className="mt-1.5 text-[13px] text-muted-foreground">{n.label}</dt>
+              </div>
+            ))}
+          </dl>
         }
-        description="A storefront, a dashboard and simple monthly pricing."
       >
-        <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
-          <Link href="/business/register" className={buttonVariants({ size: "lg", className: "group w-full sm:w-auto" })}>
+        <div className="flex flex-col gap-2.5 sm:flex-row">
+          <Link href="/business/register" className={primary}>
             Create your station
+            <ArrowRight className="size-4" aria-hidden />
           </Link>
-          <Link href="/business" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
-            Open the dashboard
+          <Link href="/pricing" className={secondary}>
+            See pricing
           </Link>
         </div>
       </PageHero>
 
-      <section className="py-12">
-        <Container>
-          <dl className="grid grid-cols-2 gap-y-8 sm:grid-cols-4">
-            {numbers.map((n, i) => (
-              <div key={n.label} className={cn("text-center", i > 0 && "sm:border-l sm:border-border")}>
-                <dd className="font-display text-4xl font-black tracking-tight text-foreground">{n.value}</dd>
-                <dt className="mt-2 text-xs text-muted-foreground">{n.label}</dt>
-              </div>
-            ))}
-          </dl>
-        </Container>
-      </section>
+      <PageSection>
+        <SectionHeading
+          label="What you get"
+          title="Everything between your station and a regular customer"
+          description="Every figure in the dashboard comes from the orders your station has actually taken."
+        />
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {pillars.map((p) => (
+            <li key={p.title} className="flex gap-4 rounded-xl border border-border bg-white p-5">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-brand-soft text-[var(--brand)]">
+                <p.icon className="size-5" aria-hidden />
+              </span>
+              <span className="flex flex-col gap-1">
+                <span className="text-base font-bold text-foreground">{p.title}</span>
+                <span className="text-sm leading-relaxed text-muted-foreground">{p.text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </PageSection>
 
-      <section className="py-16 lg:py-20">
-        <Container>
-          <SectionHeading
-            label="What you get"
-            title={
-              <>
-                Everything between your station and a{" "}
-                <span className="text-gradient">standing customer</span>
-              </>
-            }
-          />
-          <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
-            {pillars.map((p) => (
-              <StaggerItem key={p.title}>
-                <div className="group flex h-full flex-col rounded-2xl border border-border bg-card p-7 shadow-card">
-                  <span className="flex size-12 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
-                    <p.icon className="size-5" aria-hidden />
-                  </span>
-                  <h3 className="mt-6 font-display text-xl text-foreground">{p.title}</h3>
-                  <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{p.text}</p>
-                </div>
-              </StaggerItem>
-            ))}
-          </Stagger>
-        </Container>
-      </section>
+      <PageSection tinted>
+        <SectionHeading label="Getting started" title="Set up in four steps" />
+        <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {steps.map((s, i) => (
+            <li key={s.t} className="flex flex-col gap-2 rounded-xl border border-border bg-white p-5">
+              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-extrabold text-white">
+                {i + 1}
+              </span>
+              <span className="text-base font-bold text-foreground">{s.t}</span>
+              <span className="text-sm leading-relaxed text-muted-foreground">{s.d}</span>
+            </li>
+          ))}
+        </ol>
+      </PageSection>
 
-      <section className="bg-card py-16 lg:py-20">
-        <Container>
-          <SectionHeading
-            label="What the dashboard reads"
-            title={
-              <>
-                Totals built from <span className="text-gradient">stored orders</span>
-              </>
-            }
-            description="Every figure in the dashboard comes from the orders your station has actually taken, so the numbers move as orders come in."
-          />
-        </Container>
-      </section>
-
-      <section className="py-16 lg:py-20">
-        <Container size="md">
-          <SectionHeading
-            label="Getting started"
-            title={
-              <>
-                Set up a station in <span className="text-gradient">four steps</span>
-              </>
-            }
-          />
-          <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" stagger={0.07}>
-            {[
-              { n: "01", t: "Create your profile", d: "Business name, location and a delivery fee." },
-              { n: "02", t: "List your products", d: "Cans, bottles, dispensers and prices in KES." },
-              { n: "03", t: "Set delivery zones", d: "Choose estates and free-delivery minimums." },
-              { n: "04", t: "Share the page", d: "Your station goes live and starts taking orders." },
-            ].map((s) => (
-              <StaggerItem key={s.n}>
-                <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-6 shadow-card">
-                  <p className="font-mono text-sm font-bold text-[var(--brand)]">{s.n}</p>
-                  <h3 className="mt-3 font-semibold text-foreground">{s.t}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.d}</p>
-                </div>
-              </StaggerItem>
-            ))}
-          </Stagger>
-          <div className="mt-10 text-center">
-            <Link href="/business/register" className={buttonVariants({ size: "lg", className: "group" })}>
-              Create your station
-            </Link>
+      <PageSection>
+        <div className="flex flex-col items-start gap-5 rounded-xl bg-foreground p-6 text-white sm:flex-row sm:items-center sm:justify-between lg:p-9">
+          <div className="flex flex-col gap-1.5">
+            <h2 className="font-display text-2xl font-bold lg:text-[28px]">Start with 14 days free</h2>
+            <p className="text-[15px] text-[#cbe7ff]">No commission, no setup fee. Cancel any time.</p>
           </div>
-        </Container>
-      </section>
+          <Link
+            href="/business/register"
+            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-lg bg-white px-6 text-[15px] font-bold text-foreground transition-colors hover:bg-surface-2"
+          >
+            Create your station
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        </div>
+      </PageSection>
     </>
   );
 }

@@ -1,48 +1,19 @@
+import Link from "next/link";
 import { HeartHandshake, Repeat, ShieldCheck, Users } from "lucide-react";
-import { PageHero } from "@/components/shared/page-hero";
-import { Container } from "@/components/ui/container";
+import { PageHero, PageSection } from "@/components/shared/page-hero";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { Stagger, StaggerItem } from "@/components/ui/animated-section";
 
 const values = [
-  {
-    icon: ShieldCheck,
-    title: "Verified stations",
-    text: "Every station is verified before it is listed.",
-  },
-  {
-    icon: Repeat,
-    title: "Built around Kenyan stations",
-    text: "Stations across five cities, each with its own prices and hours.",
-  },
-  {
-    icon: Users,
-    title: "Support when you need it",
-    text: "Our team helps customers and stations with orders and payments.",
-  },
-  {
-    icon: HeartHandshake,
-    title: "Simple, fair pricing",
-    text: "A flat monthly fee with no commission, and a 14-day free trial.",
-  },
+  { icon: ShieldCheck, title: "Verified stations", text: "Every station is verified before it is listed." },
+  { icon: Repeat, title: "Built around Kenyan stations", text: "Each station keeps its own prices, hours and delivery area." },
+  { icon: Users, title: "Support when you need it", text: "Our team helps customers and stations with orders and payments." },
+  { icon: HeartHandshake, title: "Simple, fair pricing", text: "Stations pay a flat monthly fee, with no commission on orders." },
 ];
 
 const timeline = [
-  {
-    marker: "01",
-    title: "The storefront",
-    text: "Stations list products, prices and delivery fees, and customers order from them.",
-  },
-  {
-    marker: "02",
-    title: "Every order",
-    text: "Orders are stored and move from pending to delivered, with each change recorded.",
-  },
-  {
-    marker: "03",
-    title: "What comes next",
-    text: "Recurring refills, loyalty tools and multi-branch support are on the roadmap.",
-  },
+  { marker: "Now", title: "The storefront", text: "Stations list products, prices and delivery fees, and customers order from them." },
+  { marker: "Now", title: "Every order, tracked", text: "Orders move from placed to delivered, with each change recorded and visible." },
+  { marker: "Next", title: "What comes next", text: "Recurring refills, loyalty tools and multi-branch support are on the roadmap." },
 ];
 
 export const metadata = {
@@ -57,92 +28,84 @@ export default function About() {
     <>
       <PageHero
         label="About us"
-        title={
-          <>
-            The best water company is{" "}
-            <span className="text-gradient">already in town</span>
-          </>
+        title="The best water company is already in your town"
+        description="MajiFlow connects homes with the independent refill stations near them, and gives those stations the tools to grow."
+        aside={
+          <figure className="rounded-xl bg-foreground p-6 text-white lg:p-7">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--footer-sky)]">What we stand for</p>
+            <blockquote className="mt-3 font-display text-xl font-bold leading-snug lg:text-2xl">
+              Clean water should be close to home, and the businesses that deliver it should have the tools to grow.
+            </blockquote>
+          </figure>
         }
-        description="The software a water refill business runs its shop on."
       />
 
-      <section className="py-16 lg:py-20">
-        <Container>
-          <div className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <SectionHeading align="left" label="Why we exist" title="Local water, better tools." />
-              <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground">
-                We build what a refill station needs: a page for products and prices, a cart that
-                shows the delivery fee of that station, and a dashboard for orders and analytics.
-              </p>
-              <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-                MajiFlow connects customers with independent stations across Kenya, so the water you
-                drink is filtered close to home.
-              </p>
-            </div>
-            <Stagger className="grid gap-4 sm:grid-cols-2" stagger={0.07}>
-              {values.map((v) => (
-                <StaggerItem key={v.title}>
-                  <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-6 shadow-card">
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]">
-                      <v.icon className="size-5" aria-hidden />
-                    </span>
-                    <h3 className="mt-4 font-semibold text-foreground">{v.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{v.text}</p>
-                  </div>
-                </StaggerItem>
-              ))}
-            </Stagger>
+      <PageSection>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-14">
+          <div className="flex flex-col gap-4">
+            <SectionHeading label="Why we exist" title="Local water, better tools" />
+            <p className="text-[15px] leading-relaxed text-muted-foreground">
+              Refill stations already filter safe, affordable water in every estate. What they lack is a simple way to
+              take orders, show their prices and deliver. We build that: a page for products and prices, a cart that shows
+              the station&apos;s own delivery fee, and a dashboard for orders.
+            </p>
+            <p className="text-[15px] leading-relaxed text-muted-foreground">
+              For you, that means water filtered close to home, from a business you can see on the map.
+            </p>
           </div>
-        </Container>
-      </section>
-
-      <section className="bg-card py-16 lg:py-20">
-        <Container>
-          <SectionHeading
-            label="How it is put together"
-            title={
-              <>
-                A storefront, orders, and <span className="text-gradient">the road ahead</span>
-              </>
-            }
-          />
-          <Stagger className="mx-auto mt-12 max-w-2xl" stagger={0.1}>
-            {timeline.map((t) => (
-              <StaggerItem key={t.marker}>
-                <div className="relative flex gap-6 pb-14 last:pb-0">
-                  <div className="flex flex-col items-center">
-                    <span className="z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-cta-soft font-mono text-[11px] font-bold text-[var(--brand)]">
-                      {t.marker}
-                    </span>
-                    {t !== timeline[timeline.length - 1] && (
-                      <span className="mt-1 w-px flex-1 bg-gradient-to-b from-[var(--brand)]/40 to-transparent" />
-                    )}
-                  </div>
-                  <div className="rounded-2xl border border-border bg-background p-5 shadow-card">
-                    <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--brand)]">{t.title}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-foreground/85">{t.text}</p>
-                  </div>
-                </div>
-              </StaggerItem>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {values.map((v) => (
+              <li key={v.title} className="flex flex-col gap-2 rounded-xl border border-border bg-white p-5">
+                <span className="flex size-10 items-center justify-center rounded-md bg-brand-soft text-[var(--brand)]">
+                  <v.icon className="size-5" aria-hidden />
+                </span>
+                <span className="text-base font-bold text-foreground">{v.title}</span>
+                <span className="text-sm leading-relaxed text-muted-foreground">{v.text}</span>
+              </li>
             ))}
-          </Stagger>
-        </Container>
-      </section>
+          </ul>
+        </div>
+      </PageSection>
 
-      <section className="py-16 lg:py-20">
-        <Container size="md">
-          <div className="rounded-3xl border border-[var(--brand)]/20 bg-card p-8 text-center shadow-card sm:p-12">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              What we stand for
-            </p>
-            <p className="mx-auto mt-4 max-w-xl font-display text-2xl leading-snug text-foreground sm:text-3xl">
-              Clean water should be close to home, and the businesses that deliver it should have the
-              tools to grow.
-            </p>
-          </div>
-        </Container>
-      </section>
+      <PageSection tinted>
+        <SectionHeading label="How it is put together" title="A storefront, orders, and the road ahead" />
+        <ol className="mt-6 grid gap-3 md:grid-cols-3">
+          {timeline.map((t) => (
+            <li key={t.title} className="flex flex-col gap-2 rounded-xl border border-border bg-white p-5">
+              <span
+                className={
+                  t.marker === "Now"
+                    ? "self-start rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-bold text-success"
+                    : "self-start rounded-full bg-aqua-soft px-2.5 py-0.5 text-xs font-bold text-[#00707d]"
+                }
+              >
+                {t.marker}
+              </span>
+              <span className="text-base font-bold text-foreground">{t.title}</span>
+              <span className="text-sm leading-relaxed text-muted-foreground">{t.text}</span>
+            </li>
+          ))}
+        </ol>
+      </PageSection>
+
+      <PageSection>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/browse"
+            className="flex flex-col gap-1 rounded-xl bg-[var(--brand)] p-6 text-white transition-colors hover:bg-[var(--cta-hover)]"
+          >
+            <span className="text-lg font-extrabold">Order water</span>
+            <span className="text-sm text-[#e1f1ff]">Find the stations that deliver to you.</span>
+          </Link>
+          <Link
+            href="/for-business"
+            className="flex flex-col gap-1 rounded-xl border border-border bg-white p-6 transition-colors hover:border-[var(--brand)]/40"
+          >
+            <span className="text-lg font-extrabold text-foreground">List your station</span>
+            <span className="text-sm text-muted-foreground">Take orders from customers nearby.</span>
+          </Link>
+        </div>
+      </PageSection>
     </>
   );
 }

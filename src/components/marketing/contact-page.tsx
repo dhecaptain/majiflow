@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Clock, Inbox, Mail, ShieldCheck } from "lucide-react";
-import { Container } from "@/components/ui/container";
-import { PageHero } from "@/components/shared/page-hero";
+import { PageHero, PageSection } from "@/components/shared/page-hero";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -89,44 +88,13 @@ export function ContactPage() {
     <>
       <PageHero
         label="Contact"
-        pulseLabel
-        title={
-          <>
-            Questions about an order? <span className="text-gradient">We are here to help.</span>
-          </>
-        }
-        description="Send us a message and our support team will get back to you within one business day."
+        title="How can we help?"
+        description="Send us a message and our support team replies within one business day."
       />
 
-      <section className="py-16 lg:py-24">
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-            <div>
-              <h2 className="font-display text-2xl text-foreground">How to reach us</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Use the form for anything account, billing or partnership related, or pick the
-                channel below that fits your question.
-              </p>
-              <div className="mt-8 flex flex-col gap-4">
-                {notes.map((n) => (
-                  <div key={n.label} className="flex items-start gap-3.5 rounded-2xl border border-border bg-white p-5 shadow-card">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)] shadow-accent">
-                      <n.icon className="size-5" aria-hidden />
-                    </span>
-                    <div>
-                      <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{n.label}</p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{n.text}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                Support hours: Monday to Saturday, 7am - 7pm EAT.
-              </p>
-            </div>
-
-            <form onSubmit={(e) => void submit(e)} className="rounded-3xl border border-border bg-white p-6 shadow-layered sm:p-8" aria-label="Contact form">
+      <PageSection className="!pt-6 lg:!pt-10">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
+            <form onSubmit={(e) => void submit(e)} className="rounded-xl border border-border bg-white p-5 sm:p-7" aria-label="Contact form">
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Your name" required error={fieldErrors.name}>
                   <Input
@@ -182,17 +150,37 @@ export function ContactPage() {
                   </Field>
                 </div>
               </div>
-              <Button type="submit" size="lg" className="mt-6 w-full group" disabled={sending} loading={sending}>
-                Email us
+              <Button type="submit" size="lg" className="mt-6 h-13 w-full rounded-lg text-base font-bold" disabled={sending} loading={sending}>
+                Send message
               </Button>
               <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
                 We only use your details to answer your enquiry and never share them.
               </p>
             </form>
+
+            <aside className="flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
+              <h2 className="text-lg font-extrabold tracking-tight text-foreground">Other ways to reach us</h2>
+              <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-white">
+                {notes.map((n) => (
+                  <div key={n.label} className="flex items-start gap-3.5 p-4">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-[var(--brand)]">
+                      <n.icon className="size-5" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{n.label}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{n.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                <Clock className="size-4 shrink-0" aria-hidden />
+                Support hours: Monday to Saturday, 7am to 7pm EAT.
+              </p>
+            </aside>
           </div>
-        </Container>
-      </section>
+      </PageSection>
     </>
   );
 }
