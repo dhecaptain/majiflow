@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Check, Minus, ShieldCheck } from "lucide-react";
-import { Container } from "@/components/ui/container";
-import { PageHero } from "@/components/shared/page-hero";
+import { PageHero, PageSection } from "@/components/shared/page-hero";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { PricingCard } from "@/components/shared/pricing-card";
 import { Accordion } from "@/components/ui/accordion";
@@ -14,7 +13,7 @@ import { cn } from "@/lib/utils";
 const comparison: { feature: string; plans: (string | boolean)[] }[] = [
   { feature: "Business profile & online menu", plans: [true, true, true] },
   { feature: "Orders from the website", plans: [true, true, true] },
-  { feature: "M-Pesa checkout", plans: [true, true, true] },
+  { feature: "Pay on delivery (cash or M-Pesa)", plans: [true, true, true] },
   { feature: "Sales reports from your orders", plans: [true, true, true] },
   { feature: "Stock alerts", plans: [false, true, true] },
   { feature: "Advanced analytics & charts", plans: [false, true, true] },
@@ -34,114 +33,81 @@ export function PricingPage() {
   return (
     <>
       <PageHero
-        label="Pricing"
-        pulseLabel
-        title={
-          <>
-            A subscription, <span className="text-gradient">not a commission</span>
-          </>
-        }
-        description="Flat monthly pricing in Kenyan Shillings. Every plan starts with a 14-day free trial, and you keep the full price your customers pay."
-      />
+        label="Pricing for stations"
+        title="A flat subscription, not a commission"
+        description="Monthly pricing in Kenyan Shillings. Every plan starts with a 14-day free trial, and you keep the full price customers pay."
+      >
+        <BillingToggle annual={annual} onChange={setAnnual} />
+      </PageHero>
 
-      <section className="py-16 lg:py-20">
-        <Container>
-          <div className="flex justify-center">
-            <BillingToggle annual={annual} onChange={setAnnual} />
-          </div>
+      <PageSection className="!pt-8 lg:!pt-12">
+        <div className="grid gap-4 lg:grid-cols-3 lg:gap-5">
+          {plans.map((plan) => (
+            <PricingCard key={plan.id} plan={plan} annual={annual} />
+          ))}
+        </div>
+        <p className="mt-5 flex items-start gap-2.5 rounded-lg bg-success-soft px-4 py-3 text-sm leading-relaxed text-[#14532d]">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+          No setup fee and no commission. You keep the full KES price customers pay, and you can cancel any time.
+        </p>
+      </PageSection>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <div key={plan.id} className={plan.highlighted ? "lg:-mt-3" : ""}>
-                <PricingCard plan={plan} annual={annual} />
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-5 text-center shadow-card sm:flex-row sm:text-left">
-            <ShieldCheck className="size-5 shrink-0 text-[var(--brand)]" aria-hidden />
-            <p className="text-sm leading-relaxed text-foreground/85">
-              No surprise fees, ever. You keep the full KES price customers pay, and you can cancel
-              any time.
-            </p>
-          </div>
-        </Container>
-      </section>
-
-      <section className="bg-card py-16 lg:py-20">
-        <Container>
-          <SectionHeading
-            label="Compare plans"
-            title={
-              <>
-                What is included, <span className="text-gradient">and what is next</span>
-              </>
-            }
-          />
-          <div className="mt-10 overflow-x-auto rounded-2xl border border-border shadow-card">
-            <table className="w-full min-w-[560px] border-collapse bg-card text-left text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th scope="col" className="px-6 py-4 text-left font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                    Feature
+      <PageSection tinted>
+        <SectionHeading label="Compare plans" title="What is included, and what is next" />
+        <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-white">
+          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th scope="col" className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  Feature
+                </th>
+                {planIds.map((id) => (
+                  <th key={id} scope="col" className="px-5 py-3.5 text-center">
+                    <span className={cn("text-[15px] font-extrabold", planMap[id].highlighted ? "text-[var(--brand)]" : "text-foreground")}>
+                      {planMap[id].name}
+                    </span>
                   </th>
-                  {planIds.map((id) => (
-                    <th key={id} scope="col" className="px-6 py-4 text-center">
-                      <span className={cn("font-display text-base", planMap[id].highlighted && "text-[var(--brand)]")}>
-                        {planMap[id].name}
-                      </span>
-                    </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.map((row) => (
+                <tr key={row.feature} className="border-b border-[#eef3fa] last:border-0">
+                  <td className="px-5 py-3 font-medium text-foreground">{row.feature}</td>
+                  {row.plans.map((val, i) => (
+                    <td key={i} className="px-5 py-3 text-center">
+                      {val === true ? (
+                        <span className="inline-flex size-6 items-center justify-center rounded-full bg-success-soft text-success">
+                          <Check className="size-3.5" strokeWidth={3} aria-label="Included" />
+                        </span>
+                      ) : val === false ? (
+                        <span className="inline-flex size-6 items-center justify-center rounded-full bg-surface-2 text-muted-foreground">
+                          <Minus className="size-3.5" aria-label="Not included" />
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-aqua-soft px-2 py-0.5 text-xs font-bold text-[#00707d]">{val}</span>
+                      )}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {comparison.map((row) => (
-                  <tr key={row.feature} className="border-b border-border last:border-0">
-                    <td className="px-6 py-3 font-medium text-foreground">{row.feature}</td>
-                    {row.plans.map((val, i) => (
-                      <td key={i} className="px-6 py-3 text-center">
-                        {val === true ? (
-                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-success-soft text-success">
-                            <Check className="size-3" strokeWidth={3} aria-hidden />
-                          </span>
-                        ) : val === false ? (
-                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                            <Minus className="size-3" aria-hidden />
-                          </span>
-                        ) : (
-                          <span className="font-mono text-xs text-muted-foreground">{val}</span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Container>
-      </section>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </PageSection>
 
-      <section className="py-16 lg:py-20">
-        <Container size="md">
-          <SectionHeading
-            label="Pricing FAQs"
-            title={
-              <>
-                Questions about <span className="text-gradient">billing</span>
-              </>
-            }
-          />
-          <Accordion
-            className="mt-10"
-            items={[
-              { q: "How does the free trial work?", a: "Every plan starts with a 14-day free trial. We only charge you once the trial ends, and you can cancel before then at no cost." },
-              { q: "Which payment methods can my customers use?", a: "Customers pay with M-Pesa at checkout, and with card where a station accepts it. Payments settle to your station account." },
-              { q: "Can I change plans at any time?", a: "Yes. Move up or down between plans from your billing settings, and the change is prorated on your next invoice." },
-              { q: "Is there a commission on orders?", a: "No. You pay a flat monthly subscription and keep the full price your customers pay." },
-            ]}
-          />
-        </Container>
-      </section>
+      <PageSection narrow>
+        <SectionHeading label="Billing questions" title="Before you subscribe" />
+        <Accordion
+          className="mt-6"
+          items={[
+            { q: "How does the free trial work?", a: "Every plan starts with a 14-day free trial. We only charge you once the trial ends, and you can cancel before then at no cost." },
+            { q: "How do my customers pay?", a: "Customers pay on delivery, by cash or M-Pesa to your rider or at your counter, so the money comes straight to you. Card payments are planned." },
+            { q: "Can I change plans at any time?", a: "Yes. Move up or down between plans from your billing settings, and the change is prorated on your next invoice." },
+            { q: "Is there a commission on orders?", a: "No. You pay a flat monthly subscription and keep the full price your customers pay." },
+          ]}
+        />
+      </PageSection>
     </>
   );
 }
@@ -149,7 +115,7 @@ export function PricingPage() {
 function BillingToggle({ annual, onChange }: { annual: boolean; onChange: (v: boolean) => void }) {
   return (
     <div
-      className="inline-flex items-center rounded-full border border-border bg-card p-1 text-sm shadow-card"
+      className="inline-flex items-center rounded-full border border-border bg-white p-1 text-sm"
       role="group"
       aria-label="Billing period"
     >
@@ -163,7 +129,7 @@ function BillingToggle({ annual, onChange }: { annual: boolean; onChange: (v: bo
           onClick={() => onChange(option.id)}
           aria-pressed={annual === option.id}
           className={cn(
-            "rounded-full px-4 py-1.5 font-semibold transition-colors",
+            "min-h-10 rounded-full px-4 font-semibold transition-colors",
             annual === option.id ? "bg-[var(--brand)] text-white" : "text-muted-foreground hover:text-foreground"
           )}
         >

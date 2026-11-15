@@ -51,7 +51,7 @@ export const faqs: Faq[] = [
     group: "businesses",
     question: "How do I get paid for orders?",
     answer:
-      "Customer payments are collected at checkout and settled to your station account. Your dashboard shows every order, its payment state and the total for the period.",
+      "Customers pay your rider or your counter when the order is handed over, by cash or M-Pesa, so the money comes straight to you. Your dashboard shows every order, how it was paid and the total for the period.",
   },
   {
     id: "f7b",

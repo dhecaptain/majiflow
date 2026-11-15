@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { AnimatedSection } from "@/components/ui/animated-section";
 
 interface SectionHeadingProps {
-  /** Retained for call-site compatibility; eyebrow labels are no longer rendered. */
+  /** Small eyebrow above the title. */
   label?: string;
+  /** Retained for call-site compatibility. */
   pulseLabel?: boolean;
   title: ReactNode;
   description?: ReactNode;
@@ -15,42 +15,38 @@ interface SectionHeadingProps {
   maxWidth?: string;
 }
 
+/** Section title on inner pages: an eyebrow, a bold sans heading and one line of copy. */
 export function SectionHeading({
+  label,
   title,
   description,
-  align = "center",
+  align = "left",
   tone = "light",
   className,
   maxWidth = "max-w-2xl",
 }: SectionHeadingProps) {
+  const dark = tone === "dark";
   return (
-    <AnimatedSection
-      className={cn(
-        "flex flex-col gap-4",
-        align === "center" && "items-center text-center",
-        className
+    <div className={cn("flex flex-col gap-2", align === "center" && "items-center text-center", className)}>
+      {label && (
+        <p className={cn("text-xs font-bold uppercase tracking-[0.12em]", dark ? "text-[var(--footer-sky)]" : "text-[var(--brand)]")}>
+          {label}
+        </p>
       )}
-    >
       <h2
         className={cn(
-          "font-display text-3xl leading-[1.12] sm:text-4xl md:text-[2.75rem]",
-          tone === "light" ? "text-foreground" : "text-white",
+          "text-2xl font-extrabold leading-tight tracking-tight sm:text-[28px] lg:text-[32px]",
+          dark ? "text-white" : "text-foreground",
           maxWidth
         )}
       >
         {title}
       </h2>
       {description && (
-        <p
-          className={cn(
-            "text-base leading-relaxed sm:text-lg",
-            tone === "light" ? "text-muted-foreground" : "text-slate-300",
-            maxWidth
-          )}
-        >
+        <p className={cn("text-[15px] leading-relaxed sm:text-base", dark ? "text-slate-300" : "text-muted-foreground", maxWidth)}>
           {description}
         </p>
       )}
-    </AnimatedSection>
+    </div>
   );
 }
