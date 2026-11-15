@@ -1,26 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertCircle,
-  Bell,
-  Droplets,
-  GlassWater,
-  Map as MapIcon,
-  MapPin,
-  Navigation,
-  Search,
-  Package,
-  Store,
-  X,
-} from "lucide-react";
-import { Container } from "@/components/ui/container";
-import { Input } from "@/components/ui/field";
+import { AlertCircle, Bell, ChevronDown, Gift, Map as MapIcon, MapPin, Navigation, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/feedback";
-import { Stagger, StaggerItem } from "@/components/ui/animated-section";
 import { CITIES } from "@/lib/constants";
 import {
   captureCurrentLocation,
@@ -32,20 +18,25 @@ import { DISCOVERY_RADII_KM, discoverStations, type DiscoveredStation } from "@/
 import { formatKES } from "@/lib/format";
 import { requestStationInterest } from "@/lib/station-interest-client";
 import { browseHref } from "@/lib/journey";
+import { cn } from "@/lib/utils";
 import { rememberJourneyStep } from "@/components/order/journey";
 import { useOrderSession } from "@/components/order/order-session-provider";
+import { useOrderEntry } from "@/components/order/order-entry-provider";
 import { useSendWater } from "@/components/order/send-water-provider";
 import { useCustomer } from "@/components/order/customer-provider";
 import { useToast } from "@/components/ui/toast";
 import { useMotionSafe } from "@/lib/motion";
 import { ButtonLoader } from "@/components/ui/button-loader";
-import { BrowseSidebar, type BrowseJourneyStep, type BrowseSortMode } from "@/components/marketing/browse-sidebar";
-import { BrowseStationCard, BrowseStationCardSkeleton } from "@/components/marketing/browse-station-card";
-import { LocationModal } from "@/components/order/location-modal";
-import { useBrowseContext } from "@/components/order/browse-context";
-import { BrowseCartStep, BrowseLocationStep, BrowseOrderStep } from "@/components/marketing/browse-steps";
+import { StationCard, StationCardSkeleton } from "@/components/shared/station-card";
 import { useStations } from "@/components/order/stations-provider";
-import { WATER_CATEGORY_LABELS, type WaterCategoryId } from "@/lib/categories";
+import { addressLabel } from "@/components/layout/site-header";
+import {
+  WATER_CATEGORY_IDS,
+  WATER_CATEGORY_LABELS,
+  isWaterCategory,
+  offersCategory,
+  type WaterCategoryId,
+} from "@/lib/categories";
 
 const StationMap = dynamic(() => import("@/components/ui/station-map").then((m) => m.StationMap), {
   ssr: false,
@@ -57,34 +48,21 @@ const StationMap = dynamic(() => import("@/components/ui/station-map").then((m) 
 });
 
 type LocationMode = "manual" | "current";
+type SortMode = "recommended" | "distance" | "fastest" | "rating";
 
+const SORT_LABELS: Record<SortMode, string> = {
+  recommended: "Recommended",
+  distance: "Nearest",
+  fastest: "Fastest delivery",
+  rating: "Top rated",
+};
 
-const WATER_CATEGORIES: readonly {
-  id: WaterCategoryId;
-  label: string;
-  detail: string;
-  icon: typeof MapPin;
-}[] = [
-  { id: "refills", label: WATER_CATEGORY_LABELS.refills, detail: "Use your own container", icon: Droplets },
-  { id: "new-bottles", label: WATER_CATEGORY_LABELS["new-bottles"], detail: "Sealed and ready to go", icon: GlassWater },
-  { id: "bottled-packs", label: WATER_CATEGORY_LABELS["bottled-packs"], detail: "Small bottles for home", icon: Package },
-  { id: "dispensers", label: WATER_CATEGORY_LABELS.dispensers, detail: "Water close at hand", icon: Store },
-];
-
-function isWaterCategory(value: string): value is WaterCategoryId {
-  return WATER_CATEGORIES.some((category) => category.id === value);
-}
-
-function stationOffersCategory(row: DiscoveredStation, category: WaterCategoryId): boolean {
-  return row.business.products.some((product) => {
-    if (category === "refills") return product.category === "refill";
-    if (category === "dispensers") return product.category === "dispenser";
-    if (product.category !== "bottled") return false;
-    return category === "new-bottles"
-      ? product.unit === "can"
-      : product.unit !== "can";
-  });
-}
+const CATEGORY_IMAGES: Record<WaterCategoryId, string> = {
+  refills: "/categories/refills.jpg",
+  "new-bottles": "/categories/new-bottles.jpg",
+  "bottled-packs": "/categories/bottled-packs.jpg",
+  dispensers: "/categories/dispensers.jpg",
+};
 
 function etaOf(row: DiscoveredStation): number {
   return row.etaMinutes ?? row.business.avgDeliveryMinutes;
@@ -94,6 +72,15 @@ function offersFreeDelivery(row: DiscoveredStation): boolean {
   return row.business.deliveryFee === 0 || row.business.freeDeliveryAbove > 0;
 }
 
+const chip =
+  "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]";
+const chipOn = "border-foreground bg-foreground text-white";
+const chipOff = "border-border bg-white text-foreground hover:border-[var(--brand)]/40";
+
+/**
+ * The station list: search, water type, quick filters and city, then every
+ * matching station as a card. Choosing a card opens that station's menu.
+ */
 export function BrowsePage({
   initialCity,
   initialQuery = "",
@@ -105,17 +92,8 @@ export function BrowsePage({
 }) {
   const stations = useStations();
   const session = useOrderSession();
-  const {
-    cart,
-    selectStation: setSelectedStation,
-    selectedStation: selectedBusiness,
-    location: savedAddress,
-    currentStep: journeyStep,
-    orderChoice,
-    setOrderChoice,
-    setCurrentStep,
-    canGoToStep,
-  } = useBrowseContext();
+  const savedAddress = session.address;
+  const { openLocation } = useOrderEntry();
   const { sendWater, openSendWater } = useSendWater();
   const { profile } = useCustomer();
   const { toast } = useToast();
@@ -124,8 +102,8 @@ export function BrowsePage({
     () => CITIES.find((c) => c.toLowerCase() === initialCity.trim().toLowerCase()) ?? "All cities"
   );
   const [query, setQuery] = useState(initialQuery);
-  const [category, setCategory] = useState<WaterCategoryId | null>(
-    () => (isWaterCategory(initialCategory) ? initialCategory : null)
+  const [category, setCategory] = useState<WaterCategoryId | null>(() =>
+    isWaterCategory(initialCategory) ? initialCategory : null
   );
   const [location, setLocation] = useState<CapturedLocation | null>(null);
   const [locationMode, setLocationMode] = useState<LocationMode>("manual");
@@ -133,13 +111,12 @@ export function BrowsePage({
   const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "map">("list");
-  const [sort, setSort] = useState<BrowseSortMode>("recommended");
+  const [sort, setSort] = useState<SortMode>("recommended");
   const [openOnly, setOpenOnly] = useState(false);
   const [freeOnly, setFreeOnly] = useState(false);
-  const [stepLocationOpen, setStepLocationOpen] = useState(false);
+  const [showCities, setShowCities] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const locationRequestRef = useRef(0);
-  const listRef = useRef<HTMLDivElement>(null);
   const appliedSessionRef = useRef<string | null>(null);
 
   const sessionLat = savedAddress?.lat;
@@ -147,9 +124,8 @@ export function BrowsePage({
   const sendLat = sendWater?.address.lat;
   const sendLng = sendWater?.address.lng;
 
-  // The customer arrived from the order flow (or edited the address here), or
-  // is sending water to someone else: adopt that point as the search center so
-  // the list is already nearest-first, without another tap. The gift point wins.
+  // The customer set a delivery point (or is sending water to someone else):
+  // adopt it as the search center so the list is already nearest-first. The gift point wins.
   useEffect(() => {
     const usingSend = typeof sendLat === "number" && typeof sendLng === "number";
     const lat = usingSend ? sendLat : sessionLat;
@@ -193,13 +169,7 @@ export function BrowsePage({
   }, [view]);
 
   const discovery = useMemo(
-    () =>
-      discoverStations({ stations,
-        city,
-        query,
-        location,
-        byDistance: locationMode === "current",
-      }),
+    () => discoverStations({ stations, city, query, location, byDistance: locationMode === "current" }),
     [city, location, locationMode, query, stations]
   );
 
@@ -207,15 +177,14 @@ export function BrowsePage({
   const displayResults = useMemo(() => {
     let rows = discovery.results;
     if (sendWater) rows = rows.filter((r) => r.delivers);
-    if (category) rows = rows.filter((row) => stationOffersCategory(row, category));
+    if (category) rows = rows.filter((row) => offersCategory(row.business, category));
     if (openOnly) rows = rows.filter((r) => r.open);
     if (freeOnly) rows = rows.filter(offersFreeDelivery);
     const out = [...rows];
     if (sort === "rating") out.sort((a, b) => b.business.rating - a.business.rating);
     else if (sort === "fastest") out.sort((a, b) => etaOf(a) - etaOf(b));
     else if (sort === "distance") out.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-    // Closed stations sink to the bottom. Array.sort is stable, so the order
-    // chosen above (or the discovery distance order) is kept within each group.
+    // Closed stations sink to the bottom; the sort is stable, so the order above holds within each group.
     return out.sort((a, b) => Number(b.open) - Number(a.open));
   }, [discovery.results, sort, openOnly, freeOnly, sendWater, category]);
 
@@ -251,11 +220,7 @@ export function BrowsePage({
   );
 
   const countLabel =
-    locationMode === "current"
-      ? "nearby stations"
-      : city === "All cities"
-        ? "all stations"
-        : `stations in ${city}`;
+    locationMode === "current" ? "nearby" : city === "All cities" ? "in all cities" : `in ${city}`;
 
   const selectCity = (nextCity: string) => {
     locationRequestRef.current += 1;
@@ -271,11 +236,7 @@ export function BrowsePage({
     setLocating(true);
     setLocationError(null);
     try {
-      const nextLocation = await captureCurrentLocation({
-        enableHighAccuracy: false,
-        timeout: 15000,
-        maximumAge: 0,
-      });
+      const nextLocation = await captureCurrentLocation({ enableHighAccuracy: false, timeout: 15000, maximumAge: 0 });
       if (requestId !== locationRequestRef.current) return;
       setLocation(nextLocation);
       setLocationMode("current");
@@ -285,9 +246,7 @@ export function BrowsePage({
       setLocation(city === "All cities" ? null : townLocation(city));
       setLocationError(geolocationErrorMessage(err));
     } finally {
-      if (requestId === locationRequestRef.current) {
-        setLocating(false);
-      }
+      if (requestId === locationRequestRef.current) setLocating(false);
     }
   };
 
@@ -317,8 +276,7 @@ export function BrowsePage({
     clearQuickFilters();
   };
 
-  // Nothing here yet - ask to be notified when a station opens (reuses the
-  // existing /api/stations/interest endpoint, no new logic).
+  // Nothing here yet - ask to be notified when a station opens (the existing interest endpoint).
   const notifyHere = async () => {
     setNotifying(true);
     const result = await requestStationInterest({
@@ -330,11 +288,7 @@ export function BrowsePage({
     });
     setNotifying(false);
     if (result.ok) {
-      toast({
-        kind: "success",
-        title: "We'll let you know",
-        message: "You'll hear from us when a station opens near you.",
-      });
+      toast({ kind: "success", title: "We'll let you know", message: "You'll hear from us when a station opens near you." });
     } else {
       toast({ kind: "error", title: "That didn't save", message: result.error });
     }
@@ -342,474 +296,326 @@ export function BrowsePage({
 
   const hasResults = displayResults.length > 0;
   const quickFiltersActive = sort !== "recommended" || openOnly || freeOnly;
-  const currentStep: BrowseJourneyStep = journeyStep ?? "order";
+  const savedLabel = addressLabel(savedAddress);
+
+  const notifyButton = (
+    <Button variant="outline" onClick={notifyHere} disabled={notifying}>
+      {notifying ? <ButtonLoader className="size-4" /> : <Bell className="size-4" aria-hidden />}
+      Notify me when a station opens here
+    </Button>
+  );
 
   return (
-    <div className="grid w-full grid-cols-1 items-start lg:grid-cols-[475px_minmax(0,1fr)]">
-      <BrowseSidebar
-        currentStep={currentStep}
-        canGoToStep={canGoToStep}
-        onSelectStep={setCurrentStep}
-        sort={sort}
-        onSortChange={setSort}
-        openOnly={openOnly}
-        onOpenOnlyChange={setOpenOnly}
-        freeOnly={freeOnly}
-        onFreeOnlyChange={setFreeOnly}
-      />
-      <section aria-label="Stations" className="min-w-0">
-      {currentStep === "order" && (
-        <BrowseOrderStep
-          choice={orderChoice}
-          onChoice={setOrderChoice}
-          onContinue={() => {
-            setCurrentStep("location");
-            if (!savedAddress) setStepLocationOpen(true);
-          }}
-        />
-      )}
-      {currentStep === "location" && (
-        <BrowseLocationStep
-          address={savedAddress}
-          onOpenLocation={() => setStepLocationOpen(true)}
-          onContinue={() => setCurrentStep("station")}
-          canContinue={Boolean(savedAddress) && canGoToStep("station")}
-        />
-      )}
-      {currentStep === "cart" && (
-        <BrowseCartStep
-          station={selectedBusiness}
-          cart={cart}
-          preferredSize={orderChoice.size}
-          preferredQuantity={orderChoice.quantity}
-          onChooseStation={() => setCurrentStep("station")}
-        />
-      )}
-      {currentStep === "station" && (
-      <>
-      <section className="border-b border-border bg-surface-2 text-foreground">
-        <Container className="py-5 sm:py-7">
-          <div className="flex flex-wrap items-end justify-between gap-5">
-            <div className="max-w-2xl">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Stations / Find nearby</p>
-              <h1 className="mt-1.5 font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
-                {currentStep === "station" ? "Stations" : "Choose a water station"}
-              </h1>
-              <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Compare nearby stations, delivery options, and opening hours.
-              </p>
-            </div>
-            <div className="hidden min-w-48 rounded-xl border border-border bg-white px-4 py-3 shadow-soft md:block">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Your location</p>
-              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="relative flex size-2.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-35" />
-                  <span className="relative inline-flex size-2.5 rounded-full bg-brand" />
-                </span>
-                {location ? "Location selected" : "Choose a starting point"}
-              </p>
-            </div>
-          </div>
+    <div className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-5 sm:px-6 lg:pt-8">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[26px] font-extrabold tracking-tight text-foreground lg:text-[32px]">Stations</h1>
+        <p className="text-sm text-muted-foreground lg:text-base">
+          {sendWater
+            ? `Stations that deliver to ${sendWater.recipient.name}.`
+            : savedLabel
+              ? `Delivering to ${savedLabel}.`
+              : "Compare prices, delivery fees and opening hours."}
+        </p>
+      </div>
 
-          <div className="relative mt-5">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <label htmlFor="search-stations" className="sr-only">
-              Search stations by name or estate
-            </label>
-            <Input
-              id="search-stations"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or estate - e.g. Kasarani"
-              className="h-12 rounded-xl border-border bg-white pl-12 pr-12 text-base text-foreground shadow-soft"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <X className="size-4" aria-hidden />
-              </button>
-            )}
-          </div>
+      {sendWater && (
+        <div className="mt-4 flex items-center gap-3 rounded-lg bg-coral-soft px-4 py-3 text-sm text-foreground">
+          <Gift className="size-5 shrink-0 text-coral-cta" aria-hidden />
+          <span className="flex-1">
+            Sending water to <strong className="font-semibold">{sendWater.recipient.name}</strong>
+          </span>
+          <button type="button" onClick={openSendWater} className="min-h-11 font-semibold text-[var(--brand)] hover:underline">
+            Edit
+          </button>
+        </div>
+      )}
 
-          <div
-            className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            role="group"
-            aria-label="Filter by city"
+      {/* Search */}
+      <label className="mt-4 flex h-12 items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-4 text-muted-foreground transition-colors focus-within:border-[var(--brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--brand)]/15">
+        <Search className="size-[18px] shrink-0" aria-hidden />
+        <span className="sr-only">Search stations by name or estate</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name or estate, e.g. Kasarani"
+          className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Clear search"
+            className="-mr-2 flex size-10 items-center justify-center rounded-full hover:bg-muted hover:text-foreground"
           >
+            <X className="size-4" aria-hidden />
+          </button>
+        )}
+      </label>
+
+      {/* Water type */}
+      <nav aria-label="Water type" className="-mx-4 mt-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+        {WATER_CATEGORY_IDS.map((id) => {
+          const active = category === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setCategory((current) => (current === id ? null : id))}
+              aria-pressed={active}
+              className={cn(
+                "flex h-12 shrink-0 items-center gap-2.5 rounded-lg border pl-1.5 pr-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]",
+                active ? "border-[var(--brand)] bg-brand-soft text-brand-deep" : "border-border bg-white text-foreground hover:border-[var(--brand)]/40"
+              )}
+            >
+              <span className="relative size-9 overflow-hidden rounded-md bg-surface-3">
+                <Image src={CATEGORY_IMAGES[id]} alt="" fill sizes="36px" className="object-cover" />
+              </span>
+              {WATER_CATEGORY_LABELS[id]}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Quick filters */}
+      <div role="group" aria-label="Filters" className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
+        <button
+          type="button"
+          onClick={locationMode === "current" && !sendWater ? stopUsingCurrentLocation : useCurrentLocation}
+          disabled={locating}
+          aria-pressed={locationMode === "current"}
+          className={cn(chip, locationMode === "current" ? chipOn : chipOff)}
+        >
+          {locating ? <ButtonLoader className="size-3.5" /> : <Navigation className="size-3.5" aria-hidden />}
+          {locating ? "Finding you…" : "Near me"}
+        </button>
+        <button type="button" onClick={() => setOpenOnly((v) => !v)} aria-pressed={openOnly} className={cn(chip, openOnly ? chipOn : chipOff)}>
+          Open now
+        </button>
+        <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly} className={cn(chip, freeOnly ? chipOn : chipOff)}>
+          Free delivery
+        </button>
+        <label className={cn(chip, "relative pr-8", sort !== "recommended" ? chipOn : chipOff)}>
+          <span className="sr-only">Sort stations</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortMode)}
+            className="absolute inset-0 cursor-pointer appearance-none rounded-full bg-transparent pl-3.5 pr-8 text-transparent outline-none"
+          >
+            {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+              <option key={mode} value={mode} className="text-foreground">
+                {SORT_LABELS[mode]}
+              </option>
+            ))}
+          </select>
+          <span aria-hidden>{SORT_LABELS[sort]}</span>
+          <ChevronDown className="pointer-events-none absolute right-3 size-3.5" aria-hidden />
+        </label>
+        <button
+          type="button"
+          onClick={() => setShowCities((v) => !v)}
+          aria-expanded={showCities}
+          className={cn(chip, city !== "All cities" ? chipOn : chipOff)}
+        >
+          <MapPin className="size-3.5" aria-hidden />
+          {city === "All cities" ? "City" : city}
+          <ChevronDown className={cn("size-3.5 transition-transform", showCities && "rotate-180")} aria-hidden />
+        </button>
+      </div>
+
+      {showCities && (
+        <div role="group" aria-label="Filter by city" className="mt-2 flex flex-wrap gap-2 rounded-lg bg-surface-2 p-3">
+          {["All cities", ...CITIES].map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => {
+                selectCity(c);
+                setShowCities(false);
+              }}
+              aria-pressed={city === c}
+              className={cn(chip, city === c ? "border-[var(--brand)] bg-[var(--brand)] text-white" : chipOff)}
+            >
+              {c === "All cities" ? "Every city" : c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {locationError && (
+        <p className="mt-3 flex items-start gap-2 text-sm text-danger" role="alert">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            {locationError}{" "}
+            <button type="button" onClick={openLocation} className="font-semibold underline">
+              Set your location on the map
+            </button>{" "}
+            instead.
+          </span>
+        </p>
+      )}
+
+      {/* Results */}
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          <strong className="font-bold text-foreground">{displayResults.length}</strong>{" "}
+          {displayResults.length === 1 ? "station" : "stations"} {countLabel}
+        </p>
+        {hasResults && quickFiltersActive && (
+          <button type="button" onClick={clearQuickFilters} className="min-h-11 text-sm font-semibold text-[var(--brand)] hover:underline">
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {!session.hydrated ? (
+        <div className="mt-4 grid gap-7 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" role="status" aria-label="Loading stations">
+          {Array.from({ length: 6 }, (_, index) => (
+            <StationCardSkeleton key={index} />
+          ))}
+        </div>
+      ) : hasResults ? (
+        <>
+          <ul className={cn("mt-4 grid gap-7 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6", locating && "opacity-70")}>
+            {displayResults.map((row, index) => (
+              <li key={row.business.id}>
+                <StationCard
+                  business={row.business}
+                  distanceKm={row.distanceKm}
+                  etaMinutes={row.etaMinutes}
+                  priority={index < 2}
+                  onSelect={() => session.setStationId(row.business.id)}
+                />
+              </li>
+            ))}
+          </ul>
+
+          {/* The map is a full-screen layer, opened from a floating pill. */}
+          <button
+            type="button"
+            onClick={() => setView("map")}
+            className="fixed bottom-[calc(var(--tabbar-h)+1rem)] left-1/2 z-40 inline-flex h-11 -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-bold text-white shadow-float transition-transform hover:scale-[1.03] active:scale-[0.98] lg:bottom-8"
+          >
+            <MapIcon className="size-4" aria-hidden /> Map
+          </button>
+        </>
+      ) : discovery.results.length > 0 ? (
+        <EmptyState
+          className="mt-8"
+          title={sendWater ? `No station delivers to ${sendWater.recipient.name} yet` : "No stations match these filters"}
+          description={
+            sendWater
+              ? "Try moving the destination pin closer to a station, or ask us to tell you when one reaches this area."
+              : "Loosen the filters to see the stations around you again."
+          }
+          action={
+            sendWater ? (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                <Button variant="secondary" onClick={openSendWater}>
+                  Edit destination
+                </Button>
+                {notifyButton}
+              </div>
+            ) : (
+              <Button
+                variant="secondary"
+                className="mt-2"
+                onClick={() => {
+                  clearQuickFilters();
+                  setCategory(null);
+                }}
+              >
+                Clear filters
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <EmptyState
+          className="mt-8"
+          title={locationMode === "current" ? "No stations deliver here yet" : "No stations matched"}
+          description={
+            locationMode === "current"
+              ? `No stations were found within ${DISCOVERY_RADII_KM[DISCOVERY_RADII_KM.length - 1]} km of your location. Try another city, or ask us to tell you when a station opens near you.`
+              : query
+                ? `No station matched "${query}"${city === "All cities" ? "" : ` in ${city}`}. Try a different name or estate.`
+                : `No stations are listed in ${city} yet. Try another city, or ask us to tell you when one opens here.`
+          }
+          action={
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <Button variant="secondary" onClick={resetFilters}>
+                Reset all filters
+              </Button>
+              {notifyButton}
+            </div>
+          }
+        />
+      )}
+
+      {/* Full-screen map, in sync with the list. */}
+      {view === "map" && (
+        <div className="fixed inset-0 z-[70] bg-white" role="dialog" aria-modal="true" aria-label="Stations on the map">
+          <StationMap
+            stations={mapStations}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            userLocation={mapUserLocation}
+            frameless
+            className="h-full w-full"
+          />
+          <div className="absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[600] flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={useCurrentLocation}
-              disabled={locating}
-              className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-all ${
-                locationMode === "current"
-                  ? "border-brand bg-brand-soft text-brand"
-                  : "border-border bg-white text-foreground/80 hover:border-brand/40 hover:text-foreground"
-              }`}
+              onClick={() => setView("list")}
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-foreground shadow-layered"
             >
-              {locating ? <ButtonLoader className="size-3.5" /> : <Navigation className="size-3.5" aria-hidden />}
-              {locating ? "Finding…" : "Near me"}
+              <X className="size-4" aria-hidden /> List
             </button>
-            {["All cities", ...CITIES].map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => selectCity(c)}
-                aria-pressed={city === c}
-                className={`min-h-9 shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                  city === c
-                  ? "border-brand bg-brand text-white shadow-accent"
-                  : "border-border bg-white text-foreground/80 hover:border-brand/40 hover:text-foreground"
-                }`}
+            <span className="inline-flex h-11 items-center rounded-full bg-white/95 px-4 text-sm font-medium text-muted-foreground shadow-soft backdrop-blur">
+              {displayResults.length} {displayResults.length === 1 ? "station" : "stations"} {countLabel}
+              {locationMode === "current" && discovery.radiusKm !== null
+                ? ` · within ${discovery.radiusKm} km${discovery.radiusKm > DISCOVERY_RADII_KM[0] ? ", expanded" : ""}`
+                : ""}
+            </span>
+          </div>
+
+          <AnimatePresence>
+            {selectedStation && (
+              <motion.div
+                key={selectedStation.business.id}
+                initial={reduce ? { opacity: 1 } : { opacity: 0, y: 32 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: 32 }}
+                transition={reduce ? { duration: 0 } : { type: "spring", duration: 0.5, bounce: 0.2 }}
+                className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-[600] mx-auto max-w-md"
               >
-                {c === "All cities" ? "Every city" : c}
-              </button>
-            ))}
-          </div>
-
-          {locationError ? (
-            <p className="mt-3 flex items-start gap-2 text-xs text-danger" role="alert">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>{locationError} Choose a city above to browse by an approximate location.</span>
-            </p>
-          ) : (
-            !location && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Tap “Near me” or a city to sort stations by distance.
-              </p>
-            )
-          )}
-        </Container>
-      </section>
-
-      <section
-        className={`sticky z-30 border-b border-border bg-white/95 py-3 shadow-sm backdrop-blur sm:py-4 ${
-          currentStep === "station"
-            ? "top-[calc(178px+env(safe-area-inset-top))] md:top-[calc(204px+env(safe-area-inset-top))] lg:top-[calc(5.625rem+env(safe-area-inset-top))]"
-            : "top-[calc(121px+env(safe-area-inset-top))] md:top-[calc(147px+env(safe-area-inset-top))] lg:top-[calc(5.625rem+env(safe-area-inset-top))]"
-        }`}
-      >
-        <Container>
-          <div className="flex items-center gap-4">
-            <div className="hidden shrink-0 sm:block">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Shop by</p>
-              <p className="text-sm font-semibold text-foreground">Water type</p>
-            </div>
-            <nav className="flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Station categories">
-              <button
-                type="button"
-                onClick={() => setCategory(null)}
-                aria-pressed={category === null}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-left transition-colors ${category === null ? "border-brand bg-brand text-white" : "border-border bg-white text-foreground hover:border-brand/40"}`}
-              >
-                <Navigation className="size-3.5" aria-hidden />
-                <span className="text-xs font-semibold">All stations</span>
-              </button>
-            {WATER_CATEGORIES.map((item) => {
-              const active = category === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setCategory((current) => current === item.id ? null : item.id)}
-                  aria-pressed={active}
-                  className={`group inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] ${
-                    active ? "border-brand bg-brand text-white" : "border-border bg-white text-foreground hover:border-brand/40 hover:bg-surface-2"
-                  }`}
-                >
-                  <item.icon className="size-3.5" aria-hidden />
-                  <span className="text-xs font-semibold">{item.label}</span>
-                </button>
-              );
-            })}
-            </nav>
-          </div>
-        </Container>
-      </section>
-
-      <section className="py-6 lg:py-8">
-        <Container>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              <strong className="font-semibold text-foreground">{displayResults.length}</strong>{" "}
-              {sendWater ? `stations delivering to ${sendWater.recipient.name}` : countLabel}
-              {hasResults && quickFiltersActive && (
-                <button
-                  type="button"
-                  onClick={clearQuickFilters}
-                  className="ml-2 inline-flex min-h-8 items-center gap-1 rounded-full bg-cta-soft px-2.5 text-xs font-semibold text-[var(--brand)] transition-colors hover:bg-[var(--brand)] hover:text-white"
-                >
-                  <X className="size-3" aria-hidden /> Clear
-                </button>
-              )}
-            </p>
-          </div>
-
-          {(query.trim() || city !== "All cities" || locationMode === "current") && (
-            <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Active filters">
-              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                Filters
-              </span>
-              {query.trim() && (
-                <FilterChip label={query.trim()} onClear={() => setQuery("")} clearLabel="Clear search filter" />
-              )}
-              {city !== "All cities" && (
-                <FilterChip label={city} onClear={() => selectCity("All cities")} clearLabel={`Stop filtering by ${city}`} />
-              )}
-              {!sendWater && locationMode === "current" && (
-                <FilterChip label="Nearest to me" onClear={stopUsingCurrentLocation} clearLabel="Stop using my current location" />
-              )}
-            </div>
-          )}
-
-          {!session.hydrated && view === "list" ? (
-            <div
-              className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 lg:gap-5"
-              aria-label="Loading nearby stations"
-              role="status"
-            >
-              {Array.from({ length: 8 }, (_, index) => (
-                <BrowseStationCardSkeleton key={index} />
-              ))}
-            </div>
-          ) : hasResults ? (
-            <div className="mt-5">
-              {/* List */}
-              {view === "list" && (
-                <div ref={listRef} className={locating ? "opacity-70" : undefined}>
-                  {locating && (
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-cta-soft px-3.5 py-2 text-sm font-medium text-[var(--brand)]">
-                      <ButtonLoader className="size-4" />
-                      Updating distances…
-                    </div>
-                  )}
-                  <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 lg:gap-5" stagger={0.06}>
-                    {displayResults.map((station) => (
-                      <StaggerItem key={station.business.id}>
-                        <div
-                          data-station-id={station.business.id}
-                          onMouseEnter={() => setSelectedId(station.business.id)}
-                          onFocus={() => setSelectedId(station.business.id)}
-                          onPointerDown={() => setSelectedId(station.business.id)}
-                          className={`h-full rounded-lg transition-shadow ${
-                            selectedId === station.business.id
-                              ? "ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-background"
-                              : ""
-                          }`}
-                        >
-                          <BrowseStationCard
-                            station={station}
-                            onSelect={() => {
-                              setSelectedStation(station.business.id);
-                              setCurrentStep("cart");
-                            }}
-                          />
-                        </div>
-                      </StaggerItem>
-                    ))}
-                  </Stagger>
-
-                  {/* Floating Map pill: the map is a full-screen layer, never a side panel. */}
+                <div className="relative rounded-xl bg-white p-3 shadow-layered">
                   <button
                     type="button"
-                    onClick={() => setView("map")}
-                    className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--brand)] px-5 text-sm font-semibold text-white shadow-accent transition-transform hover:scale-[1.03] active:scale-[0.98]"
+                    onClick={() => setSelectedId(null)}
+                    aria-label="Close station card"
+                    className="absolute right-4 top-4 z-10 flex size-9 items-center justify-center rounded-full bg-white text-foreground shadow-soft"
                   >
-                    <MapIcon className="size-4" aria-hidden /> Map
+                    <X className="size-4" aria-hidden />
                   </button>
-                </div>
-              )}
-
-              {/* Full-screen map, in sync with the list above it. */}
-              {view === "map" && (
-                <div className="fixed inset-0 z-[70] bg-white" aria-label="Stations on the map">
-                  <StationMap
-                    stations={mapStations}
-                    selectedId={selectedId}
-                    onSelect={setSelectedId}
-                    userLocation={mapUserLocation}
-                    frameless
-                    className="h-full w-full"
+                  <StationCard
+                    business={selectedStation.business}
+                    distanceKm={selectedStation.distanceKm}
+                    etaMinutes={selectedStation.etaMinutes}
+                    onSelect={() => session.setStationId(selectedStation.business.id)}
                   />
-                  <div className="absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[600] flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setView("list")}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-foreground shadow-layered transition-transform hover:scale-[1.02]"
-                    >
-                      <X className="size-4" aria-hidden /> Back to list
-                    </button>
-                    <span className="inline-flex min-h-11 items-center rounded-full bg-white/95 px-4 text-sm font-medium text-muted-foreground shadow-soft backdrop-blur">
-                      {displayResults.length} {countLabel}
-                      {locationMode === "current" && discovery.radiusKm !== null
-                        ? ` · within ${discovery.radiusKm} km${discovery.radiusKm > DISCOVERY_RADII_KM[0] ? ", expanded" : ""}`
-                        : ""}
-                    </span>
-                  </div>
-
-                  {/* Pin tap → mini card → open station. Shares selectedId with the list. */}
-                  <AnimatePresence>
-                    {selectedStation && (
-                      <motion.div
-                        key={selectedStation.business.id}
-                        initial={reduce ? { opacity: 1 } : { opacity: 0, y: 32 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={reduce ? { opacity: 0 } : { opacity: 0, y: 32 }}
-                        transition={reduce ? { duration: 0 } : { type: "spring", duration: 0.5, bounce: 0.2 }}
-                        className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-[600] mx-auto max-w-lg"
-                      >
-                        <div className="relative overflow-hidden rounded-2xl bg-white shadow-layered">
-                          <div className="flex items-center gap-3 p-3">
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${
-                                selectedStation.open ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
-                              }`}
-                            >
-                              {selectedStation.open ? "Open" : "Closed"}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-foreground">{selectedStation.business.name}</p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {selectedStation.distanceKm !== undefined && (
-                                  <>{selectedStation.distanceKm < 1 ? "<1 km" : `${selectedStation.distanceKm.toFixed(1)} km`} · </>
-                                )}
-                                ~{Math.round(etaOf(selectedStation))} min · {formatFee(selectedStation.business)}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedStation(selectedStation.business.id);
-                                setCurrentStep("cart");
-                                setView("list");
-                              }}
-                              className="inline-flex min-h-11 items-center rounded-full bg-[var(--brand)] px-4 text-sm font-semibold text-white transition-transform hover:scale-[1.03]"
-                            >
-                              View products
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedId(null)}
-                              aria-label="Close station card"
-                              className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            >
-                              <X className="size-4" aria-hidden />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <p className="mt-2 px-0.5 text-xs text-muted-foreground">
+                    {selectedStation.business.deliveryFee === 0
+                      ? "Free delivery"
+                      : `${formatKES(selectedStation.business.deliveryFee)} delivery`}{" "}
+                    · ~{Math.round(etaOf(selectedStation))} min
+                  </p>
                 </div>
-              )}
-            </div>
-          ) : discovery.results.length > 0 ? (
-            <div className="mt-8">
-              <EmptyState
-                title={
-                  sendWater
-                    ? `No station delivers to ${sendWater.recipient.name} yet`
-                    : "No stations match these filters"
-                }
-                description={
-                  sendWater
-                    ? "Try nudging the destination pin closer to a station - or ask us to notify you when one reaches this area."
-                    : "Loosen the quick filters to see the stations around you again."
-                }
-                action={
-                  sendWater ? (
-                    <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                      <Button variant="secondary" onClick={openSendWater}>
-                        Edit destination
-                      </Button>
-                      <Button variant="outline" onClick={notifyHere} disabled={notifying}>
-                        {notifying ? (
-                          <ButtonLoader className="size-4" />
-                        ) : (
-                          <Bell className="size-4" aria-hidden />
-                        )}
-                        Notify me when a station opens here
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button variant="secondary" className="mt-2" onClick={clearQuickFilters}>
-                      Clear quick filters
-                    </Button>
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <div className="mt-8">
-              <EmptyState
-                title={locationMode === "current" ? "No stations deliver here yet" : "No stations matched"}
-                description={
-                  locationMode === "current"
-                    ? `No stations were found within ${DISCOVERY_RADII_KM[DISCOVERY_RADII_KM.length - 1]} km of your address. Try manual city selection or clear your search - or ask us to notify you when a station opens near you.`
-                    : query
-                      ? `No refill business matched "${query}"${city === "All cities" ? "" : ` in ${city}`}. Try a different name or estate.`
-                      : `No stations are listed in ${city} yet. Try another city, browse everything, or ask us to notify you when one opens here.`
-                }
-                action={
-                  <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                    <Button variant="secondary" onClick={resetFilters}>
-                      Reset all filters
-                    </Button>
-                    {city !== "All cities" && (
-                      <Button variant="outline" onClick={() => selectCity("All cities")}>
-                        Browse every city
-                      </Button>
-                    )}
-                    <Button variant="outline" onClick={notifyHere} disabled={notifying}>
-                      {notifying ? (
-                        <ButtonLoader className="size-4" />
-                      ) : (
-                        <Bell className="size-4" aria-hidden />
-                      )}
-                      Notify me when a station opens here
-                    </Button>
-                  </div>
-                }
-              />
-            </div>
-          )}
-        </Container>
-      </section>
-      </>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
-      </section>
-      <LocationModal
-        open={stepLocationOpen}
-        onClose={() => setStepLocationOpen(false)}
-        onConfirm={() => {
-          setStepLocationOpen(false);
-          if (orderChoice.category && orderChoice.size) setCurrentStep("station");
-        }}
-      />
     </div>
-  );
-}
-
-function formatFee(business: { deliveryFee: number; freeDeliveryAbove: number }): string {
-  return business.deliveryFee === 0 ? "Free delivery" : `${formatKES(business.deliveryFee)} delivery`;
-}
-
-/** Removable summary of one active filter, shown above the results. */
-function FilterChip({ label, onClear, clearLabel }: { label: string; onClear: () => void; clearLabel: string }) {
-  return (
-    <span className="inline-flex h-9 max-w-56 items-center gap-1 rounded-full border border-[var(--brand)]/25 bg-cta-soft pl-3 pr-1 text-sm font-medium text-[var(--brand)]">
-      <span className="truncate">{label}</span>
-      <button
-        type="button"
-        onClick={onClear}
-        aria-label={clearLabel}
-        className="flex size-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white"
-      >
-        <X className="size-3.5" aria-hidden />
-      </button>
-    </span>
   );
 }

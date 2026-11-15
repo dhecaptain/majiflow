@@ -3,78 +3,56 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AlertCircle, Check, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Field, Input, Select } from "@/components/ui/field";
-import { MajiMark } from "@/components/layout/maji-mark";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useCustomer } from "@/components/order/customer-provider";
 import { CITIES } from "@/lib/constants";
 import { postLoginPath } from "@/lib/auth-navigation";
 
-const perks = [
-  "Browse verified stations around you",
-  "See the delivery fee before you pay",
-  "Follow an order from placed to delivered",
-  "Save your details for one-tap checkout",
-];
+/** Form chrome shared by the input fields on the sign-in and sign-up pages. */
+const inputClass = "h-12 rounded-md text-[15px] shadow-none";
+const submitClass = "h-14 w-full rounded-lg text-base font-bold";
 
 export function AuthShell({
   mode,
-  subtitle,
   children,
 }: {
   mode: "login" | "register";
-  subtitle: string;
+  /** Kept for the pages that pass it; the layout now carries the marketing copy. */
+  subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="w-full">
-      <div className="mx-auto grid w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-white shadow-layered lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="relative hidden flex-col justify-between overflow-hidden bg-foreground p-10 text-white lg:flex">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-60" />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-aqua/25 blur-[100px]"
-          />
+    <div className="flex w-full flex-col gap-5">
+      {children}
 
-          <div className="relative">
-            <span className="flex size-11 items-center justify-center overflow-hidden rounded-2xl shadow-accent">
-              <MajiMark />
-            </span>
-            <h2 className="mt-8 font-display text-3xl leading-[1.15] text-white">
-              Clean water, delivered simply
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-white/70">{subtitle}</p>
-          </div>
-
-          <ul className="relative space-y-3">
-            {perks.map((p) => (
-              <li key={p} className="flex items-start gap-2.5 text-sm text-white/85">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
-                  <Check className="size-3" strokeWidth={3} aria-hidden />
-                </span>
-                {p}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="p-7 sm:p-10">{children}</div>
+      <div className="flex items-center gap-3 text-[13px] text-muted-foreground" aria-hidden>
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
       </div>
 
-      <p className="mt-6 text-center text-sm text-white/70">
+      <Link
+        href="/"
+        className="flex h-13 w-full items-center justify-center rounded-lg border border-border bg-white text-[15px] font-bold text-foreground transition-colors hover:bg-surface-2"
+      >
+        Order without an account
+      </Link>
+
+      <p className="mt-2 text-center text-sm text-muted-foreground">
         {mode === "login" ? (
           <>
-            New here?{" "}
-            <Link href="/register" className="font-semibold text-white hover:underline">
+            New to MajiFlow?{" "}
+            <Link href="/register" className="font-bold text-[var(--brand)] hover:underline">
               Create an account
             </Link>
           </>
         ) : (
           <>
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-white hover:underline">
+            <Link href="/login" className="font-bold text-[var(--brand)] hover:underline">
               Sign in
             </Link>
           </>
@@ -126,19 +104,20 @@ export function RegisterForm() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-foreground sm:text-3xl">Create your account</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Create your account</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         Order water, track deliveries and save your addresses - all from one account.
       </p>
       {error && (
-        <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+        <p role="alert" className="mt-4 flex items-start gap-2 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
         </p>
       )}
 
-      <form onSubmit={submit} className="mt-8 space-y-5">
+      <form onSubmit={submit} className="mt-6 space-y-4">
         <Field label="Full name" required>
           <Input
+            className={inputClass}
             required
             placeholder="e.g. Amina Yusuf"
             value={form.name}
@@ -148,6 +127,7 @@ export function RegisterForm() {
         </Field>
         <Field label="Phone number" required hint="Used for order updates and delivery calls.">
           <Input
+            className={inputClass}
             required
             type="tel"
             placeholder="07XX XXX XXX"
@@ -158,6 +138,7 @@ export function RegisterForm() {
         </Field>
         <Field label="Email" hint="For receipts and account recovery.">
           <Input
+            className={inputClass}
             type="email"
             placeholder="you@example.com"
             value={form.email}
@@ -175,21 +156,21 @@ export function RegisterForm() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               autoComplete="new-password"
-              className="pr-11"
+              className={`${inputClass} pr-12`}
             />
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {showPassword ? <EyeOff className="size-4.5" aria-hidden /> : <Eye className="size-4.5" aria-hidden />}
             </button>
           </div>
         </Field>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nearest town" required>
-            <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
+            <Select className={inputClass} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
               {CITIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -199,13 +180,14 @@ export function RegisterForm() {
           </Field>
           <Field label="Estate / area">
             <Input
+            className={inputClass}
               placeholder="e.g. Kasarani, Milimani…"
               value={form.estate}
               onChange={(e) => setForm({ ...form, estate: e.target.value })}
             />
           </Field>
         </div>
-        <Button type="submit" size="lg" className="w-full" disabled={sending}>
+        <Button type="submit" size="lg" className={submitClass} disabled={sending}>
           {sending ? "Creating your account…" : "Create account"}
         </Button>
         <p className="text-center text-xs leading-relaxed text-muted-foreground">
@@ -265,19 +247,20 @@ export function LoginForm() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-foreground sm:text-3xl">Sign in</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Welcome back</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         Sign in with your email and password.
       </p>
       {error && (
-        <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+        <p role="alert" className="mt-4 flex items-start gap-2 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
         </p>
       )}
 
-      <form onSubmit={submit} className="mt-8 space-y-5">
+      <form onSubmit={submit} className="mt-6 space-y-4">
         <Field label="Email" required>
           <Input
+            className={inputClass}
             required
             type="email"
             placeholder="you@example.com"
@@ -295,19 +278,19 @@ export function LoginForm() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               autoComplete="current-password"
-              className="pr-11"
+              className={`${inputClass} pr-12`}
             />
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {showPassword ? <EyeOff className="size-4.5" aria-hidden /> : <Eye className="size-4.5" aria-hidden />}
             </button>
           </div>
         </Field>
-        <Button type="submit" size="lg" className="w-full" disabled={sending}>
+        <Button type="submit" size="lg" className={submitClass} disabled={sending}>
           {sending ? "Signing in…" : "Sign in"}
         </Button>
         <p className="text-center text-sm">

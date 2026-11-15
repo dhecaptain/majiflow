@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Clock, MapPin, ShieldCheck, Smartphone, Star, Truck } from "lucide-react";
-import { Container } from "@/components/ui/container";
-import { StationBadge } from "@/components/shared/station-badge";
+import { ChevronLeft, Clock, MapPin, ShieldCheck, Smartphone, Star, Truck } from "lucide-react";
 import { BusinessAvailability } from "@/components/shared/business-availability";
 import { JourneyLink, JourneyRecorder } from "@/components/order/journey";
 import { StationMenu } from "@/components/order/station-menu";
+import { FulfilmentToggle, StationCartBar, StationOpenPill } from "@/components/order/station-status";
 import { getStationBySlug } from "@/lib/server/catalog";
 import { formatKES } from "@/lib/format";
 
@@ -31,134 +30,136 @@ export default async function BusinessProfile({ params }: PageProps) {
   const business = await getStationBySlug(slug);
   if (!business) notFound();
 
-  const lowStockCount = business.products.filter((p) => p.stock <= p.stockLow).length;
+  const hasRating = business.reviewCount > 0;
+  const areas = business.estates.slice(0, 3).join(" · ") || business.city;
 
   return (
-    <div>
+    <div className="pb-28">
       <JourneyRecorder step="station" href={`/browse/${business.slug}`} />
-      {/* Banner */}
-      <section className="relative overflow-hidden bg-ink">
-        <div aria-hidden className="absolute inset-0">
-          <Image
-            src={business.cover}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/60 to-ink/20" />
+
+      {/* Cover: full-bleed on a phone, a rounded banner on a desktop. */}
+      <div className="relative h-[210px] sm:h-[260px] lg:mx-auto lg:mt-6 lg:h-[300px] lg:max-w-[1200px] lg:px-6">
+        <div className="relative size-full overflow-hidden bg-surface-3 lg:rounded-2xl">
+          <Image src={business.cover} alt="" fill priority sizes="(min-width: 1200px) 1152px, 100vw" className="object-cover" />
         </div>
+        <JourneyLink
+          step="browse"
+          aria-label="Back to stations"
+          className="absolute left-4 top-[calc(env(safe-area-inset-top)+0.875rem)] flex size-11 items-center justify-center rounded-full bg-white text-foreground shadow-card transition-colors hover:bg-surface-2 lg:left-10 lg:top-4"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+        </JourneyLink>
+      </div>
 
-        <Container className="relative pb-8 pt-40 sm:pt-56">
-          <JourneyLink
-            step="browse"
-            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="size-4" aria-hidden /> Back to stations
-          </JourneyLink>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-3xl leading-tight tracking-tight text-white sm:text-4xl">
-              {business.name}
-            </h1>
-            <StationBadge verified={business.verified} paid={business.paid} />
-          </div>
-          <p className="mt-2 max-w-2xl text-base leading-relaxed text-white/85">{business.tagline}</p>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/85">
-            {business.reviewCount > 0 ? (
-              <span className="inline-flex items-center gap-1.5 font-semibold text-white">
-                <Star className="size-4 fill-warning text-warning" aria-hidden />
-                {business.rating}
-                <span className="font-normal text-white/70">({business.reviewCount})</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 font-semibold text-white">New on MajiFlow</span>
-            )}
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="size-4" aria-hidden /> {business.city}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Truck className="size-4" aria-hidden /> {formatKES(business.deliveryFee)} delivery
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="size-4" aria-hidden /> ~{business.avgDeliveryMinutes} min
-            </span>
-          </div>
-        </Container>
-      </section>
-
-      {/* About + details */}
-      <section className="py-12 lg:py-16">
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
-            <div>
-              <h2 className="font-display text-2xl text-foreground">About this station</h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-foreground/85">
-                {business.description}
-              </p>
-              <div className="mt-6 flex flex-wrap gap-2">
-                {business.estates.map((e) => (
-                  <span
-                    key={e}
-                    className="rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground"
-                  >
-                    Delivers to {e}
+      <div className="relative -mt-6 rounded-t-2xl bg-white lg:mt-0 lg:rounded-none">
+        <div className="mx-auto max-w-[1200px] px-4 pt-5 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 lg:pt-8">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <StationOpenPill business={business} />
+                {business.verified && (
+                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-aqua-soft px-2.5 text-xs font-bold text-[#00707d]">
+                    <ShieldCheck className="size-3.5" aria-hidden />
+                    Verified
                   </span>
-                ))}
+                )}
               </div>
+              <h1 className="font-display text-[26px] font-bold leading-tight text-foreground lg:text-4xl">{business.name}</h1>
+              <p className="text-sm text-muted-foreground lg:text-base">{business.tagline || areas}</p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Clock className="size-4 text-[var(--brand)]" aria-hidden /> Opening hours
-                </div>
-                <BusinessAvailability hours={business.openingHours} compact className="mt-2" />
-              </div>
-
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Truck className="size-4 text-[var(--brand)]" aria-hidden /> Delivery
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {formatKES(business.deliveryFee)} per order
-                  {business.freeDeliveryAbove > 0 && (
-                    <> · free over {formatKES(business.freeDeliveryAbove)}</>
+            <dl className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
+              <div className="flex flex-col items-center gap-0.5 px-2 py-3">
+                <dt className="sr-only">Rating</dt>
+                <dd className="flex items-center gap-1 text-[15px] font-extrabold text-foreground">
+                  {hasRating ? (
+                    <>
+                      <Star className="size-4 fill-sun text-sun" aria-hidden />
+                      {business.rating.toFixed(1)}
+                    </>
+                  ) : (
+                    "New"
                   )}
-                </p>
+                </dd>
+                <dd className="text-xs text-muted-foreground">{hasRating ? `${business.reviewCount} reviews` : "No reviews yet"}</dd>
               </div>
+              <div className="flex flex-col items-center gap-0.5 px-2 py-3">
+                <dt className="sr-only">Delivery time</dt>
+                <dd className="text-[15px] font-extrabold text-foreground">~{business.avgDeliveryMinutes} min</dd>
+                <dd className="text-xs text-muted-foreground">Delivery</dd>
+              </div>
+              <div className="flex flex-col items-center gap-0.5 px-2 py-3">
+                <dt className="sr-only">Delivery fee</dt>
+                <dd className="text-[15px] font-extrabold text-foreground">
+                  {business.deliveryFee === 0 ? "Free" : formatKES(business.deliveryFee)}
+                </dd>
+                <dd className="text-xs text-muted-foreground">Delivery fee</dd>
+              </div>
+            </dl>
 
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Smartphone className="size-4 text-[var(--brand)]" aria-hidden /> Payment
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {business.acceptsMpesa ? "Pay on delivery or M-Pesa" : "Pay on delivery"}
-                  {business.acceptsCard && " · Card"}
-                </p>
-              </div>
+            <FulfilmentToggle business={business} />
 
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <ShieldCheck className="size-4 text-[var(--brand)]" aria-hidden /> Stock
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {lowStockCount > 0 ? `${lowStockCount} items low` : "Plenty in stock"} · sealed before dispatch
-                </p>
-              </div>
-            </div>
+            {business.freeDeliveryAbove > 0 && business.deliveryFee > 0 && (
+              <p className="rounded-md bg-success-soft px-3 py-2.5 text-[13px] font-semibold text-[#14532d]">
+                Free delivery on orders over {formatKES(business.freeDeliveryAbove)}
+              </p>
+            )}
+
+            <StationMenu business={business} />
           </div>
-        </Container>
-      </section>
 
-      {/* Menu */}
-      <section className="py-4 lg:py-6">
-        <Container>
-          <StationMenu business={business} />
-        </Container>
-      </section>
+          {/* About the station: beside the menu on a desktop, after it on a phone. */}
+          <aside aria-labelledby="about-title" className="mt-10 flex flex-col gap-3 lg:sticky lg:top-24 lg:mt-0 lg:self-start">
+            <h2 id="about-title" className="text-[17px] font-extrabold tracking-tight text-foreground">
+              About this station
+            </h2>
+            {business.description && (
+              <p className="text-sm leading-relaxed text-foreground/85">{business.description}</p>
+            )}
+            <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
+              <div className="flex gap-3 p-4">
+                <Clock className="mt-0.5 size-[18px] shrink-0 text-[var(--brand)]" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">Opening hours</p>
+                  <BusinessAvailability hours={business.openingHours} compact className="!mt-1" />
+                </div>
+              </div>
+              <div className="flex gap-3 p-4">
+                <Truck className="mt-0.5 size-[18px] shrink-0 text-[var(--brand)]" aria-hidden />
+                <div>
+                  <p className="text-sm font-bold text-foreground">Delivery</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {business.deliveryFee === 0 ? "Free delivery" : `${formatKES(business.deliveryFee)} per order`}
+                    {business.freeDeliveryAbove > 0 && business.deliveryFee > 0 && (
+                      <> · free over {formatKES(business.freeDeliveryAbove)}</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 p-4">
+                <Smartphone className="mt-0.5 size-[18px] shrink-0 text-[var(--brand)]" aria-hidden />
+                <div>
+                  <p className="text-sm font-bold text-foreground">Payment</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {business.acceptsMpesa ? "Pay on delivery or M-Pesa" : "Pay on delivery"}
+                  </p>
+                </div>
+              </div>
+              {business.estates.length > 0 && (
+                <div className="flex gap-3 p-4">
+                  <MapPin className="mt-0.5 size-[18px] shrink-0 text-[var(--brand)]" aria-hidden />
+                  <div>
+                    <p className="text-sm font-bold text-foreground">Delivers to</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{business.estates.join(", ")}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <StationCartBar />
     </div>
   );
 }

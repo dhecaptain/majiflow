@@ -5,9 +5,8 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
-  Check,
+  LocateFixed,
   MapPin,
-  Navigation,
   Search,
   Store,
   Truck,
@@ -366,12 +365,15 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
     ? { duration: 0 }
     : (transition ?? { duration: 0.35, ease: [0.16, 1, 0.3, 1] });
 
+  const closeButton =
+    "flex size-11 shrink-0 items-center justify-center rounded-md bg-white text-foreground shadow-[0_2px_8px_rgba(11,37,69,0.12)] transition-colors hover:bg-surface-2";
+
   return (
     <>
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-[95] flex items-stretch justify-center sm:items-center sm:p-6"
+            className="fixed inset-0 z-[95] flex items-stretch justify-center lg:items-center lg:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -383,125 +385,88 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
               role="dialog"
               aria-modal="true"
               aria-label="Choose delivery or pickup and your location"
-              className="relative z-10 flex h-full w-full flex-col overflow-hidden bg-white lg:h-[88vh] lg:max-w-6xl lg:rounded-3xl"
+              className="relative z-10 flex h-full w-full flex-col overflow-hidden bg-white lg:grid lg:h-[88vh] lg:max-w-6xl lg:grid-cols-[440px_1fr] lg:rounded-2xl"
               initial={reduce ? { opacity: 1 } : { opacity: 0, y: 40, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduce ? { opacity: 0 } : { opacity: 0, y: 30, scale: 0.98 }}
               transition={panelTransition}
             >
-              <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-display text-lg text-foreground">Where should we go?</h2>
-                  <p className="truncate text-xs text-muted-foreground">
-                    Drop your pin, then tell us the area so the rider finds you
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-                >
-                  <X className="size-5" aria-hidden />
-                </button>
-              </header>
+              {/* Controls: a sheet over the map on a phone, a column beside it on a wide screen. */}
+              <div className="relative z-10 order-2 -mt-6 flex min-h-0 flex-1 flex-col rounded-t-2xl bg-white shadow-[0_-10px_30px_rgba(11,37,69,0.12)] lg:order-1 lg:mt-0 lg:rounded-none lg:border-r lg:border-border lg:shadow-none">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  <div className="flex flex-col gap-4 px-4 pb-5 pt-2.5 sm:px-5 lg:pt-6">
+                    <span aria-hidden className="h-1 w-10 self-center rounded-full bg-border lg:hidden" />
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-xl font-extrabold tracking-tight text-foreground">
+                          {fulfilment === "pickup" ? "Where are you?" : "Where should we deliver?"}
+                        </h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Drop your pin, then tell us the area so the rider finds you
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close"
+                        className="hidden size-11 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3 lg:flex"
+                      >
+                        <X className="size-5" aria-hidden />
+                      </button>
+                    </div>
 
-              <div className="grid min-h-0 flex-1 grid-rows-[minmax(200px,34vh)_1fr] lg:grid-cols-[420px_1fr] lg:grid-rows-1">
-                {/* Controls: below the map on a phone, beside it on a wide screen. */}
-                <div className="order-2 flex min-h-0 flex-col overflow-y-auto overscroll-contain lg:order-1 lg:border-r lg:border-border">
-                  <div className="space-y-4 p-4 sm:p-5">
                     <FulfilmentToggle value={fulfilment} onChange={changeFulfilment} />
 
-                    <div className="relative">
-                      <Search
-                        className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <label htmlFor="loc-search" className="sr-only">
-                        Search for an estate, area or town
-                      </label>
-                      <Input
-                        id="loc-search"
-                        ref={firstFieldRef}
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search estate, area or town"
-                        className="h-13 rounded-xl pl-12 text-base"
-                        autoComplete="off"
-                      />
+                    <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-2 p-3.5">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-brand-soft text-[var(--brand)]">
+                        <MapPin className="size-5" aria-hidden />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5" aria-live="polite">
+                        <span className="truncate text-[15px] font-bold text-foreground">
+                          {pinLabel?.title ?? "No spot chosen yet"}
+                        </span>
+                        <span className="text-[13px] leading-snug text-muted-foreground">
+                          {pinLabel
+                            ? (pinLabel.detail ?? "Move the map so the pin sits on your door.")
+                            : "Search, or move the map so the pin sits on your door."}
+                        </span>
+                      </span>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => void locateCustomer()}
                       disabled={locating}
-                      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand)]/30 bg-cta-soft px-4 py-3 text-left text-sm font-semibold text-[var(--brand)] transition-colors hover:border-[var(--brand)]"
+                      className="flex min-h-11 items-center gap-3 self-start rounded-full pr-3 text-left text-sm font-bold text-[var(--brand)] transition-colors hover:underline disabled:opacity-80"
                     >
-                      {locating ? (
-                        <ButtonLoader className="size-5" />
-                      ) : (
-                        <Navigation className="size-5" aria-hidden />
-                      )}
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-white shadow-soft">
+                        {locating ? (
+                          <ButtonLoader className="size-5" />
+                        ) : (
+                          <LocateFixed className="size-5" aria-hidden />
+                        )}
+                      </span>
                       {locating ? "Getting your location…" : "Use my current location"}
                     </button>
 
                     {error && (
-                      <p role="alert" className="flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+                      <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
                         <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
                       </p>
                     )}
 
-                    {hasQuery && (
-                      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-                        {searching && results.length === 0 && (
-                          <li className="px-4 py-3 text-sm text-muted-foreground">Searching…</li>
-                        )}
-                        {!searching && results.length === 0 && (
-                          <li className="px-4 py-3 text-sm text-muted-foreground">
-                            No match. Try another spelling, or drop a pin on the map.
-                          </li>
-                        )}
-                        {results.map((place) => (
-                          <li key={place.id}>
-                            <button
-                              type="button"
-                              onClick={() => choosePlace(place)}
-                              className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
-                            >
-                              <MapPin
-                                className="mt-0.5 size-4 shrink-0 text-[var(--brand)]"
-                                aria-hidden
-                              />
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-medium text-foreground">
-                                  {place.label}
-                                </span>
-                                {place.sublabel && (
-                                  <span className="block truncate text-xs text-muted-foreground">
-                                    {place.sublabel}
-                                  </span>
-                                )}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
                     {savedAddresses.length > 0 && (
                       <div>
-                        <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                          Saved
-                        </p>
+                        <p className="text-[13px] font-semibold text-muted-foreground">Saved</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {savedAddresses.map((a, i) => (
                             <button
                               key={`${a.estate}-${i}`}
                               type="button"
                               onClick={() => chooseSaved(a)}
-                              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-3 py-2 text-sm text-foreground transition-colors hover:border-[var(--brand)]/50"
+                              className="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border border-border bg-white px-3.5 text-sm font-semibold text-foreground transition-colors hover:border-[var(--brand)]/50"
                             >
-                              <MapPin className="size-3.5 shrink-0 text-[var(--brand)]" aria-hidden />
+                              <MapPin className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
                               <span className="truncate">{a.label || a.estate}</span>
                             </button>
                           ))}
@@ -518,6 +483,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                             setEstateTouched(true);
                           }}
                           placeholder="e.g. Kawangware"
+                          className="h-12 rounded-md text-[15px] shadow-none"
                         />
                       </Field>
                       <Field label="Landmark / house no." hint="Helps the rider find you">
@@ -525,6 +491,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                           value={landmark}
                           onChange={(e) => setLandmark(e.target.value)}
                           placeholder="e.g. Gate next to Naivas"
+                          className="h-12 rounded-md text-[15px] shadow-none"
                         />
                       </Field>
                     </div>
@@ -535,42 +502,106 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                       </div>
                     )}
                   </div>
+                </div>
 
-                  <div className="sticky bottom-0 shrink-0 border-t border-border bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                    <Button size="lg" className="w-full" onClick={confirmPoint}>
-                      <Check className="size-4" aria-hidden />
-                      {fulfilment === "pickup" ? "Continue to stations" : "Confirm location"}
-                    </Button>
+                <div className="shrink-0 border-t border-[#eef3fa] bg-white px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3.5 sm:px-5">
+                  <Button size="lg" className="h-[54px] w-full rounded-lg text-base font-bold hover:translate-y-0" onClick={confirmPoint}>
+                    {fulfilment === "pickup" ? "Continue to stations" : "Confirm location"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* The map: above the sheet on a phone, beside the controls on a wide screen. */}
+              <div
+                ref={mapAreaRef}
+                className="relative z-0 order-1 h-[46svh] min-h-[260px] shrink-0 lg:order-2 lg:h-full"
+              >
+                <CenterPinMap
+                  center={point}
+                  focus={focusTarget}
+                  onChange={(p) => setPoint(p)}
+                  onAddress={applyGeo}
+                  userLocation={userLoc}
+                  onLocate={() => void locateCustomer()}
+                  locating={locating}
+                  stations={pickerStations}
+                  label={pinLabel}
+                  // The phone sheet overlaps the map's bottom edge; lift the locate button clear of it.
+                  className="h-full w-full [&>button]:bottom-10 [&>button]:size-12 lg:[&>button]:bottom-5 lg:[&>button]:right-5"
+                />
+
+                {/* Search floats over the map, ride-hailing style. */}
+                <div className="absolute inset-x-0 top-0 z-[600] flex items-start gap-2.5 p-3.5 sm:p-4">
+                  <button type="button" onClick={onClose} aria-label="Close" className={cn(closeButton, "lg:hidden")}>
+                    <X className="size-5" aria-hidden />
+                  </button>
+                  <div className="relative min-w-0 flex-1">
+                    <Search
+                      className="pointer-events-none absolute left-3.5 top-6 size-5 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <label htmlFor="loc-search" className="sr-only">
+                      Search for an estate, area or town
+                    </label>
+                    <Input
+                      id="loc-search"
+                      ref={firstFieldRef}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search estate, area or town"
+                      className="h-12 rounded-md border-0 bg-white pl-11 text-[15px] shadow-[0_2px_8px_rgba(11,37,69,0.12)]"
+                      autoComplete="off"
+                    />
+
+                    {hasQuery && (
+                      <ul className="absolute inset-x-0 top-full mt-2 max-h-[max(9rem,calc(46svh-7.5rem))] lg:max-h-80 divide-y divide-border overflow-y-auto rounded-md bg-white shadow-float">
+                        {searching && results.length === 0 && (
+                          <li className="px-4 py-3 text-sm text-muted-foreground">Searching…</li>
+                        )}
+                        {!searching && results.length === 0 && (
+                          <li className="px-4 py-3 text-sm text-muted-foreground">
+                            No match. Try another spelling, or drop a pin on the map.
+                          </li>
+                        )}
+                        {results.map((place) => (
+                          <li key={place.id}>
+                            <button
+                              type="button"
+                              onClick={() => choosePlace(place)}
+                              className="flex min-h-11 w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                            >
+                              <MapPin
+                                className="mt-0.5 size-4 shrink-0 text-[var(--brand)]"
+                                aria-hidden
+                              />
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-foreground">
+                                  {place.label}
+                                </span>
+                                {place.sublabel && (
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {place.sublabel}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
 
-                {/* The map: above the controls on a phone, beside them on a wide screen. */}
-                <div
-                  ref={mapAreaRef}
-                  className="relative order-1 min-h-[200px] lg:order-2 lg:h-full"
-                >
-                  <CenterPinMap
-                    center={point}
-                    focus={focusTarget}
-                    onChange={(p) => setPoint(p)}
-                    onAddress={applyGeo}
-                    userLocation={userLoc}
-                    onLocate={() => void locateCustomer()}
-                    locating={locating}
-                    stations={pickerStations}
-                    label={pinLabel}
-                    className="h-full w-full"
-                  />
-                  {nearby.length > 0 && (
-                    <div className="sm:hidden">
-                      <NearbySheet
-                        stations={nearby}
-                        onNotify={notifyWhenAvailable}
-                        containerRef={mapAreaRef}
-                      />
-                    </div>
-                  )}
-                </div>
+                {nearby.length > 0 && (
+                  // Stops short of the sheet's rounded overlap so the peek stays visible.
+                  <div className="pointer-events-none absolute inset-x-0 bottom-6 top-0 sm:hidden [&>*]:pointer-events-auto">
+                    <NearbySheet
+                      stations={nearby}
+                      onNotify={notifyWhenAvailable}
+                      containerRef={mapAreaRef}
+                    />
+                  </div>
+                )}
               </div>
 
               <ConfirmSwitch
@@ -622,23 +653,23 @@ function ConfirmSwitch({
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="switch-fulfilment-title"
-          className="relative z-10 w-full max-w-sm rounded-3xl bg-white p-6 shadow-layered"
+          className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-layered"
           initial={reduce ? { opacity: 1 } : { opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.98 }}
           transition={reduce ? { duration: 0 } : { duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
         >
-          <h3 id="switch-fulfilment-title" className="font-display text-lg text-foreground">
+          <h3 id="switch-fulfilment-title" className="text-lg font-extrabold tracking-tight text-foreground">
             Switch to {next === "pickup" ? "pickup" : "delivery"}?
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             Your cart already has items. Switching changes the fees and what the station does next.
           </p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
-            <Button className="flex-1" onClick={onConfirm}>
+            <Button size="lg" className="flex-1 rounded-lg font-bold" onClick={onConfirm}>
               Switch to {next === "pickup" ? "pickup" : "delivery"}
             </Button>
-            <Button variant="outline" className="flex-1" onClick={onCancel}>
+            <Button size="lg" variant="secondary" className="flex-1 rounded-lg font-bold shadow-none" onClick={onCancel}>
               Keep {current === "pickup" ? "pickup" : "delivery"}
             </Button>
           </div>
@@ -663,7 +694,7 @@ function FulfilmentToggle({
     <div
       role="radiogroup"
       aria-label="How would you like to receive your order?"
-      className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-2 p-1"
+      className="grid grid-cols-2 gap-1 rounded-lg bg-surface-3 p-1"
     >
       {options.map((option) => {
         const active = value === option.id;
@@ -675,7 +706,7 @@ function FulfilmentToggle({
             aria-checked={active}
             onClick={() => onChange(option.id)}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+              "flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition-colors",
               active
                 ? "bg-white text-[var(--brand)] shadow-soft"
                 : "text-muted-foreground hover:text-foreground"

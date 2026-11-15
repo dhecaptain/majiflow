@@ -320,12 +320,28 @@
   }
 }
 
-/* Lift bottom-anchored notifications clear of the checkout pay bar. */
+/* The phone tab bar owns the bottom of the screen: floating bars and
+   notifications sit above it. `lg` and up has no tab bar. */
+:root {
+  --tabbar-h: 0px;
+}
+
+@media (max-width: 1023.98px) {
+  html[data-tabbar] {
+    --tabbar-h: calc(4.25rem + env(safe-area-inset-bottom));
+    --notify-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Lift bottom-anchored notifications clear of a phone action bar
+   (checkout pay bar, cart and station cart bars). */
+[data-bottom-bar="true"],
 [data-checkout-pay-bar="true"] {
   --notify-bottom: calc(9rem + env(safe-area-inset-bottom));
 }
 
 @media (min-width: 1024px) {
+  [data-bottom-bar="true"],
   [data-checkout-pay-bar="true"] {
     --notify-bottom: 1rem;
   }

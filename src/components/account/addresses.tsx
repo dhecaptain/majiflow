@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Crosshair, MapPin, Pencil, Plus, Star, Trash2 } from "lucide-react";
-import { Container } from "@/components/ui/container";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { useCustomer } from "@/components/order/customer-provider";
 import { useToast } from "@/components/ui/toast";
-import { AccountError, AccountPageHeader, useAccountResource } from "@/components/account/account-ui";
+import { ACCOUNT_PAGE, AccountError, AccountPageHeader, useAccountResource } from "@/components/account/account-ui";
 import { accountApi } from "@/lib/account-client";
 import type { SavedAddress } from "@/lib/account";
 import { CITIES, ESTATES } from "@/lib/constants";
@@ -113,8 +112,8 @@ function AddressForm({
   };
 
   return (
-    <form onSubmit={submit} noValidate className="h-fit rounded-2xl border border-border bg-white p-6 shadow-card">
-      <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
+    <form onSubmit={submit} noValidate className="h-fit rounded-xl border border-border bg-white p-4 sm:p-5">
+      <h2 className="flex items-center gap-2 text-[15px] font-extrabold text-foreground">
         {editing ? <Pencil className="size-5" aria-hidden /> : <Plus className="size-5" aria-hidden />}
         {editing ? `Edit ${editing.label}` : "Add an address"}
       </h2>
@@ -246,7 +245,7 @@ export function AddressesPage() {
   };
 
   return (
-    <Container className="py-6 lg:py-8">
+    <div className={ACCOUNT_PAGE}>
       <AccountPageHeader
         eyebrow={
           <>
@@ -256,9 +255,9 @@ export function AddressesPage() {
         title="Delivery locations"
       />
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {full && !editing ? (
-          <div className="h-fit rounded-2xl border border-dashed border-border bg-white p-6 text-sm text-muted-foreground">
+          <div className="h-fit rounded-xl border border-dashed border-border bg-white p-6 text-sm text-muted-foreground">
             You&apos;ve saved {MAX_ADDRESSES} addresses, the maximum. Remove one to add another.
           </div>
         ) : (
@@ -281,7 +280,7 @@ export function AddressesPage() {
         )}
 
         <section aria-labelledby="saved-places">
-          <h2 id="saved-places" className="font-display text-lg text-foreground">
+          <h2 id="saved-places" className="text-[15px] font-extrabold text-foreground">
             Your saved places
           </h2>
           <div className="mt-4">
@@ -298,7 +297,7 @@ export function AddressesPage() {
             ) : (
               <ul className="flex flex-col gap-3">
                 {addresses.map((a) => (
-                  <li key={a.id} className="rounded-2xl border border-border bg-white p-5 shadow-card">
+                  <li key={a.id} className="rounded-xl border border-border bg-white p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -372,6 +371,6 @@ export function AddressesPage() {
           </Button>
         </div>
       </Dialog>
-    </Container>
+    </div>
   );
 }

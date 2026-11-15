@@ -38,7 +38,7 @@ export function CategoryChips({
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
         if (visible) setActive(visible.target.id.replace(/^cat-/, ""));
       },
-      { rootMargin: "-140px 0px -60% 0px", threshold: [0.1, 0.3, 0.6] }
+      { rootMargin: "-80px 0px -60% 0px", threshold: [0.1, 0.3, 0.6] }
     );
     sections.forEach((s) => observer.observe(s));
     return () => observer.disconnect();
@@ -51,7 +51,8 @@ export function CategoryChips({
     clickLockRef.current = window.setTimeout(() => {
       clickLockRef.current = null;
     }, 700);
-    const top = el.getBoundingClientRect().top + window.scrollY - 168;
+    const offset = window.matchMedia("(min-width: 1024px)").matches ? 150 : 76;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top, behavior: "smooth" });
   };
 
@@ -60,7 +61,7 @@ export function CategoryChips({
   return (
     <div
       className={cn(
-        "sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 -mx-4 border-b border-border bg-white/95 px-4 backdrop-blur-md md:top-[calc(5.625rem+env(safe-area-inset-top))]",
+        "sticky top-[env(safe-area-inset-top)] z-30 -mx-4 border-b border-[#eef3fa] bg-white/95 px-4 backdrop-blur-md sm:mx-0 sm:px-0 lg:top-[calc(4.5rem+env(safe-area-inset-top))]",
         className
       )}
     >
@@ -72,10 +73,10 @@ export function CategoryChips({
             onClick={() => jump(c.id)}
             aria-pressed={active === c.id}
             className={cn(
-              "min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all",
+              "h-10 shrink-0 rounded-full border px-4 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]",
               active === c.id
-                ? "border-[var(--brand)] bg-[var(--brand)] text-white shadow-accent"
-                : "border-border bg-white text-muted-foreground hover:border-[var(--brand)]/40 hover:text-[var(--brand)]"
+                ? "border-[var(--brand)] bg-brand-soft text-brand-deep"
+                : "border-border bg-white text-foreground hover:border-[var(--brand)]/40"
             )}
           >
             {c.label}

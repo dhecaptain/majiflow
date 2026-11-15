@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ShoppingCart } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import type { Business, BusinessProduct, ProductOption } from "@/lib/types";
 import { useStations } from "@/components/order/stations-provider";
 import { maxOrderQuantity, resolveCart, unitPriceFor } from "@/lib/cart";
 import { lineDeposit, lineSubtotal } from "@/lib/pricing";
 import { formatKES } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useCart } from "@/components/order/cart-provider";
@@ -16,6 +15,7 @@ import { useOptionalCartUi } from "@/components/order/cart-ui-provider";
 import { QuantityStepper } from "@/components/order/quantity-stepper";
 import { useBusinessAvailability } from "@/components/shared/business-availability";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
+import { ProductOptionCard, productOptionsLegend } from "@/components/order/product-sheet";
 
 /** Quantity, line total and the next step for the item being viewed. */
 export function ItemPurchasePanel({ business, product }: { business: Business; product: BusinessProduct }) {
@@ -61,12 +61,12 @@ export function ItemPurchasePanel({ business, product }: { business: Business; p
 
   if (inCart) {
     return (
-      <div className="rounded-2xl border border-[var(--brand)]/25 bg-[var(--brand)]/5 p-4 sm:p-5">
+      <div className="rounded-xl border-2 border-[var(--brand)] bg-surface-2 p-4 sm:p-5">
         <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <CheckCircle2 className="size-4 text-success" aria-hidden /> In your cart
         </p>
         {selectedOption && (
-          <p className="mt-1 text-xs font-medium text-[var(--brand)]">{selectedOption.label}</p>
+          <p className="mt-1 text-[13px] font-semibold text-[var(--brand)]">{selectedOption.label}</p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <QuantityStepper
@@ -86,17 +86,17 @@ export function ItemPurchasePanel({ business, product }: { business: Business; p
         {unavailableReason && <p className="mt-3 text-xs text-danger">{unavailableReason}</p>}
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {canCheckout ? (
-            <Link href="/checkout" className={buttonVariants({ size: "lg", className: "w-full" })}>
+            <Link href="/checkout" className={buttonVariants({ size: "lg", className: "h-14 w-full rounded-lg text-base font-bold" })}>
               Go to checkout
             </Link>
           ) : (
-            <Link href="/cart" className={buttonVariants({ size: "lg", className: "w-full" })}>
+            <Link href="/cart" className={buttonVariants({ size: "lg", className: "h-14 w-full rounded-lg text-base font-bold" })}>
               Review cart
             </Link>
           )}
           <Link
             href={`/browse/${business.slug}#menu`}
-            className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full" })}
+            className={buttonVariants({ variant: "secondary", size: "lg", className: "h-14 w-full rounded-lg text-base font-bold shadow-none" })}
           >
             Add more items
           </Link>
@@ -105,112 +105,69 @@ export function ItemPurchasePanel({ business, product }: { business: Business; p
     );
   }
 
+  const total = lineSubtotal(unitPrice, pick) + lineDeposit(deposit, pick);
+
   return (
-    <div className="rounded-2xl border border-border bg-white p-4 shadow-card sm:p-5">
+    <div className="flex flex-col gap-4">
       {canOrder ? (
         <>
           {options.length > 0 && (
-            <fieldset className="mb-4">
-              <legend className="text-sm font-semibold text-foreground">Choose how you want it</legend>
-              <div className="mt-2 flex flex-col gap-2">
-                {options.map((option) => {
-                  const optionMax = maxOrderQuantity(product, option);
-                  const selected = selectedOption?.id === option.id;
-                  return (
-                    <label
-                      key={option.id}
-                      className={cn(
-                        "flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
-                        selected
-                          ? "border-[var(--brand)] bg-cta-soft/40"
-                          : "border-border bg-white hover:border-[var(--brand)]/40"
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="purchase-option"
-                        className="sr-only"
-                        checked={selected}
-                        disabled={optionMax === 0}
-                        onChange={() => {
-                          setOptionId(option.id);
-                          setQty(1);
-                        }}
-                      />
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2",
-                          selected ? "border-[var(--brand)]" : "border-border"
-                        )}
-                      >
-                        {selected && <span className="size-2 rounded-full bg-[var(--brand)]" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-foreground">{option.label}</span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          {optionMax === 0
-                            ? "Out of stock"
-                            : `${formatKES(unitPriceFor(product, option))} each${
-                                option.priceDelta < 0
-                                  ? ` · ${formatKES(Math.abs(option.priceDelta))} off`
-                                  : option.priceDelta > 0
-                                    ? ` · +${formatKES(option.priceDelta)}`
-                                    : ""
-                              }`}
-                        </span>
-                        {option.deposit ? (
-                          <span className="mt-0.5 block text-xs font-medium text-[var(--brand)]">
-                            + {formatKES(option.deposit)} refundable deposit
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+            <fieldset className="flex flex-col gap-2.5">
+              <legend className="mb-2.5 flex items-center gap-2 text-[15px] font-extrabold text-foreground">
+                {productOptionsLegend(product)}
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                  Required
+                </span>
+              </legend>
+              {options.map((option) => (
+                <ProductOptionCard
+                  key={option.id}
+                  name="purchase-option"
+                  product={product}
+                  option={option}
+                  selected={selectedOption?.id === option.id}
+                  onSelect={() => {
+                    setOptionId(option.id);
+                    setQty(1);
+                  }}
+                />
+              ))}
             </fieldset>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <QuantityStepper value={pick} max={max} label={product.name} onChange={setQty} />
-            <p className="text-sm text-muted-foreground" aria-live="polite">
-              Total{" "}
-              <strong className="text-lg text-foreground">
-                {formatKES(lineSubtotal(unitPrice, pick) + lineDeposit(deposit, pick))}
-              </strong>
-            </p>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Up to {max} per order{max < 20 ? ` - ${max} left in stock` : ""}.
             {deposit > 0 ? ` Includes a ${formatKES(deposit)} refundable deposit per unit.` : ""}
           </p>
-          <Button
-            size="lg"
-            className="mt-4 w-full"
-            onClick={() => {
-              const line = {
-                businessId: business.id,
-                productId: product.id,
-                quantity: pick,
-                ...(selectedOption ? { optionId: selectedOption.id } : {}),
-              };
-              if (cartUi) cartUi.requestAdd(line);
-              else addItem(line);
-              toast({ kind: "success", title: "Added to cart", message: `${pick} × ${product.name}` });
-              setQty(1);
-            }}
-          >
-            <ShoppingCart className="size-4" aria-hidden /> Add to cart ·{" "}
-            {formatKES(lineSubtotal(unitPrice, pick) + lineDeposit(deposit, pick))}
-          </Button>
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-white p-3 shadow-card">
+            <QuantityStepper value={pick} max={max} label={product.name} onChange={setQty} className="shrink-0" />
+            <Button
+              size="lg"
+              className="h-14 min-w-0 flex-1 rounded-lg px-[18px] text-base font-bold hover:translate-y-0 [&>span]:w-full [&>span]:justify-between"
+              onClick={() => {
+                const line = {
+                  businessId: business.id,
+                  productId: product.id,
+                  quantity: pick,
+                  ...(selectedOption ? { optionId: selectedOption.id } : {}),
+                };
+                if (cartUi) cartUi.requestAdd(line);
+                else addItem(line);
+                toast({ kind: "success", title: "Added to cart", message: `${pick} × ${product.name}` });
+                setQty(1);
+              }}
+            >
+              <span>Add</span>
+              <span aria-live="polite">{formatKES(total)}</span>
+            </Button>
+          </div>
         </>
       ) : (
-        <>
-          <Button size="lg" className="w-full" disabled>
+        <div className="flex flex-col gap-3">
+          <Button size="lg" className="h-14 w-full rounded-lg text-base font-bold" disabled>
             {max === 0 ? "Out of stock" : "Not available right now"}
           </Button>
-          <p className="mt-3 text-sm text-muted-foreground">{unavailableReason}</p>
-        </>
+          <p className="text-sm text-muted-foreground">{unavailableReason}</p>
+        </div>
       )}
     </div>
   );

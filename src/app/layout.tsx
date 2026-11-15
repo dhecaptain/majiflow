@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, JetBrains_Mono, Pacifico, Poppins } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { Footer } from "@/components/footer/site-footer";
+import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { PwaRegister } from "@/components/pwa-register";
 import { SplashLoader } from "@/components/motion/splash-loader";
 import { TopProgressBar } from "@/components/motion/top-progress-bar";
@@ -186,6 +187,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         />
         <Providers stations={stations}>{children}</Providers>
         <Footer />
+        <BottomTabBar />
         <PwaRegister />
         <TopProgressBar />
         <SplashLoader />

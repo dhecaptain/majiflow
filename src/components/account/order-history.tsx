@@ -2,23 +2,27 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PackageOpen, RotateCcw } from "lucide-react";
-import { Container } from "@/components/ui/container";
-import { OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
-import { Badge } from "@/components/ui/badge";
+import { ChevronRight, Droplet, PackageOpen, RotateCcw } from "lucide-react";
+import { ORDER_STATUS_META, paymentMeta } from "@/components/ui/order-status-badge";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { BlurImage } from "@/components/ui/blur-image";
+import { useStations } from "@/components/order/stations-provider";
 import {
+  ACCOUNT_PAGE,
   AccountError,
+  CustomerStatusPill,
+  OrderProgress,
   AccountPageHeader,
   itemsSummary,
   useAccountResource,
   useReorder,
 } from "@/components/account/account-ui";
 import { accountApi } from "@/lib/account-client";
-import type { OrderFilter } from "@/lib/account";
+import { ACTIVE_STATUSES, type OrderFilter } from "@/lib/account";
 import { formatKES } from "@/lib/format";
 import type { Order } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const FILTERS: { value: OrderFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -43,19 +47,97 @@ function OrderDate({ iso }: { iso: string }) {
   );
 }
 
-function ReorderButton({ order, pending, onReorder }: { order: Order; pending: boolean; onReorder: () => void }) {
+/** Station cover from the catalogue, or a plain water tile when the station is no longer listed. */
+function StationThumb({ businessId }: { businessId: string }) {
+  const businesses = useStations();
+  const station = businesses.find((b) => b.id === businessId);
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="min-h-11 sm:min-h-9"
-      disabled={pending}
-      aria-busy={pending}
-      aria-label={`Reorder ${order.orderNumber}`}
-      onClick={onReorder}
-    >
-      <RotateCcw className="size-3.5" aria-hidden /> {pending ? "Adding…" : "Reorder"}
-    </Button>
+    <span aria-hidden className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-soft text-[var(--brand)]">
+      {station ? (
+        <BlurImage src={station.cover} alt="" fill sizes="48px" className="object-cover" />
+      ) : (
+        <Droplet className="size-5" />
+      )}
+    </span>
+  );
+}
+
+function OrderCardHead({ order }: { order: Order }) {
+  const count = order.items.reduce((n, i) => n + i.quantity, 0);
+  return (
+    <div className="flex items-center gap-3">
+      <StationThumb businessId={order.businessId} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="truncate text-[15px] font-bold text-foreground">{order.businessName}</p>
+        <p className="truncate text-[13px] text-muted-foreground">
+          {order.orderNumber} · <OrderDate iso={order.placedAt} /> · {count} item{count === 1 ? "" : "s"} ·{" "}
+          {formatKES(order.total)}
+        </p>
+      </div>
+      <CustomerStatusPill status={order.status} />
+    </div>
+  );
+}
+
+function ActiveOrderCard({ order }: { order: Order }) {
+  return (
+    <article className="flex flex-col gap-3.5 rounded-xl border-2 border-[var(--brand)] bg-white p-4">
+      <OrderCardHead order={order} />
+      <OrderProgress status={order.status} />
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+          {order.eta ? `ETA ${order.eta}` : ORDER_STATUS_META[order.status].label}
+          <span className="font-medium text-muted-foreground"> · {paymentMeta(order).label}</span>
+        </p>
+        <div className="flex shrink-0 items-center gap-1">
+          <Link
+            href={`/account/orders/${order.id}`}
+            aria-label={`Details for ${order.orderNumber}`}
+            className="inline-flex min-h-11 items-center rounded-md px-2.5 text-sm font-bold text-muted-foreground hover:text-foreground"
+          >
+            Details
+          </Link>
+          <Link
+            href={`/order/${order.id}`}
+            aria-label={`Track ${order.orderNumber}`}
+            className="inline-flex min-h-11 items-center gap-1 rounded-md px-2.5 text-sm font-bold text-[var(--brand)] hover:text-brand-deep"
+          >
+            Track <ChevronRight className="size-4" aria-hidden />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PastOrderCard({ order, pending, onReorder }: { order: Order; pending: boolean; onReorder: () => void }) {
+  return (
+    <article className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4">
+      <OrderCardHead order={order} />
+      <p className="text-[13px] text-muted-foreground">
+        {itemsSummary(order)}
+        <span className="text-muted-foreground"> · {paymentMeta(order).label}</span>
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Link
+          href={`/account/orders/${order.id}`}
+          aria-label={`Details for ${order.orderNumber}`}
+          className="flex h-11 items-center justify-center rounded-md border border-border text-sm font-bold text-foreground transition-colors hover:bg-surface-2"
+        >
+          Details
+        </Link>
+        <button
+          type="button"
+          disabled={pending}
+          aria-busy={pending}
+          aria-label={`Reorder ${order.orderNumber}`}
+          onClick={onReorder}
+          className="flex h-11 items-center justify-center gap-1.5 rounded-md bg-brand-soft text-sm font-bold text-brand-deep transition-colors hover:bg-brand-soft/70 disabled:opacity-50"
+        >
+          <RotateCcw className="size-4" aria-hidden /> {pending ? "Adding…" : "Order again"}
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -64,27 +146,50 @@ export function OrderHistoryPage() {
   const { resource, reload } = useAccountResource(filter, () => accountApi.orders(filter));
   const { reorder, pendingId } = useReorder();
 
-  return (
-    <Container className="py-6 lg:py-8">
-      <AccountPageHeader title="All your orders" description="Every refill you have ordered, newest first." />
+  const renderList = (orders: Order[]) => (
+    <ul className="grid gap-3 lg:grid-cols-2">
+      {orders.map((o) => (
+        <li key={o.id}>
+          {ACTIVE_STATUSES.includes(o.status) ? (
+            <ActiveOrderCard order={o} />
+          ) : (
+            <PastOrderCard order={o} pending={pendingId === o.id} onReorder={() => reorder(o.id)} />
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 
-      <div role="group" aria-label="Filter orders" className="mb-5 flex gap-2">
-        {FILTERS.map((f) => (
-          <Button
-            key={f.value}
-            size="sm"
-            className="min-h-11 px-4 sm:min-h-9"
-            variant={filter === f.value ? "default" : "secondary"}
-            aria-pressed={filter === f.value}
-            onClick={() => {
-              if (filter === f.value) return;
-              setFilter(f.value);
-              reload();
-            }}
-          >
-            {f.label}
-          </Button>
-        ))}
+  return (
+    <div className={ACCOUNT_PAGE}>
+      <AccountPageHeader title="Orders" description="Every refill you have ordered, newest first." />
+
+      <div
+        role="group"
+        aria-label="Filter orders"
+        className="mb-4 grid grid-cols-3 gap-1 rounded-[14px] border border-border bg-white p-1 sm:max-w-sm"
+      >
+        {FILTERS.map((f) => {
+          const on = filter === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              aria-pressed={on}
+              onClick={() => {
+                if (on) return;
+                setFilter(f.value);
+                reload();
+              }}
+              className={cn(
+                "h-10 rounded-[10px] text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--brand)]",
+                on ? "bg-surface-2 text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </button>
+          );
+        })}
       </div>
 
       {resource.status === "loading" ? (
@@ -105,84 +210,36 @@ export function OrderHistoryPage() {
           <p className="sr-only" aria-live="polite">
             {resource.data.total} order{resource.data.total === 1 ? "" : "s"}
           </p>
-
-          {/* Mobile: cards */}
-          <ul className="flex flex-col gap-3 md:hidden">
-            {resource.data.orders.map((o) => (
-              <li key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
-                <Link href={`/account/orders/${o.id}`} className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {o.orderNumber} · <OrderDate iso={o.placedAt} />
-                    </span>
-                    <OrderStatusBadge status={o.status} />
-                  </div>
-                  <p className="mt-2 font-medium text-foreground">{o.businessName}</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{itemsSummary(o)}</p>
-                </Link>
-                <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-foreground">{formatKES(o.total)}</span>
-                    <Badge variant={paymentMeta(o).tone}>
-                      {paymentMeta(o).label}
-                    </Badge>
-                  </div>
-                  <ReorderButton order={o} pending={pendingId === o.id} onReorder={() => reorder(o.id)} />
+          {filter === "all" ? (
+            (() => {
+              const inProgress = resource.data.orders.filter((o) => ACTIVE_STATUSES.includes(o.status));
+              const past = resource.data.orders.filter((o) => !ACTIVE_STATUSES.includes(o.status));
+              return (
+                <div className="flex flex-col gap-6">
+                  {inProgress.length > 0 && (
+                    <section aria-labelledby="orders-active">
+                      <h2 id="orders-active" className="mb-3 text-[15px] font-extrabold text-foreground">
+                        In progress
+                      </h2>
+                      {renderList(inProgress)}
+                    </section>
+                  )}
+                  {past.length > 0 && (
+                    <section aria-labelledby="orders-past">
+                      <h2 id="orders-past" className="mb-3 text-[15px] font-extrabold text-foreground">
+                        Past orders
+                      </h2>
+                      {renderList(past)}
+                    </section>
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
-
-          {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-card md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <caption className="sr-only">Your orders</caption>
-                <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    {["Order", "Station", "Items", "Total", "Payment", "Status"].map((h) => (
-                      <th key={h} scope="col" className="px-5 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                        {h}
-                      </th>
-                    ))}
-                    <th scope="col" className="px-5 py-3.5">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resource.data.orders.map((o) => (
-                    <tr key={o.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                      <td className="px-5 py-4 font-mono text-xs text-muted-foreground">
-                        <Link href={`/account/orders/${o.id}`} className="font-semibold text-[var(--brand)] hover:underline">
-                          {o.orderNumber}
-                        </Link>
-                        <span className="mt-0.5 block">
-                          <OrderDate iso={o.placedAt} />
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 font-medium text-foreground">{o.businessName}</td>
-                      <td className="px-5 py-4 text-foreground/85">{itemsSummary(o)}</td>
-                      <td className="px-5 py-4 font-bold text-foreground">{formatKES(o.total)}</td>
-                      <td className="px-5 py-4">
-                        <Badge variant={paymentMeta(o).tone}>
-                          {paymentMeta(o).label}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4">
-                        <OrderStatusBadge status={o.status} />
-                      </td>
-                      <td className="px-5 py-4">
-                        <ReorderButton order={o} pending={pendingId === o.id} onReorder={() => reorder(o.id)} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+              );
+            })()
+          ) : (
+            renderList(resource.data.orders)
+          )}
         </>
       )}
-    </Container>
+    </div>
   );
 }

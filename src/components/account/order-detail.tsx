@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, MapPin, Navigation, PackageX, RotateCcw, XCircle } from "lucide-react";
-import { Container } from "@/components/ui/container";
+import { ArrowLeft, ChevronRight, MapPin, Navigation, PackageX, RotateCcw, XCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
-import { ORDER_STATUS_META, OrderStatusBadge, paymentMeta } from "@/components/ui/order-status-badge";
+import { ORDER_STATUS_META, paymentMeta, paymentMethodLabel } from "@/components/ui/order-status-badge";
 import { useToast } from "@/components/ui/toast";
-import { AccountError, AccountPageHeader, useAccountResource, useReorder } from "@/components/account/account-ui";
+import {
+  ACCOUNT_PAGE,
+  AccountError,
+  AccountPageHeader,
+  CustomerStatusPill,
+  OrderProgress,
+  useAccountResource,
+  useReorder,
+} from "@/components/account/account-ui";
 import { ACTIVE_STATUSES } from "@/lib/account";
 import { accountApi } from "@/lib/account-client";
 import { formatKES } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-KE", {
@@ -34,7 +42,7 @@ export function OrderDetailPage({ id }: { id: string }) {
   const back = (
     <Link
       href="/account/orders"
-      className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+      className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground"
     >
       <ArrowLeft className="size-4" aria-hidden /> All orders
     </Link>
@@ -42,16 +50,16 @@ export function OrderDetailPage({ id }: { id: string }) {
 
   if (resource.status === "loading") {
     return (
-      <Container className="py-6 lg:py-8">
+      <div className={ACCOUNT_PAGE}>
         {back}
         <LoadingState label="Loading order…" />
-      </Container>
+      </div>
     );
   }
 
   if (resource.status === "error") {
     return (
-      <Container className="py-6 lg:py-8">
+      <div className={ACCOUNT_PAGE}>
         {back}
         {resource.code === 404 ? (
           <EmptyState
@@ -65,7 +73,7 @@ export function OrderDetailPage({ id }: { id: string }) {
         ) : (
           <AccountError message={resource.error} code={resource.code} onRetry={reload} />
         )}
-      </Container>
+      </div>
     );
   }
 
@@ -89,7 +97,7 @@ export function OrderDetailPage({ id }: { id: string }) {
   };
 
   return (
-    <Container className="py-6 lg:py-8">
+    <div className={ACCOUNT_PAGE}>
       {back}
       <AccountPageHeader
         eyebrow={
@@ -100,16 +108,31 @@ export function OrderDetailPage({ id }: { id: string }) {
         title={order.businessName}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <OrderStatusBadge status={order.status} />
+            <CustomerStatusPill status={order.status} />
             <Badge variant={payment.tone}>{payment.label}</Badge>
           </div>
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="space-y-6">
-          <section aria-labelledby="order-items" className="rounded-2xl border border-border bg-card p-5 shadow-card">
-            <h2 id="order-items" className="font-display text-lg text-foreground">
+      {active && (
+        <Link
+          href={`/order/${order.id}`}
+          className="mb-6 flex flex-col gap-3.5 rounded-xl border-2 border-[var(--brand)] bg-white p-4 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+        >
+          <OrderProgress status={order.status} labels />
+          <span className="flex items-center justify-between text-sm">
+            <span className="font-semibold">{order.eta ? `ETA ${order.eta}` : ORDER_STATUS_META[order.status].label}</span>
+            <span className="flex items-center gap-1 font-bold text-[var(--brand)]">
+              Track live <ChevronRight className="size-4" aria-hidden />
+            </span>
+          </span>
+        </Link>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr] lg:gap-6">
+        <div className="space-y-4 lg:space-y-6">
+          <section aria-labelledby="order-items" className="rounded-xl border border-border bg-white p-4 sm:p-5">
+            <h2 id="order-items" className="text-[15px] font-extrabold text-foreground">
               Items
             </h2>
             <ul className="mt-3 divide-y divide-border">
@@ -146,13 +169,13 @@ export function OrderDetailPage({ id }: { id: string }) {
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <dt>Paid with</dt>
-                <dd>{order.payment === "mpesa" ? "M-Pesa" : "Card"}</dd>
+                <dd>{paymentMethodLabel(order.payment)}</dd>
               </div>
             </dl>
           </section>
 
-          <section aria-labelledby="order-timeline" className="rounded-2xl border border-border bg-card p-5 shadow-card">
-            <h2 id="order-timeline" className="font-display text-lg text-foreground">
+          <section aria-labelledby="order-timeline" className="rounded-xl border border-border bg-white p-4 sm:p-5">
+            <h2 id="order-timeline" className="text-[15px] font-extrabold text-foreground">
               History
             </h2>
             {timeline.length === 0 ? (
@@ -180,31 +203,43 @@ export function OrderDetailPage({ id }: { id: string }) {
           </section>
         </div>
 
-        <div className="space-y-6">
-          <section aria-labelledby="order-actions" className="rounded-2xl border border-border bg-card p-5 shadow-card">
+        <div className="space-y-4 lg:space-y-6">
+          <section aria-labelledby="order-actions" className="rounded-xl border border-border bg-white p-4 sm:p-5">
             <h2 id="order-actions" className="sr-only">
               Actions
             </h2>
             <div className="flex flex-col gap-2">
               {active && (
-                <Link href={`/order/${order.id}`} className={buttonVariants({ className: "w-full" })}>
+                <Link
+                  href={`/order/${order.id}`}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand)] text-[15px] font-bold text-white transition-colors hover:bg-[var(--cta-hover)]"
+                >
                   <Navigation className="size-4" aria-hidden /> Track live
                 </Link>
               )}
-              <Button
-                variant={active ? "secondary" : "default"}
-                className="w-full"
+              <button
+                type="button"
+                className={cn(
+                  "flex h-12 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-bold transition-colors disabled:opacity-50",
+                  active
+                    ? "bg-brand-soft text-brand-deep hover:bg-brand-soft/70"
+                    : "bg-[var(--brand)] text-white hover:bg-[var(--cta-hover)]"
+                )}
                 disabled={pendingId === order.id}
                 aria-busy={pendingId === order.id}
                 onClick={() => reorder(order.id)}
               >
                 <RotateCcw className="size-4" aria-hidden />
-                {pendingId === order.id ? "Adding to cart…" : "Reorder"}
-              </Button>
+                {pendingId === order.id ? "Adding to cart…" : "Order again"}
+              </button>
               {cancelBlockReason === null ? (
-                <Button variant="outline" className="w-full text-danger" onClick={() => setConfirmCancel(true)}>
+                <button
+                  type="button"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-border bg-white text-[15px] font-bold text-danger transition-colors hover:bg-danger-soft"
+                  onClick={() => setConfirmCancel(true)}
+                >
                   <XCircle className="size-4" aria-hidden /> Cancel order
-                </Button>
+                </button>
               ) : (
                 order.status === "pending" && (
                   <p className="text-xs text-muted-foreground">{cancelBlockReason}</p>
@@ -213,8 +248,8 @@ export function OrderDetailPage({ id }: { id: string }) {
             </div>
           </section>
 
-          <section aria-labelledby="order-address" className="rounded-2xl border border-border bg-card p-5 shadow-card">
-            <h2 id="order-address" className="font-display text-lg text-foreground">
+          <section aria-labelledby="order-address" className="rounded-xl border border-border bg-white p-4 sm:p-5">
+            <h2 id="order-address" className="text-[15px] font-extrabold text-foreground">
               Delivery
             </h2>
             <div className="mt-3 flex items-start gap-2 text-sm">
@@ -257,6 +292,6 @@ export function OrderDetailPage({ id }: { id: string }) {
           </Button>
         </div>
       </Dialog>
-    </Container>
+    </div>
   );
 }

@@ -6,15 +6,29 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Transition } from "framer-motion";
 import {
-  AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, MapPin, Navigation, RefreshCcw, ShieldCheck, Smartphone, Store, User } from "lucide-react";
+  AlertCircle,
+  Banknote,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  MapPin,
+  Navigation,
+  RefreshCcw,
+  ShieldCheck,
+  Smartphone,
+  Store,
+  UserRound,
+} from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/feedback";
 import { OrderMap } from "@/components/ui/order-map";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { useCart } from "@/components/order/cart-provider";
 import { useOrderSession } from "@/components/order/order-session-provider";
 import { useCustomer, type CustomerProfile } from "@/components/order/customer-provider";
+import { useOrderEntry } from "@/components/order/order-entry-provider";
 import { useToast } from "@/components/ui/toast";
 import { useStations } from "@/components/order/stations-provider";
 import { CITIES, ESTATES } from "@/lib/constants";
@@ -31,6 +45,7 @@ import {
 import { createOrder, fetchOrder, generateOrderNumber, OrderValidationError, postLocation } from "@/lib/orders";
 import { resolveCart } from "@/lib/cart";
 import { useMotionSafe } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import type { DeliveryAddress, Order, PaymentMethod } from "@/lib/types";
 import { ButtonLoader } from "@/components/ui/button-loader";
 import { MpesaWait } from "@/components/motion/mpesa-wait";
@@ -130,6 +145,7 @@ function CheckoutForm() {
   const { items, clear, hydrated: cartHydrated } = useCart();
   const { profile, loggedIn, saveProfileDetails } = useCustomer();
   const { fulfilment, address: sessionAddress } = useOrderSession();
+  const { openAuth } = useOrderEntry();
   const { toast } = useToast();
   // Collection from the station: no delivery fee, and the order is collected
   // at the station's own address.
@@ -691,545 +707,577 @@ function CheckoutForm() {
 
   if (lastOrder) {
     return (
-      <Container className="py-24">
-        <div className="mx-auto max-w-md text-center">
-          <SuccessCheck className="mx-auto" />
-          <h1 className="mt-2 font-display text-3xl text-foreground">Order confirmed</h1>
-          <p className="mt-3 leading-relaxed text-muted-foreground">
-            <strong className="text-foreground">{lastOrder.orderNumber}</strong> ·{" "}
-            {lastOrder.businessName} · <strong className="text-foreground">{formatKES(lastOrder.total)}</strong>
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Thanks for ordering. We&apos;ll text you as it moves along, and you can follow it live from here.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href={`/order/${lastOrder.id}`} className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>Track order</Link>
-            <Link href="/browse" className={buttonVariants({ variant: "outline", size: "lg", className: "w-full sm:w-auto" })}>
-              Continue browsing
-            </Link>
+      <div className="min-h-screen bg-surface-2">
+        <CheckoutTopBar />
+        <Container className="py-16 lg:py-24">
+          <div className="mx-auto max-w-md rounded-xl border border-border bg-white p-6 text-center">
+            <SuccessCheck className="mx-auto" />
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Order confirmed</h1>
+            <p className="mt-3 leading-relaxed text-muted-foreground">
+              <strong className="text-foreground">{lastOrder.orderNumber}</strong> ·{" "}
+              {lastOrder.businessName} · <strong className="text-foreground">{formatKES(lastOrder.total)}</strong>
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Thanks for ordering. We&apos;ll text you as it moves along, and you can follow it live from here.
+            </p>
+            <div className="mt-6 flex flex-col gap-2.5">
+              <Link href={`/order/${lastOrder.id}`} className={PRIMARY_LINK}>
+                Track order
+              </Link>
+              <Link
+                href="/browse"
+                className="flex min-h-11 items-center justify-center text-sm font-bold text-[var(--brand)] hover:text-[var(--brand-deep)]"
+              >
+                Continue browsing
+              </Link>
+            </div>
           </div>
-        </div>
-      </Container>
+        </Container>
+      </div>
     );
   }
 
   if (!cartHydrated) {
     return (
-      <Container className="py-24">
-        <LoadingState label="Loading your order…" />
-      </Container>
+      <div className="min-h-screen bg-surface-2">
+        <CheckoutTopBar />
+        <Container className="py-24">
+          <LoadingState label="Loading your order…" />
+        </Container>
+      </div>
     );
   }
 
   if (cart.lines.length === 0) {
     return (
-      <Container className="py-24 text-center">
-        <h1 className="font-display text-3xl text-foreground">Nothing to check out</h1>
-        <p className="mt-3 text-muted-foreground">Your cart is empty. Add water from a station first.</p>
-        <Link href="/browse" className={buttonVariants({ size: "lg", className: "mt-6" })}>
-          Browse stations
-        </Link>
-      </Container>
+      <div className="min-h-screen bg-surface-2">
+        <CheckoutTopBar />
+        <Container className="py-16 lg:py-24">
+          <div className="mx-auto max-w-md rounded-xl border border-border bg-white p-6 text-center">
+            <h2 className="text-xl font-extrabold tracking-tight text-foreground lg:hidden">Nothing to check out</h2>
+            <h1 className="hidden text-2xl font-extrabold tracking-tight text-foreground lg:block">Nothing to check out</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Your cart is empty. Add water from a station first.</p>
+            <Link href="/browse" className={cn(PRIMARY_LINK, "mt-6")}>
+              Browse stations
+            </Link>
+          </div>
+        </Container>
+      </div>
     );
   }
 
   if (rows.length === 0 || cartProblems.length > 0) {
     return (
-      <Container className="py-24 text-center">
-        <h1 className="font-display text-3xl text-foreground">Your cart needs a quick check</h1>
-        <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-          {cartProblems.length === 1 ? "One item is" : `${cartProblems.length} items are`} unavailable or over the
-          stock a station can fill. Update your cart, then come back to pay - nothing has been charged.
-        </p>
-        <Link href="/cart" className={buttonVariants({ size: "lg", className: "mt-6" })}>
-          Review cart
-        </Link>
-      </Container>
+      <div className="min-h-screen bg-surface-2">
+        <CheckoutTopBar />
+        <Container className="py-16 lg:py-24">
+          <div className="mx-auto max-w-md rounded-xl border border-border bg-white p-6 text-center">
+            <h2 className="text-xl font-extrabold tracking-tight text-foreground lg:hidden">Your cart needs a quick check</h2>
+            <h1 className="hidden text-2xl font-extrabold tracking-tight text-foreground lg:block">
+              Your cart needs a quick check
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {cartProblems.length === 1 ? "One item is" : `${cartProblems.length} items are`} unavailable or over the
+              stock a station can fill. Update your cart, then come back to pay - nothing has been charged.
+            </p>
+            <Link href="/cart" className={cn(PRIMARY_LINK, "mt-6")}>
+              Review cart
+            </Link>
+          </div>
+        </Container>
+      </div>
     );
   }
 
-  return (
-    <>
-      <Container className="py-14 pb-32 lg:py-20">
-      <div className="mb-8">
-        <Link
-          href="/cart"
-          className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[var(--brand)] hover:underline"
-        >
-          <ArrowLeft className="size-4" aria-hidden /> Back to cart
-        </Link>
-        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          <span className="size-1.5 rounded-full bg-foreground animate-pulse-dot" /> Delivery & payment
-        </p>
-        <h1 className="mt-2 font-display text-3xl text-foreground sm:text-4xl">Finish your order</h1>
-      </div>
+  const ctaLabel = method === "mpesa" ? "Pay with M-Pesa" : "Place order";
 
-      <form
-        id="checkout-form"
-        ref={formRef}
-        onSubmit={submitDelivery}
-        className="grid gap-8 lg:grid-cols-[1.5fr_0.9fr]"
-        noValidate
-      >
-        {/* Delivery details */}
-        <div className="flex min-w-0 flex-col gap-8">
-          {loggedIn && !profileComplete && (
-            <div className="flex items-start gap-3 rounded-2xl border border-[var(--brand)]/20 bg-brand/5 p-4">
-              <AlertCircle className="mt-0.5 size-5 shrink-0 text-[var(--brand)]" aria-hidden />
-              <p className="text-sm text-foreground/85">
-                <strong className="font-semibold text-foreground">Finish your profile</strong> to
-                speed up checkout.{" "}
-                <Link href="/account/profile" className="font-semibold text-[var(--brand)] hover:underline">
-                  Complete your delivery details
-                </Link>
-              </p>
-            </div>
-          )}
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]" aria-hidden>
-                <User className="size-4.5" />
-              </span>
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 1</p>
-                <h2 className="font-display text-lg text-foreground">Contact</h2>
-                <p className="text-xs text-muted-foreground">Who we call when your water arrives.</p>
+  return (
+    <div className="min-h-screen bg-surface-2 pb-40 lg:pb-16">
+      <CheckoutTopBar />
+
+      <div className="mx-auto max-w-[1200px] px-4 pt-4 sm:px-6 lg:pt-10">
+        <div className="mb-6 hidden lg:block">
+          <Link
+            href="/cart"
+            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-[var(--brand)] hover:text-[var(--brand-deep)]"
+          >
+            <ChevronLeft className="size-4" aria-hidden /> Back to cart
+          </Link>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Checkout</h1>
+        </div>
+
+        <form
+          id="checkout-form"
+          ref={formRef}
+          onSubmit={submitDelivery}
+          className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8"
+          noValidate
+        >
+          <div className="flex min-w-0 flex-col gap-3.5">
+            {!loggedIn && (
+              <button
+                type="button"
+                onClick={() => openAuth("account")}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg bg-brand-soft px-3.5 py-3 text-left text-sm font-semibold text-[var(--brand-deep)] transition-colors hover:bg-brand-soft/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+              >
+                <UserRound className="size-5 shrink-0" aria-hidden />
+                <span className="flex-1">Have an account? Sign in to use saved details.</span>
+                <ChevronRight className="size-4 shrink-0" aria-hidden />
+              </button>
+            )}
+            {loggedIn && !profileComplete && (
+              <div className="flex items-start gap-3 rounded-lg bg-brand-soft px-3.5 py-3">
+                <AlertCircle className="mt-0.5 size-5 shrink-0 text-[var(--brand)]" aria-hidden />
+                <p className="text-sm text-foreground/85">
+                  <strong className="font-semibold text-foreground">Finish your profile</strong> to speed up checkout.{" "}
+                  <Link href="/account/profile" className="font-semibold text-[var(--brand)] hover:underline">
+                    Complete your delivery details
+                  </Link>
+                </p>
               </div>
-            </div>
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <Field label="Full name" required error={touch ? errors.name : undefined}>
-                <Input
-                  name="name"
-                  required
-                  invalid={Boolean(touch && errors.name)}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Jane Wanjiku"
-                  autoComplete="name"
-                />
-              </Field>
-              <Field label="Phone for rider" required hint="The rider calls this number." error={touch ? errors.phone : undefined}>
-                <Input
-                  name="phone"
-                  required
-                  type="tel"
-                  invalid={Boolean(touch && errors.phone)}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="07XX XXX XXX"
-                  autoComplete="tel"
-                />
-              </Field>
-              <div className="sm:col-span-2">
+            )}
+
+            {/* Where it goes: the delivery point, or the station for a collection. */}
+            <section aria-labelledby="checkout-where" className="overflow-hidden rounded-xl border border-border bg-white">
+              {pickup ? (
+                <div className="flex flex-col gap-3 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-[var(--brand)]" aria-hidden>
+                      <Store className="size-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h2 id="checkout-where" className="text-[15px] font-extrabold tracking-tight text-foreground">
+                        Collection
+                      </h2>
+                      <p className="text-[13px] text-muted-foreground">
+                        Collect at the station - no delivery fee, no rider needed.
+                      </p>
+                    </div>
+                  </div>
+                  {station && (
+                    <div className="rounded-md bg-surface-2 p-3.5">
+                      <p className="text-sm font-bold text-foreground">{station.name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {station.city} · {station.tagline}
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        We&apos;ll text you the moment your water is filled and ready to collect.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {location ? (
+                    <OrderMap
+                      address={{ lat: location.lat, lng: location.lng, label: "Your delivery point" }}
+                      className="h-[140px] w-full rounded-none! border-0! lg:h-[200px]"
+                    />
+                  ) : (
+                    <div className="relative h-24 bg-surface-2" aria-hidden>
+                      <svg viewBox="0 0 358 96" preserveAspectRatio="xMidYMid slice" className="block size-full">
+                        <path d="M-5 60 C 80 40, 200 80, 365 50" stroke="white" strokeWidth="14" fill="none" />
+                        <path d="M150 -5 L 160 100" stroke="white" strokeWidth="10" fill="none" />
+                        <rect x="20" y="10" width="80" height="34" rx="6" className="fill-border" />
+                        <rect x="230" y="66" width="100" height="26" rx="6" className="fill-border" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex size-10 items-center justify-center rounded-full bg-white text-[var(--brand)] shadow-card">
+                          <MapPin className="size-5" />
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-3 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h2 id="checkout-where" className="text-[15px] font-extrabold tracking-tight text-foreground">
+                          {location ? "Delivering to your shared location" : "Delivery location"}
+                        </h2>
+                        <p className="mt-0.5 text-[13px] text-muted-foreground">
+                          {[street, estate, city].filter(Boolean).join(" · ") || "No town or area set yet"}
+                          {location && typeof location.accuracy === "number" && location.accuracy > 0
+                            ? ` · ±${Math.round(location.accuracy)} m`
+                            : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={allowNewLocation}
+                        disabled={locating}
+                        className="-mr-2 -mt-2.5 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md px-2 text-sm font-bold text-[var(--brand)] hover:text-[var(--brand-deep)] disabled:opacity-60"
+                      >
+                        {locating ? <ButtonLoader className="size-4" /> : <Navigation className="size-4" aria-hidden />}
+                        {locating ? "Locating…" : "Allow new location"}
+                      </button>
+                    </div>
+                    {locationError && (
+                      <p className="flex items-start gap-2 text-xs text-danger">
+                        <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {locationError}
+                      </p>
+                    )}
+                    {!location && (
+                      <p className="text-xs text-muted-foreground">Add a pinned location so the rider finds you faster.</p>
+                    )}
+                    <div className="grid gap-3.5 sm:grid-cols-2">
+                      <Field label="Town" required error={touch ? errors.city : undefined}>
+                        <Select
+                          name="city"
+                          invalid={Boolean(touch && errors.city)}
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          className={INPUT}
+                        >
+                          {CITIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="Estate / area" required error={touch ? errors.estate : undefined}>
+                        <Input
+                          id="estate"
+                          name="estate"
+                          required
+                          value={estate}
+                          invalid={Boolean(touch && errors.estate)}
+                          onChange={(e) => setEstate(e.target.value)}
+                          list="estate-options"
+                          placeholder="e.g. Kasarani, Nyali, Milimani…"
+                          autoComplete="street-address"
+                          className={INPUT}
+                        />
+                        <datalist id="estate-options">
+                          {ESTATES.map((e) => (
+                            <option key={e} value={e} />
+                          ))}
+                        </datalist>
+                      </Field>
+                      <Field label="Street / road" required={saveProfile} error={touch ? errors.street : undefined}>
+                        <Input
+                          name="street"
+                          value={street}
+                          invalid={Boolean(touch && errors.street)}
+                          onChange={(e) => setStreet(e.target.value)}
+                          placeholder="e.g. Mwiki Road"
+                          autoComplete="address-line1"
+                          className={INPUT}
+                        />
+                      </Field>
+                      <Field label="Building / apartment">
+                        <Input
+                          name="building"
+                          value={building}
+                          onChange={(e) => setBuilding(e.target.value)}
+                          placeholder="e.g. Singa Court, Block B"
+                          className={INPUT}
+                        />
+                      </Field>
+                      <Field label="Floor / apt no." className="sm:col-span-2">
+                        <Input
+                          name="floor"
+                          value={floor}
+                          onChange={(e) => setFloor(e.target.value)}
+                          placeholder="e.g. 3rd floor, Unit 12"
+                          className={INPUT}
+                        />
+                      </Field>
+                      <div className="sm:col-span-2">
+                        <Field
+                          label="Landmark / delivery directions"
+                          required={saveProfile}
+                          error={touch ? errors.notes : undefined}
+                          hint={saveProfile ? undefined : "Call on arrival, gate on the left…"}
+                        >
+                          <Textarea
+                            name="notes"
+                            invalid={Boolean(touch && errors.notes)}
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Call on arrival, gate on the left, avoid the school run 3–4pm…"
+                            className="rounded-md text-[15px] shadow-none"
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section aria-labelledby="checkout-details" className={cn(CARD, "flex flex-col gap-3")}>
+              <div>
+                <h2 id="checkout-details" className="text-[15px] font-extrabold tracking-tight text-foreground">
+                  Your details
+                </h2>
+                <p className="text-[13px] text-muted-foreground">Who we call when your water arrives.</p>
+              </div>
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <Field label="Full name" required error={touch ? errors.name : undefined}>
+                  <Input
+                    name="name"
+                    required
+                    invalid={Boolean(touch && errors.name)}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Jane Wanjiku"
+                    autoComplete="name"
+                    className={INPUT}
+                  />
+                </Field>
                 <Field
-                  label="Email"
-                  required={Boolean(saveProfile && profile.email)}
-                  error={touch ? errors.email : undefined}
-                  hint={saveProfile ? undefined : "Optional - we text you about your order."}
+                  label="Phone for rider"
+                  required
+                  hint="The rider calls this number."
+                  error={touch ? errors.phone : undefined}
                 >
                   <Input
-                    name="email"
-                    type="email"
-                    invalid={Boolean(touch && errors.email)}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="email"
+                    name="phone"
+                    required
+                    type="tel"
+                    invalid={Boolean(touch && errors.phone)}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="07XX XXX XXX"
+                    autoComplete="tel"
+                    className={INPUT}
                   />
                 </Field>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]" aria-hidden>
-                {pickup ? <Store className="size-4.5" /> : <MapPin className="size-4.5" />}
-              </span>
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 2</p>
-                <h2 className="font-display text-lg text-foreground">
-                  {pickup ? "Collection" : "Delivery"}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {pickup
-                    ? "Collect at the station - no delivery fee, no rider needed."
-                    : "Pin the spot so the rider finds you first time."}
-                </p>
-              </div>
-            </div>
-            {pickup && station && (
-              <div className="mt-5 rounded-xl border border-border bg-muted/30 p-4">
-                <p className="text-sm font-semibold text-foreground">{station.name}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {station.city} · {station.tagline}
-                </p>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  We&apos;ll text you the moment your water is filled and ready to collect.
-                </p>
-              </div>
-            )}
-            {!pickup && (
-            <>
-            <div className="mt-5 rounded-xl border border-border bg-muted/30 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-[var(--brand)]"
-                    aria-hidden
+                <div className="sm:col-span-2">
+                  <Field
+                    label="Email"
+                    required={Boolean(saveProfile && profile.email)}
+                    error={touch ? errors.email : undefined}
+                    hint={saveProfile ? undefined : "Optional - we text you about your order."}
                   >
-                    <MapPin className="size-4.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {location ? "Delivering to your shared location" : "Delivery location"}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {[street, estate, city].filter(Boolean).join(" · ") || "No town or area set yet"}
-                      {location && typeof location.accuracy === "number" && location.accuracy > 0
-                        ? ` · ±${Math.round(location.accuracy)} m`
-                        : ""}
-                    </p>
-                  </div>
+                    <Input
+                      name="email"
+                      type="email"
+                      invalid={Boolean(touch && errors.email)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      className={INPUT}
+                    />
+                  </Field>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={allowNewLocation}
-                  disabled={locating}
-                >
-                  {locating ? (
-                    <ButtonLoader className="size-4" />
-                  ) : (
-                    <Navigation className="size-4" aria-hidden />
-                  )}
-                  {locating ? "Locating…" : "Allow new location"}
-                </Button>
               </div>
-              {locationError && (
-                <p className="mt-3 flex items-start gap-2 text-xs text-danger">
-                  <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {locationError}
-                </p>
-              )}
-            </div>
-            <div className="mt-4">
-              {location ? (
-                <OrderMap
-                  address={{ lat: location.lat, lng: location.lng, label: "Your delivery point" }}
-                  className="h-[220px] w-full"
-                />
-              ) : (
-                <p className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-                  <MapPin className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
-                  Add a pinned location so the rider finds you faster.
-                </p>
-              )}
-            </div>
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <Field label="Town" required error={touch ? errors.city : undefined}>
-                <Select
-                  name="city"
-                  invalid={Boolean(touch && errors.city)}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                >
-                  {CITIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field
-                label="Estate / area"
-                required
-                error={touch ? errors.estate : undefined}
-              >
-                <Input
-                  id="estate"
-                  name="estate"
-                  required
-                  value={estate}
-                  invalid={Boolean(touch && errors.estate)}
-                  onChange={(e) => setEstate(e.target.value)}
-                  list="estate-options"
-                  placeholder="e.g. Kasarani, Nyali, Milimani…"
-                  autoComplete="street-address"
-                />
-                <datalist id="estate-options">
-                  {ESTATES.map((e) => (
-                    <option key={e} value={e} />
-                  ))}
-                </datalist>
-              </Field>
-              <Field
-                label="Street / road"
-                required={saveProfile}
-                error={touch ? errors.street : undefined}
-              >
-                <Input
-                  name="street"
-                  value={street}
-                  invalid={Boolean(touch && errors.street)}
-                  onChange={(e) => setStreet(e.target.value)}
-                  placeholder="e.g. Mwiki Road"
-                  autoComplete="address-line1"
-                />
-              </Field>
-              <Field label="Building / apartment">
-                <Input name="building" value={building} onChange={(e) => setBuilding(e.target.value)} placeholder="e.g. Singa Court, Block B" />
-              </Field>
-              <Field label="Floor / apt no.">
-                <Input name="floor" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="e.g. 3rd floor, Unit 12" />
-              </Field>
-              <div className="sm:col-span-2">
-                <Field
-                  label="Landmark / delivery directions"
-                  required={saveProfile}
-                  error={touch ? errors.notes : undefined}
-                  hint={saveProfile ? undefined : "Call on arrival, gate on the left…"}
-                >
-                  <Textarea
-                    name="notes"
-                    invalid={Boolean(touch && errors.notes)}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Call on arrival, gate on the left, avoid the school run 3–4pm…"
-                  />
-                </Field>
-              </div>
-            </div>
-            </>
-            )}
-          </section>
+            </section>
 
-          {/* Payment method */}
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-cta-soft text-[var(--brand)]" aria-hidden>
-                <ShieldCheck className="size-4.5" />
-              </span>
+            <section aria-labelledby="checkout-payment" className={cn(CARD, "flex flex-col gap-2.5")}>
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 3</p>
-                <h2 className="font-display text-lg text-foreground">Payment</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 id="checkout-payment" className="text-[15px] font-extrabold tracking-tight text-foreground">
+                  Payment
+                </h2>
+                <p className="text-[13px] text-muted-foreground">
                   {mpesaOffered ? "Pay when your water arrives, or pay now with M-Pesa." : "Pay when your water arrives."}
                 </p>
               </div>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <PaymentOption
-                selected={method === "cod"}
-                onSelect={() => setMethod("cod")}
-                icon={<Banknote className="size-5" aria-hidden />}
-                title={pickup ? "Pay at the station" : "Pay on delivery"}
-                subtitle={pickup ? "Cash or M-Pesa at the counter" : "Cash or M-Pesa to the rider"}
-              />
-              {mpesaOffered && (
+              <div className="flex flex-col gap-2.5">
                 <PaymentOption
-                  selected={method === "mpesa"}
-                  onSelect={() => setMethod("mpesa")}
-                  icon={<Smartphone className="size-5" aria-hidden />}
-                  title="M-Pesa now"
-                  subtitle="STK push to your phone"
+                  selected={method === "cod"}
+                  onSelect={() => setMethod("cod")}
+                  tone="success"
+                  icon={<Banknote className="size-5" aria-hidden />}
+                  title={pickup ? "Pay at the station" : "Pay on delivery"}
+                  subtitle={pickup ? "Cash or M-Pesa at the counter" : "Cash or M-Pesa to the rider"}
                 />
-              )}
-            </div>
-            <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-              {method === "cod"
-                ? "You pay the station directly when your order is handed over. Nothing is charged now."
-                : "If the station rejects or cancels a paid order, we start a refund to your M-Pesa and show its progress on the order page. M-Pesa PINs are never seen or stored."}
-            </p>
-          </section>
-        </div>
-
-        {/* Summary + pay */}
-        <div className="h-fit min-w-0 rounded-2xl border border-border bg-white p-6 shadow-layered lg:sticky lg:top-24">
-          <h2 className="font-display text-xl text-foreground">Your order</h2>
-          <SendWaterSummary className="mt-4" />
-          <ul className="mt-4 space-y-2.5">
-            {rows.map((r) => (
-              <li
-                key={`${r.line.businessId}-${r.line.productId}-${r.line.optionId ?? ""}`}
-                className="flex items-start justify-between gap-3 text-sm"
-              >
-                <span className="min-w-0 truncate text-muted-foreground">
-                  {r.line.quantity} × {r.product!.name}
-                  {r.option && (
-                    <span className="block text-xs font-medium text-[var(--brand)]">{r.option.label}</span>
-                  )}
-                </span>
-                <span className="shrink-0 font-semibold text-foreground">
-                  {formatKES(r.unitPrice * r.line.quantity)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <OrderTotalsList
-            totals={totals}
-            pickup={pickup}
-            className="mt-4 space-y-2 border-t border-border pt-4"
-          />
-
-          <label className="mt-5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3">
-            <input
-              type="checkbox"
-              checked={saveProfile}
-              onChange={(e) => {
-                setSaveProfile(e.target.checked);
-                writeConsent(e.target.checked);
-              }}
-              className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
-              aria-describedby="profile-save-note"
-            />
-            <span className="text-xs leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Update my profile with these details</span>{" "}
-              so your next checkout fills itself - name, phone, email and this delivery address.
-              <span id="profile-save-note" className="block text-muted-foreground/80">
-                Never saved: card numbers, M-Pesa PINs or quantities.
-              </span>
-            </span>
-          </label>
-
-          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3">
-            <input
-              type="checkbox"
-              checked={shareLocation}
-              onChange={(e) => setShareLocation(e.target.checked)}
-              className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
-            />
-            <span className="text-xs leading-relaxed text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                <Navigation className="size-3.5 text-[var(--brand)]" aria-hidden /> Share my live location
-              </span>{" "}
-              with the delivery person so they can see and find you.
-              <span className="block text-muted-foreground/80">
-                Sharing stops automatically when the order is delivered, and you can turn it off from the
-                tracking page.
-              </span>
-            </span>
-          </label>
-
-          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3">
-            <input
-              type="checkbox"
-              checked={smsUpdates}
-              onChange={(e) => setSmsUpdates(e.target.checked)}
-              className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
-            />
-            <span className="text-xs leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Text me order updates</span> - accepted, rider on
-              the way, delivered, or if the station cannot fulfil it.
-            </span>
-          </label>
-
-          {stationBlockers.length > 0 && (
-            <div className="mt-4 rounded-xl border border-danger/30 bg-danger/5 p-3" role="alert">
-              {stationBlockers.map((b) => (
-                <p key={b.businessId} className="flex items-start gap-2 text-xs leading-relaxed text-foreground">
-                  <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
-                  <span>
-                    <strong>{b.businessName}:</strong> {b.reason}
-                  </span>
-                </p>
-              ))}
-            </div>
-          )}
-          {errors._form && (
-            <p className="mt-3 text-xs font-medium text-danger" role="alert">
-              {errors._form}
-            </p>
-          )}
-
-          {payState === "idle" && (
-            <>
-              <Button
-                type="submit"
-                size="lg"
-                className="group mt-4 w-full bg-[var(--brand)] hover:bg-[var(--cta-hover)] text-white shadow-accent"
-                disabled={stationBlockers.length > 0}
-              >
-                {method === "mpesa" ? `Pay ${formatKES(total)} with M-Pesa` : `Place order · ${formatKES(total)}`}
-              </Button>
-              <p className="mt-3 text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                {method === "mpesa" ? "You'll confirm on your phone" : pickup ? "Pay when you collect" : "Pay when it arrives"}
+                {mpesaOffered && (
+                  <PaymentOption
+                    selected={method === "mpesa"}
+                    onSelect={() => setMethod("mpesa")}
+                    tone="brand"
+                    icon={<Smartphone className="size-5" aria-hidden />}
+                    title="M-Pesa now"
+                    subtitle="STK push to your phone"
+                  />
+                )}
+              </div>
+              <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                {method === "cod"
+                  ? "You pay the station directly when your order is handed over. Nothing is charged now."
+                  : "If the station rejects or cancels a paid order, we start a refund to your M-Pesa and show its progress on the order page. M-Pesa PINs are never seen or stored."}
               </p>
-            </>
-          )}
-          {(payState === "working" || payState === "awaiting-provider") && (
-            <div className="mt-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <ButtonLoader className="size-4 text-[var(--brand)]" />
-                {payState === "working" ? "Creating your order…" : "Waiting for provider confirmation…"}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {statusMessage ?? "Do not close this page - confirmation usually lands within a minute."}
-              </p>
-            </div>
-          )}
-          {payState === "stale" && (
-            <div className="mt-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <AlertCircle className="size-4 text-warning" aria-hidden /> Still processing
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {statusMessage} Your orders are saved - use the track link from your order history; it
-                updates the moment payment lands.
-              </p>
-              <Link href="/account/orders" className="mt-3 inline-flex">
-                <Button size="lg" variant="outline">
-                  View my orders
-                </Button>
-              </Link>
-            </div>
-          )}
-          {payState === "failed" && (
-            <div className="mt-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-danger">
-                <AlertCircle className="size-4" aria-hidden /> Order didn&apos;t go through
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {statusMessage ?? "Your account has not been charged."} Review the highlighted fields
-                (if any) or retry the payment - retrying never duplicates your order.
-              </p>
-              <Button
-                type="button"
-                size="lg"
-                className="group mt-4 w-full bg-[var(--brand)] hover:bg-[var(--cta-hover)] text-white shadow-accent"
-                onClick={startPayment}
-                disabled={submitting || stationBlockers.length > 0}
-              >
-                Retry M-Pesa payment
-              </Button>
-            </div>
-          )}
-        </div>
-      </form>
-
-      {/* Mobile: the total and the pay action stay reachable without scrolling
-          back up to the summary card. */}
-      {payState === "idle" && (
-        <div className="fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-white/95 px-4 pb-3 pt-3 backdrop-blur lg:hidden">
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                Total
-              </p>
-              <p className="font-display text-xl leading-tight text-foreground">
-                {formatKES(total)}
-              </p>
-            </div>
-            <button
-              type="submit"
-              form="checkout-form"
-              disabled={stationBlockers.length > 0}
-              className="shrink-0 rounded-xl bg-[var(--brand)] px-6 py-3.5 text-sm font-semibold text-white shadow-accent transition-colors hover:bg-[var(--cta-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {method === "mpesa" ? "Pay with M-Pesa" : "Place order"}
-            </button>
+            </section>
           </div>
+
+          {/* Summary: in the flow on a phone, a sticky column with the pay action on a desktop. */}
+          <div className="flex min-w-0 flex-col gap-3.5 lg:sticky lg:top-24">
+            <section aria-labelledby="checkout-summary" className={cn(CARD, "flex flex-col gap-3")}>
+              <h2 id="checkout-summary" className="text-[15px] font-extrabold tracking-tight text-foreground">
+                Order summary
+              </h2>
+              <SendWaterSummary />
+              <ul className="space-y-2.5">
+                {rows.map((r) => (
+                  <li
+                    key={`${r.line.businessId}-${r.line.productId}-${r.line.optionId ?? ""}`}
+                    className="flex items-start justify-between gap-3 text-sm"
+                  >
+                    <span className="min-w-0 truncate text-foreground">
+                      {r.line.quantity} × {r.product!.name}
+                      {r.option && <span className="block text-xs text-muted-foreground">{r.option.label}</span>}
+                    </span>
+                    <span className="shrink-0 font-semibold text-foreground">
+                      {formatKES(r.unitPrice * r.line.quantity)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <OrderTotalsList
+                totals={totals}
+                pickup={pickup}
+                className="space-y-2.5 border-t border-[#eef3fa] pt-3"
+                totalClassName="text-base font-extrabold"
+              />
+
+              <div className="flex flex-col gap-2">
+                <label className={CHECK_ROW}>
+                  <input
+                    type="checkbox"
+                    checked={saveProfile}
+                    onChange={(e) => {
+                      setSaveProfile(e.target.checked);
+                      writeConsent(e.target.checked);
+                    }}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
+                    aria-describedby="profile-save-note"
+                  />
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    <span className="font-semibold text-foreground">Update my profile with these details</span> so your
+                    next checkout fills itself - name, phone, email and this delivery address.
+                    <span id="profile-save-note" className="block text-muted-foreground/80">
+                      Never saved: card numbers, M-Pesa PINs or quantities.
+                    </span>
+                  </span>
+                </label>
+
+                <label className={CHECK_ROW}>
+                  <input
+                    type="checkbox"
+                    checked={shareLocation}
+                    onChange={(e) => setShareLocation(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
+                  />
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                      <Navigation className="size-3.5 text-[var(--brand)]" aria-hidden /> Share my live location
+                    </span>{" "}
+                    with the delivery person so they can see and find you.
+                    <span className="block text-muted-foreground/80">
+                      Sharing stops automatically when the order is delivered, and you can turn it off from the
+                      tracking page.
+                    </span>
+                  </span>
+                </label>
+
+                <label className={CHECK_ROW}>
+                  <input
+                    type="checkbox"
+                    checked={smsUpdates}
+                    onChange={(e) => setSmsUpdates(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]"
+                  />
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    <span className="font-semibold text-foreground">Text me order updates</span> - accepted, rider on
+                    the way, delivered, or if the station cannot fulfil it.
+                  </span>
+                </label>
+              </div>
+
+              {stationBlockers.length > 0 && (
+                <div className="rounded-md border border-danger/30 bg-danger-soft p-3" role="alert">
+                  {stationBlockers.map((b) => (
+                    <p key={b.businessId} className="flex items-start gap-2 text-xs leading-relaxed text-foreground">
+                      <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
+                      <span>
+                        <strong>{b.businessName}:</strong> {b.reason}
+                      </span>
+                    </p>
+                  ))}
+                </div>
+              )}
+              {errors._form && (
+                <p className="text-xs font-medium text-danger" role="alert">
+                  {errors._form}
+                </p>
+              )}
+
+              {payState === "idle" && (
+                <div className="hidden lg:block">
+                  <button type="submit" className={PRIMARY_BUTTON} disabled={stationBlockers.length > 0}>
+                    <span>{ctaLabel}</span>
+                    <span className="font-extrabold">{formatKES(total)}</span>
+                  </button>
+                  <p className="mt-2.5 text-center text-xs text-muted-foreground">
+                    {method === "mpesa" ? "You'll confirm on your phone" : pickup ? "Pay when you collect" : "Pay when it arrives"}
+                  </p>
+                </div>
+              )}
+              {(payState === "working" || payState === "awaiting-provider") && (
+                <div className="rounded-md bg-surface-2 p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <ButtonLoader className="size-4 text-[var(--brand)]" />
+                    {payState === "working" ? "Creating your order…" : "Waiting for provider confirmation…"}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {statusMessage ?? "Do not close this page - confirmation usually lands within a minute."}
+                  </p>
+                </div>
+              )}
+              {payState === "stale" && (
+                <div className="rounded-md bg-warning-soft p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <AlertCircle className="size-4 text-warning" aria-hidden /> Still processing
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {statusMessage} Your orders are saved - use the track link from your order history; it updates
+                    the moment payment lands.
+                  </p>
+                  <Link href="/account/orders" className="mt-3 inline-flex">
+                    <Button size="lg" variant="outline" className="rounded-lg">
+                      View my orders
+                    </Button>
+                  </Link>
+                </div>
+              )}
+              {payState === "failed" && (
+                <div className="rounded-md border border-danger/30 bg-danger-soft p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-danger">
+                    <AlertCircle className="size-4" aria-hidden /> Order didn&apos;t go through
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {statusMessage ?? "Your account has not been charged."} Review the highlighted fields (if any) or
+                    retry the payment - retrying never duplicates your order.
+                  </p>
+                  <button
+                    type="button"
+                    className={cn(PRIMARY_BUTTON, "mt-3 justify-center")}
+                    onClick={startPayment}
+                    disabled={submitting || stationBlockers.length > 0}
+                  >
+                    Retry M-Pesa payment
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
+        </form>
+      </div>
+
+      {/* Phone: the total and the pay action stay under the thumb. */}
+      {payState === "idle" && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2 border-t border-border bg-white px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 lg:hidden">
+          <button type="submit" form="checkout-form" disabled={stationBlockers.length > 0} className={PRIMARY_BUTTON}>
+            <span>{ctaLabel}</span>
+            <span className="font-extrabold">{formatKES(total)}</span>
+          </button>
+          <p className="text-center text-xs text-muted-foreground">
+            {method === "mpesa" ? "You'll confirm on your phone" : pickup ? "Pay when you collect" : "Pay when it arrives"}
+          </p>
         </div>
       )}
 
@@ -1250,8 +1298,31 @@ function CheckoutForm() {
           />
         )}
       </AnimatePresence>
-      </Container>
-    </>
+    </div>
+  );
+}
+
+const CARD = "rounded-xl border border-border bg-white p-4";
+const INPUT = "h-12 rounded-md text-[15px] shadow-none";
+const CHECK_ROW = "flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-surface-2 p-3";
+const PRIMARY_BUTTON =
+  "flex h-14 w-full items-center justify-between gap-3 rounded-lg bg-[var(--brand)] px-[18px] text-base font-bold text-white shadow-accent transition-colors hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60";
+const PRIMARY_LINK =
+  "flex h-14 w-full items-center justify-center rounded-lg bg-[var(--brand)] px-[18px] text-base font-bold text-white shadow-accent transition-colors hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]";
+
+/** Phone top bar: back to the cart and a centred title. The shared header takes over from `lg`. */
+function CheckoutTopBar() {
+  return (
+    <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-[#eef3fa] bg-white px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
+      <Link
+        href="/cart"
+        aria-label="Back to cart"
+        className="flex size-11 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-surface-2"
+      >
+        <ChevronLeft className="size-5" aria-hidden />
+      </Link>
+      <h1 className="mr-[52px] flex-1 text-center text-[17px] font-extrabold tracking-tight text-foreground">Checkout</h1>
+    </div>
   );
 }
 
@@ -1262,6 +1333,7 @@ function PaymentOption({
   title,
   subtitle,
   badge,
+  tone,
 }: {
   selected: boolean;
   onSelect: () => void;
@@ -1269,37 +1341,46 @@ function PaymentOption({
   title: string;
   subtitle: string;
   badge?: string;
+  tone: "success" | "brand";
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`flex items-center gap-3.5 rounded-xl border p-4 text-left transition-all min-h-[64px] ${
-        selected
-          ? "border-[var(--brand)] bg-brand/5 ring-2 ring-[var(--brand)]/20"
-          : "border-border bg-white hover:border-[var(--brand)]/40"
-      }`}
+      className={cn(
+        "flex min-h-[64px] w-full items-center gap-3 rounded-lg p-3.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]",
+        selected ? "border-2 border-[var(--brand)] bg-surface-2" : "border border-border bg-white hover:border-[var(--brand)]/40"
+      )}
     >
-      <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-foreground text-white" : "bg-muted text-muted-foreground"}`}>
+      <span
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-md",
+          tone === "success" ? "bg-success-soft text-success" : "bg-brand-soft text-[var(--brand)]"
+        )}
+      >
         {icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">{title}</span>
+          <span className="text-[15px] font-bold text-foreground">{title}</span>
           {badge && (
-            <span className="rounded-full bg-success-soft px-2 py-0.5 font-mono text-[11px] font-semibold uppercase text-success">
+            <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-bold uppercase text-success">
               {badge}
             </span>
           )}
         </span>
-        <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>
+        <span className="block truncate text-[12.5px] text-muted-foreground">{subtitle}</span>
       </span>
       <span
-        className={`size-4 shrink-0 rounded-full border-2 ${selected ? "border-[var(--brand)] bg-transparent" : "border-border bg-white"}`}
-        style={selected ? { boxShadow: "inset 0 0 0 3px white" } : undefined}
+        className={cn(
+          "flex size-[22px] shrink-0 items-center justify-center rounded-full border-2",
+          selected ? "border-[var(--brand)]" : "border-muted-foreground/50"
+        )}
         aria-hidden
-      />
+      >
+        <span className={cn("size-2.5 rounded-full", selected ? "bg-[var(--brand)]" : "bg-transparent")} />
+      </span>
     </button>
   );
 }

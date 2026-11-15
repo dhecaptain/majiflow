@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Plus } from "lucide-react";
@@ -9,8 +9,6 @@ import { formatKES } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useMotionSafe } from "@/lib/motion";
 import { BlurImage } from "@/components/ui/blur-image";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { productImage } from "@/lib/product-images";
 import { useCart } from "@/components/order/cart-provider";
@@ -90,101 +88,86 @@ export function ProductCard({ product, businessId, businessSlug, openingHours, c
     });
   };
 
+  const open = (e: MouseEvent) => {
+    if (!onOpen) return;
+    e.preventDefault();
+    onOpen(product);
+  };
+  const price = listPrice(product);
+
   return (
-    <Card
+    <article
       className={cn(
-        "group flex h-full flex-col overflow-hidden border-border transition-all duration-300 hover:-translate-y-1 hover:shadow-layered",
+        "group relative flex gap-4 border-b border-[#eef3fa] py-4 transition-colors last:border-b-0 sm:rounded-lg sm:border sm:border-border sm:p-4 sm:last:border-b sm:hover:border-[var(--brand)]/40",
         className
       )}
     >
-      <Link
-        href={href}
-        ref={imageRef}
-        tabIndex={-1}
-        aria-hidden
-        onClick={(e) => {
-          if (!onOpen) return;
-          e.preventDefault();
-          onOpen(product);
-        }}
-        className="relative block aspect-[4/3] overflow-hidden bg-muted"
-      >
-        <BlurImage
-          src={productImage(product.image)}
-          alt=""
-          fill
-          sizes="(min-width: 1280px) 14rem, (min-width: 1024px) 18rem, (min-width: 640px) 45vw, 92vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        {product.popular && (
-          <Badge variant="accent" className="absolute left-3 top-3">
-            Popular
-          </Badge>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {(product.popular || soldOut || product.stock <= product.stockLow) && (
+          <span className="flex flex-wrap gap-1.5">
+            {product.popular && (
+              <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[11px] font-bold text-coral-cta-hover">Popular</span>
+            )}
+            {soldOut ? (
+              <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-bold text-danger">Out of stock</span>
+            ) : (
+              product.stock <= product.stockLow && (
+                <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-bold text-warning">
+                  Only {product.stock} left
+                </span>
+              )
+            )}
+          </span>
         )}
-        {soldOut ? (
-          <Badge variant="danger" className="absolute right-3 top-3">
-            Out of stock
-          </Badge>
-        ) : (
-          product.stock <= product.stockLow && (
-            <Badge variant="warning" className="absolute right-3 top-3">
-              Only {product.stock} left
-            </Badge>
-          )
-        )}
-      </Link>
-
-      <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <h3 className="line-clamp-1 text-[15px] font-semibold leading-snug text-foreground">
+        <h3 className="text-[15px] font-bold leading-snug text-foreground">
+          {/* The whole row opens the item; the add control sits above this link. */}
           <Link
             href={href}
-            onClick={(e) => {
-              if (!onOpen) return;
-              e.preventDefault();
-              onOpen(product);
-            }}
-            className="rounded-sm hover:text-[var(--brand)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
+            onClick={open}
+            className="rounded-sm outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--brand)]"
           >
             {product.name}
           </Link>
         </h3>
-        <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
-          {product.description}
-        </p>
-
-        <div className="mt-3 flex items-baseline gap-2">
-          {listPrice(product).from && <span className="text-xs font-medium text-muted-foreground">From</span>}
-          <span className="text-lg font-bold tracking-tight text-foreground">{formatKES(listPrice(product).amount)}</span>
-          <span className="font-mono text-[11px] uppercase text-muted-foreground">/ {product.unit}</span>
+        <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">{product.description}</p>
+        <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[15px] font-extrabold text-foreground">
+          <span>
+            {price.from && "From "}
+            {formatKES(price.amount)}
+          </span>
+          <span className="text-xs font-medium text-muted-foreground">/ {product.unit}</span>
           {product.oldPrice && (
-            <span className="text-xs text-muted-foreground line-through">{formatKES(product.oldPrice)}</span>
+            <span className="text-xs font-medium text-muted-foreground line-through">{formatKES(product.oldPrice)}</span>
           )}
-        </div>
+        </p>
+        {(closed || (cartItem && hasOptions)) && !soldOut && (
+          <p className={cn("text-xs font-semibold", closed ? "text-muted-foreground" : "text-[var(--brand)]")}>
+            {closed ? closedLabel : `${cartItem!.quantity} in your order`}
+          </p>
+        )}
+      </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => onOpen?.(product)}
-            className="text-xs font-semibold text-[var(--brand)] hover:underline"
-          >
-            {hasOptions ? "Choose an option" : "View options"}
-          </button>
+      <div className="relative size-[104px] shrink-0">
+        <Link
+          href={href}
+          ref={imageRef}
+          tabIndex={-1}
+          aria-hidden
+          onClick={open}
+          className="relative block size-full overflow-hidden rounded-lg bg-surface-2"
+        >
+          <BlurImage
+            src={productImage(product.image)}
+            alt=""
+            fill
+            sizes="104px"
+            className={cn("object-cover transition-transform duration-500 group-hover:scale-105", soldOut && "grayscale")}
+          />
+        </Link>
 
+        <div className="absolute -bottom-2 -right-2 z-10">
           <AnimatePresence mode="wait" initial={false}>
-          {soldOut ? (
-            <Swap key="sold-out" reduce={reduce} className="text-xs font-medium text-muted-foreground">
-              Out of stock
-            </Swap>
-          ) : closed ? (
-            <Swap key="closed" reduce={reduce} className="text-xs font-medium text-muted-foreground">
-              {closedLabel}
-            </Swap>
-          ) : cartItem ? (
-            hasOptions ? (
-              <Swap key="in-order" reduce={reduce} className="text-xs font-semibold text-[var(--brand)]">
-                {cartItem.quantity} in order
-              </Swap>
-            ) : (
+            {soldOut || closed ? null : cartItem && !hasOptions ? (
               <Swap key="stepper" reduce={reduce} inline={false}>
                 <QuantityStepper
                   value={cartItem.quantity}
@@ -192,27 +175,27 @@ export function ProductCard({ product, businessId, businessSlug, openingHours, c
                   max={max}
                   label={product.name}
                   size="sm"
+                  className="shadow-card"
                   onChange={(n) => updateQuantity(cartItem, n)}
                 />
               </Swap>
-            )
-          ) : (
-            <Swap key="plus" reduce={reduce} inline={false}>
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={flying}
-                aria-label={`Add ${product.name} to order`}
-                className="flex size-11 items-center justify-center rounded-full bg-[var(--brand)] text-white shadow-accent transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
-              >
-                <Plus className="size-6" aria-hidden />
-              </button>
-            </Swap>
-          )}
+            ) : (
+              <Swap key="plus" reduce={reduce} inline={false}>
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={flying}
+                  aria-label={hasOptions ? `Choose an option for ${product.name}` : `Add ${product.name} to order`}
+                  className="flex size-11 items-center justify-center rounded-full border-[3px] border-white bg-[var(--brand)] text-white shadow-accent transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
+                >
+                  <Plus className="size-5" aria-hidden />
+                </button>
+              </Swap>
+            )}
           </AnimatePresence>
         </div>
       </div>
-    </Card>
+    </article>
   );
 }
 

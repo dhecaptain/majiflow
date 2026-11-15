@@ -15,7 +15,6 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { Container } from "@/components/ui/container";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Field, Input } from "@/components/ui/field";
@@ -23,6 +22,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useCustomer, type CustomerProfile } from "@/components/order/customer-provider";
 import { useToast } from "@/components/ui/toast";
 import { accountApi } from "@/lib/account-client";
+import { ACCOUNT_PAGE } from "@/components/account/account-ui";
 import {
   captureLocationBestEffort,
   geolocationErrorMessage,
@@ -106,7 +106,7 @@ export function ProfilePage() {
 
   if (!hydrated) {
     return (
-      <Container className="py-6 lg:py-8">
+      <div className={ACCOUNT_PAGE}>
         <div className="space-y-4">
           <SkeletonCard variant="metric" className="h-40 w-full" />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -114,24 +114,19 @@ export function ProfilePage() {
             <SkeletonCard variant="metric" className="h-44 w-full" />
           </div>
         </div>
-      </Container>
+      </div>
     );
   }
 
   if (!loggedIn) {
     return (
-      <Container className="py-6 lg:py-8">
-        <div className="relative mx-auto max-w-md overflow-hidden rounded-2xl border border-border bg-white p-8 text-center shadow-card">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-radial-glow" />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-brand/10 blur-3xl"
-          />
+      <div className={ACCOUNT_PAGE}>
+        <div className="relative mx-auto max-w-md overflow-hidden rounded-xl border border-border bg-white p-6 text-center sm:p-8">
           <div className="relative">
-            <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-cta-soft text-[var(--brand)] shadow-accent">
+            <span className="mx-auto flex size-14 items-center justify-center rounded-lg bg-brand-soft text-[var(--brand)]">
               <User className="size-7" aria-hidden />
             </span>
-            <h1 className="mt-5 font-display text-2xl text-foreground">Set up your profile</h1>
+            <h1 className="mt-5 text-[22px] font-extrabold text-foreground">Set up your profile</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Sign in to save your delivery details and check out in two taps.
             </p>
@@ -145,7 +140,7 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
-      </Container>
+      </div>
     );
   }
 
@@ -278,21 +273,16 @@ export function ProfilePage() {
   };
 
   return (
-    <Container className="py-6 lg:py-8">
+    <div className={ACCOUNT_PAGE}>
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-border bg-white p-6 shadow-card sm:p-8">
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-radial-glow" />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full bg-brand/10 blur-3xl"
-        />
+      <section className="relative overflow-hidden rounded-xl border border-border bg-white p-5 sm:p-6">
         <div className="relative flex flex-wrap items-start justify-between gap-5">
           <div className="flex items-start gap-4">
-            <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-foreground font-display text-xl text-white shadow-accent sm:size-16 sm:text-2xl">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-navy text-xl font-extrabold text-white sm:size-16 sm:text-2xl">
               {initials(profile.name)}
             </span>
             <div className="min-w-0">
-              <h1 className="font-display text-3xl text-foreground sm:text-4xl">
+              <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-foreground sm:text-3xl">
                 {profile.name || "Your details"}
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
@@ -321,7 +311,7 @@ export function ProfilePage() {
       </section>
 
       {!complete && !editing && (
-        <div className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--brand)]/20 bg-brand/5 p-4">
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--brand)]/20 bg-brand-soft p-4">
           <AlertCircle className="mt-0.5 size-5 shrink-0 text-[var(--brand)]" aria-hidden />
           <p className="text-sm text-foreground/85">
             <strong className="font-semibold text-foreground">Finish your profile.</strong> Share your
@@ -332,7 +322,7 @@ export function ProfilePage() {
 
       {editing ? (
         <form onSubmit={save} className="mt-6 space-y-6" noValidate>
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
+          <section className="rounded-xl border border-border bg-white p-4 sm:p-5">
             <CardHeader icon={<User className="size-4.5" aria-hidden />} title="Contact details" />
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="Full name" required error={errors.name}>
@@ -383,7 +373,7 @@ export function ProfilePage() {
         </form>
       ) : (
         <div className="mt-6 space-y-6">
-          <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
+          <section className="rounded-xl border border-border bg-white p-4 sm:p-5">
             <CardHeader icon={<User className="size-4.5" aria-hidden />} title="Contact details" />
             <dl className="mt-2 divide-y divide-border">
               <DetailRow icon={<User className="size-4" aria-hidden />} label="Full name" value={profile.name || "-"} />
@@ -403,14 +393,14 @@ export function ProfilePage() {
       )}
 
       {/* Danger zone */}
-      <section className="mt-8 overflow-hidden rounded-2xl border border-danger/25 bg-white shadow-card">
-        <div className="flex items-center gap-2.5 border-b border-danger/15 bg-danger/10 px-6 py-4">
+      <section className="mt-8 overflow-hidden rounded-xl border border-danger/25 bg-white">
+        <div className="flex items-center gap-2.5 border-b border-danger/15 bg-danger-soft px-4 py-3.5 sm:px-5">
           <span className="flex size-9 items-center justify-center rounded-lg bg-danger-soft text-danger" aria-hidden>
             <Trash2 className="size-4.5" />
           </span>
-          <h2 className="font-display text-lg text-danger">Delete account</h2>
+          <h2 className="text-[15px] font-extrabold text-danger">Delete account</h2>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-5">
           <p className="max-w-2xl text-sm text-muted-foreground">
             Permanently delete your account, saved addresses and preferences. Past orders stay with the
             stations for their records but are no longer linked to you. This signs you out.
@@ -447,14 +437,14 @@ export function ProfilePage() {
           </div>
         </form>
       </Dialog>
-    </Container>
+    </div>
   );
 }
 
 function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
-    <h2 className="flex items-center gap-2.5 font-display text-lg text-foreground">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-brand/10 text-[var(--brand)]" aria-hidden>
+    <h2 className="flex items-center gap-2.5 text-[15px] font-extrabold text-foreground">
+      <span className="flex size-9 items-center justify-center rounded-md bg-brand-soft text-[var(--brand)]" aria-hidden>
         {icon}
       </span>
       {title}
@@ -502,7 +492,7 @@ function LocationCard({
     { label: "Building / apartment", value: address?.building || "Not detected" },
   ];
   return (
-    <section className="rounded-2xl border border-border bg-white p-6 shadow-card">
+    <section className="rounded-xl border border-border bg-white p-4 sm:p-5">
       <CardHeader icon={<MapPin className="size-4.5" aria-hidden />} title="Delivery location" />
       <div className="mt-5">
         {location ? (
