@@ -69,21 +69,93 @@ function isPermissionDenied(err: unknown): boolean {
   );
 }
 
+/** A fix this close is good enough to put the pin on a door. */
+export const PRECISE_ACCURACY_M = 25;
+
+export interface PreciseLocationOptions {
+  /** Stop as soon as a fix is at least this accurate (metres). */
+  targetAccuracy?: number;
+  /** Longest time to keep improving the fix before settling for the best one. */
+  maxWaitMs?: number;
+  /** Called with every better fix, so a map can follow it as it sharpens. */
+  onUpdate?: (location: CapturedLocation) => void;
+}
+
 /**
- * Best-effort capture: try a precise GPS fix first, then fall back to the
- * network/IP-based fix (works reliably indoors and on desktops with Wi-Fi,
- * where high-accuracy GPS often times out). A denied permission is not retried.
+ * A precise fix. The first position a device reports is usually a rough
+ * cell/Wi-Fi guess, so instead of taking it, watch the GPS for a few seconds
+ * and keep the most accurate reading, stopping early once it is good enough.
+ * Rejects only when no fix arrives at all.
  */
-export async function captureLocationBestEffort(): Promise<CapturedLocation> {
+export function capturePreciseLocation({
+  targetAccuracy = PRECISE_ACCURACY_M,
+  maxWaitMs = 10000,
+  onUpdate,
+}: PreciseLocationOptions = {}): Promise<CapturedLocation> {
+  return new Promise((resolve, reject) => {
+    const reason = geolocationUnavailableReason();
+    if (reason) {
+      reject(new Error(reason));
+      return;
+    }
+    let best: CapturedLocation | null = null;
+    let settled = false;
+    let watchId: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (error?: unknown) => {
+      if (settled) return;
+      settled = true;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (timer !== null) clearTimeout(timer);
+      if (best) resolve(best);
+      else reject(error ?? new Error("We couldn't get your location."));
+    };
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const fix: CapturedLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? undefined,
+          at: new Date().toISOString(),
+        };
+        const better = !best || (fix.accuracy ?? Infinity) <= (best.accuracy ?? Infinity);
+        if (better) {
+          best = fix;
+          onUpdate?.(fix);
+        }
+        if ((best?.accuracy ?? Infinity) <= targetAccuracy) finish();
+      },
+      (err) => {
+        // A denied permission ends it; other errors only matter when nothing arrived yet.
+        if (isPermissionDenied(err) || !best) finish(err);
+      },
+      { enableHighAccuracy: true, timeout: maxWaitMs, maximumAge: 0 }
+    );
+    timer = setTimeout(() => finish(), maxWaitMs);
+  });
+}
+
+/**
+ * Best-effort capture: a precise GPS fix first (see `capturePreciseLocation`),
+ * then the network/IP-based fix when GPS gives nothing (indoors, desktops). A
+ * denied permission is not retried.
+ */
+export async function captureLocationBestEffort(
+  options: Pick<PreciseLocationOptions, "onUpdate"> = {}
+): Promise<CapturedLocation> {
   try {
-    return await captureCurrentLocation({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+    return await capturePreciseLocation(options);
   } catch (err) {
     if (isPermissionDenied(err)) throw err;
-    return await captureCurrentLocation({
+    const fix = await captureCurrentLocation({
       enableHighAccuracy: false,
-      timeout: 20000,
-      maximumAge: 300000,
+      timeout: 15000,
+      maximumAge: 60000,
     });
+    options.onUpdate?.(fix);
+    return fix;
   }
 }
 
