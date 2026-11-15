@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/feedback";
 import { CITIES } from "@/lib/constants";
 import {
-  captureCurrentLocation,
+  captureLocationBestEffort,
   geolocationErrorMessage,
   townLocation,
   type CapturedLocation,
@@ -236,7 +236,7 @@ export function BrowsePage({
     setLocating(true);
     setLocationError(null);
     try {
-      const nextLocation = await captureCurrentLocation({ enableHighAccuracy: false, timeout: 15000, maximumAge: 0 });
+      const nextLocation = await captureLocationBestEffort();
       if (requestId !== locationRequestRef.current) return;
       setLocation(nextLocation);
       setLocationMode("current");

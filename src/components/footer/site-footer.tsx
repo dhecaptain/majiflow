@@ -1,85 +1,109 @@
 "use client";
 
-import { Fragment } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Droplet } from "lucide-react";
 import { shouldShowFooter } from "@/lib/footer";
-import { Marquee } from "@/components/ui/marquee";
-import { Bubbles } from "@/components/footer/bubbles";
-import { WaterWordmark } from "@/components/footer/water-wordmark";
+import { MajiMark } from "@/components/layout/maji-mark";
 
-const marqueeItems = [
-  "Fresh water",
-  "Delivered to your door",
-  "Order in a few taps",
-  "Pay with M-Pesa",
-  "Track your order",
-];
+const COLUMNS = [
+  {
+    title: "Order",
+    links: [
+      { href: "/browse", label: "Stations" },
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/account/orders", label: "Track an order" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { href: "/about", label: "About MajiFlow" },
+      { href: "/for-business", label: "For stations" },
+      { href: "/pricing", label: "Station pricing" },
+    ],
+  },
+  {
+    title: "Help",
+    links: [
+      { href: "/faqs", label: "FAQs" },
+      { href: "/contact", label: "Contact us" },
+    ],
+  },
+] as const;
 
-const footerLinks = [
+const LEGAL = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
-  { href: "/contact", label: "Contact" },
-];
+] as const;
 
+/**
+ * Site footer: the brand, three short link columns and the legal line. Static
+ * on purpose - no marquee or moving scenery under the ordering pages.
+ */
 export function Footer() {
   const pathname = usePathname();
-
   if (!shouldShowFooter(pathname)) return null;
 
   const year = new Date().getFullYear();
 
   return (
-    <>
-      <div className="mf-marquee-band">
-        <Marquee
-          items={marqueeItems}
-          speed={38}
-          separator={
-            <Droplet
-              aria-hidden="true"
-              className="size-3.5 shrink-0 text-[var(--footer-sky)]"
-            />
-          }
-          className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90 sm:text-base lg:text-lg"
-        />
+    <footer className="mt-4 bg-gradient-to-b from-[var(--footer-top)] to-[var(--footer-bottom)] text-[var(--footer-copy)]">
+      <div className="mx-auto grid max-w-[1200px] gap-10 px-4 pb-8 pt-12 sm:px-6 lg:grid-cols-[1.3fr_2fr] lg:gap-16 lg:pt-16">
+        <div className="flex flex-col gap-4">
+          <Link
+            href="/"
+            aria-label="MajiFlow home"
+            className="inline-flex items-center gap-2.5 self-start rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--footer-sky)]"
+          >
+            <span className="flex size-10 items-center justify-center overflow-hidden rounded-md">
+              <MajiMark />
+            </span>
+            <span className="font-display text-2xl font-bold text-white">MajiFlow</span>
+          </Link>
+          <p className="max-w-xs text-[15px] leading-relaxed text-[var(--footer-muted)]">
+            Clean drinking water from local refill stations, delivered to your door. Pay when it arrives.
+          </p>
+        </div>
+
+        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3">
+          {COLUMNS.map((column) => (
+            <div key={column.title} className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--footer-sky)]">{column.title}</h2>
+              <ul className="flex flex-col gap-1">
+                {column.links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="inline-flex min-h-9 items-center rounded-sm text-[15px] text-[var(--footer-copy)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--footer-sky)]"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
       </div>
 
-      <footer className="mf-footer">
-        <div className="mf-brand">
-          <div className="mf-blue" aria-hidden="true">
-            <div className="mf-photo">
-              <Image
-                src="/images/footer-water.webp"
-                alt=""
-                fill
-                sizes="100vw"
-                className="object-cover"
-              />
-            </div>
-          </div>
-
-          <div className="mf-scene">
-            <WaterWordmark />
-            <Bubbles />
-          </div>
-        </div>
-
-        <div className="mf-meta">
+      <div className="border-t border-white/10">
+        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-5 text-[13px] text-[var(--footer-muted)] sm:px-6">
           <p>© {year} MajiFlow</p>
-          <nav aria-label="Footer legal and contact">
-            {footerLinks.map((link, index) => (
-              <Fragment key={link.href}>
-                {index > 0 ? <span aria-hidden="true">·</span> : null}
-                <Link href={link.href}>{link.label}</Link>
-              </Fragment>
+          <ul className="flex items-center gap-5">
+            {LEGAL.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="inline-flex min-h-9 items-center rounded-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--footer-sky)]"
+                >
+                  {link.label}
+                </Link>
+              </li>
             ))}
-          </nav>
+          </ul>
         </div>
-      </footer>
-    </>
+      </div>
+    </footer>
   );
 }
 

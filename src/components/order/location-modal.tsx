@@ -202,24 +202,49 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
     [estateTouched]
   );
 
+  // Where the app last put the pin itself; a map move far from it is the customer dragging.
+  const pinTargetRef = useRef<Point | null>(null);
+  // While locating, the pin follows each sharper GPS fix until the customer moves the map.
+  const followFixRef = useRef(false);
+  const [fixAccuracy, setFixAccuracy] = useState<number | null>(null);
+
   const movePin = useCallback((next: Point) => {
+    pinTargetRef.current = next;
     setPoint(next);
     setFocusTarget({ ...next, nonce: Date.now() });
   }, []);
 
+  const onMapMove = useCallback((next: Point) => {
+    const target = pinTargetRef.current;
+    if (!target || haversineMeters(target, next) > 15) followFixRef.current = false;
+    setPoint(next);
+  }, []);
+
   const locateCustomer = async ({ silent = false }: { silent?: boolean } = {}) => {
     setLocating(true);
+    setFixAccuracy(null);
+    followFixRef.current = true;
     if (!silent) setError(null);
     try {
-      const loc: CapturedLocation = await captureLocationBestEffort();
+      const loc: CapturedLocation = await captureLocationBestEffort({
+        onUpdate: (fix) => {
+          if (!fix.approx) setUserLoc(fix);
+          if (followFixRef.current) movePin({ lat: fix.lat, lng: fix.lng });
+        },
+      });
       if (!loc.approx) setUserLoc(loc);
-      movePin({ lat: loc.lat, lng: loc.lng });
-      const address = await reverseGeocode(loc.lat, loc.lng, loc.accuracy);
-      applyGeo(address, { lat: loc.lat, lng: loc.lng });
+      setFixAccuracy(typeof loc.accuracy === "number" ? loc.accuracy : null);
+      // Only re-centre on the final fix if the customer hasn't placed the pin themselves.
+      if (followFixRef.current) {
+        movePin({ lat: loc.lat, lng: loc.lng });
+        const address = await reverseGeocode(loc.lat, loc.lng, loc.accuracy);
+        applyGeo(address, { lat: loc.lat, lng: loc.lng });
+      }
     } catch (err) {
       // An automatic attempt on open stays quiet; the customer can still search or tap "locate".
       if (!silent) setError(geolocationErrorMessage(err));
     } finally {
+      followFixRef.current = false;
       setLocating(false);
     }
   };
@@ -268,6 +293,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
   }, [point, geo, estate, userLoc, nearby]);
 
   const choosePlace = (place: PlaceResult) => {
+    setFixAccuracy(null);
     movePin({ lat: place.lat, lng: place.lng });
     setEstate(place.label);
     setEstateTouched(true);
@@ -446,8 +472,22 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                           <LocateFixed className="size-5" aria-hidden />
                         )}
                       </span>
-                      {locating ? "Getting your location…" : "Use my current location"}
+                      {locating ? "Finding your exact spot…" : "Use my current location"}
                     </button>
+
+                    {fixAccuracy !== null && !locating && (
+                      <p
+                        role="status"
+                        className={cn(
+                          "rounded-md px-3.5 py-2.5 text-[13px] leading-snug",
+                          fixAccuracy <= 50 ? "bg-success-soft text-[#14532d]" : "bg-warning-soft text-warning"
+                        )}
+                      >
+                        {fixAccuracy <= 50
+                          ? `Located to within ${Math.round(fixAccuracy)} m. Nudge the map if the pin isn't on your door.`
+                          : `Your device could only place you within about ${formatDistance(fixAccuracy)}. Move the map so the pin sits exactly on your door, or turn on GPS / precise location and try again.`}
+                      </p>
+                    )}
 
                     {error && (
                       <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
@@ -519,7 +559,7 @@ export function LocationModal({ open, onClose, onConfirm }: LocationModalProps) 
                 <CenterPinMap
                   center={point}
                   focus={focusTarget}
-                  onChange={(p) => setPoint(p)}
+                  onChange={onMapMove}
                   onAddress={applyGeo}
                   userLocation={userLoc}
                   onLocate={() => void locateCustomer()}
