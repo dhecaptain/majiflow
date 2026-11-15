@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
-  CreditCard,
   Droplets,
   Headphones,
   LayoutDashboard,
@@ -33,7 +32,6 @@ const NAV: NavItem[] = [
   { href: "/account/notifications", label: "Notifications", icon: Bell },
   { href: "/account/profile", label: "Profile", icon: User },
   { href: "/account/addresses", label: "Addresses", icon: MapPin },
-  { href: "/account/plans", label: "Plans", icon: CreditCard },
 ];
 
 const SHOP: NavItem[] = [{ href: "/browse", label: "Browse water", icon: Droplets }];
