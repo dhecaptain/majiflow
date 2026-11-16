@@ -159,7 +159,7 @@ export function ContactPage() {
               </p>
             </form>
 
-            <aside className="flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
+            <aside className="flex flex-col gap-3 lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:self-start">
               <h2 className="text-lg font-extrabold tracking-tight text-foreground">Other ways to reach us</h2>
               <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-white">
                 {notes.map((n) => (

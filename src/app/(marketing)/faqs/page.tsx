@@ -75,7 +75,7 @@ export default function Faqs() {
               </section>
             ))}
           </div>
-          <aside className="lg:sticky lg:top-24 lg:self-start">{help}</aside>
+          <aside className="lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:self-start">{help}</aside>
         </div>
       </PageSection>
     </>

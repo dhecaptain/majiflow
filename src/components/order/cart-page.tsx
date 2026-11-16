@@ -283,7 +283,7 @@ export function CartPage() {
           </div>
 
           {/* Summary: in the flow on a phone, a sticky column with the action on a desktop. */}
-          <div className="flex min-w-0 flex-col gap-3.5 lg:sticky lg:top-24">
+          <div className="flex min-w-0 flex-col gap-3.5 lg:sticky lg:top-[calc(var(--header-h)+1.5rem)]">
             <section aria-labelledby="cart-summary" className={cn(CARD, "flex flex-col gap-3")}>
               <h2 id="cart-summary" className="text-[15px] font-extrabold tracking-tight text-foreground">
                 Summary

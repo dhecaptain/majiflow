@@ -3,6 +3,7 @@ import { Fraunces, Inter, JetBrains_Mono, Pacifico, Poppins } from "next/font/go
 import { Providers } from "@/components/providers";
 import { Footer } from "@/components/footer/site-footer";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
+import { CustomerSidebar } from "@/components/layout/customer-sidebar";
 import { PwaRegister } from "@/components/pwa-register";
 import { SplashLoader } from "@/components/motion/splash-loader";
 import { TopProgressBar } from "@/components/motion/top-progress-bar";
@@ -118,6 +119,13 @@ const splashGateScript = `try{if(location.pathname!=="/"||sessionStorage.getItem
 )})==="1"){document.documentElement.setAttribute("data-splash","off")}}catch(e){}`;
 
 /**
+ * Runs before the first paint so a returning signed-in customer gets the
+ * desktop sidebar layout straight away instead of the header flashing first.
+ * CustomerSidebar keeps the attribute in step with the real session.
+ */
+const signedInScript = `try{if(localStorage.getItem("mf:auth")==="1"){document.documentElement.setAttribute("data-signed-in","true")}}catch(e){}`;
+
+/**
  * The station catalog every page shares. Rendered per request (the query
  * itself is cached briefly) so a newly published station or price shows up
  * without a redeploy. If the catalog cannot load, pages still render and
@@ -146,6 +154,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: splashGateScript }} />
+        <script dangerouslySetInnerHTML={{ __html: signedInScript }} />
         {/* Entrance animations server-render at opacity:0. Without JS nothing ever
             reveals them, so force them visible to keep content readable. */}
         <noscript>
@@ -185,7 +194,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             }),
           }}
         />
-        <Providers stations={stations}>{children}</Providers>
+        <Providers stations={stations}>
+          <CustomerSidebar />
+          {children}
+        </Providers>
         <Footer />
         <BottomTabBar />
         <PwaRegister />

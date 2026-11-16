@@ -117,7 +117,7 @@ export function OrderDetailPage({ id }: { id: string }) {
       {active && (
         <Link
           href={`/order/${order.id}`}
-          className="mb-6 flex flex-col gap-3.5 rounded-xl border-2 border-[var(--brand)] bg-white p-4 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+          className="mb-6 flex flex-col gap-3.5 rounded-xl border border-[var(--brand)]/40 bg-white shadow-[0_0_0_3px_rgba(0,87,230,0.06)] p-4 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
         >
           <OrderProgress status={order.status} labels />
           <span className="flex items-center justify-between text-sm">

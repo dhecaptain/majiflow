@@ -34,7 +34,7 @@ export function addressLabel(address: DeliveryAddress | null): string {
 }
 
 /** The one customer header: delivery location, search and cart on every page. */
-export function SiteHeader() {
+export function SiteHeader({ className }: { className?: string } = {}) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const { openLocation } = useOrderEntry();
@@ -69,9 +69,11 @@ export function SiteHeader() {
 
   return (
     <header
+      data-site-header
       className={cn(
         "sticky top-0 z-50 border-b border-[#eef3fa] bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur-md",
-        ownsPhoneTopBar(pathname) && "hidden lg:block"
+        ownsPhoneTopBar(pathname) && "hidden lg:block",
+        className
       )}
     >
       <div className="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-4 py-3 sm:px-6 lg:gap-5 lg:py-3.5">

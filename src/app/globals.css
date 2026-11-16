@@ -101,6 +101,26 @@
   --tabbar-h: 0px;
 }
 
+/* Height of the sticky site header; sticky page parts sit just below it. */
+:root {
+  --header-h: 4.5rem;
+}
+
+/* Signed-in customers on desktop: the sidebar (CustomerSidebar) replaces the
+   site header on customer pages and the page moves over to make room. */
+@media (min-width: 1024px) {
+  html[data-signed-in="true"] [data-customer-sidebar] {
+    display: flex;
+  }
+  html[data-signed-in="true"] body:has([data-customer-sidebar]) {
+    --header-h: 0px;
+    padding-left: 264px;
+  }
+  html[data-signed-in="true"] body:has([data-customer-sidebar]) [data-site-header] {
+    display: none;
+  }
+}
+
 @media (max-width: 1023.98px) {
   html[data-tabbar] {
     --tabbar-h: calc(4.25rem + env(safe-area-inset-bottom));
