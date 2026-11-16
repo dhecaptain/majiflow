@@ -118,7 +118,7 @@ export default async function ItemPage({ params }: PageProps) {
         </div>
 
         <div className="mt-4 grid gap-6 lg:mt-6 lg:grid-cols-2 lg:gap-12">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-brand-soft lg:sticky lg:top-24 lg:self-start">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-brand-soft lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:self-start">
             <Image
               src={productImage(product.image)}
               alt={product.name}

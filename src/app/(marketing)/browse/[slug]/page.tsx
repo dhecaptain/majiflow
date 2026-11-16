@@ -109,7 +109,7 @@ export default async function BusinessProfile({ params }: PageProps) {
           </div>
 
           {/* About the station: beside the menu on a desktop, after it on a phone. */}
-          <aside aria-labelledby="about-title" className="mt-10 flex flex-col gap-3 lg:sticky lg:top-24 lg:mt-0 lg:self-start">
+          <aside aria-labelledby="about-title" className="mt-10 flex flex-col gap-3 lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:mt-0 lg:self-start">
             <h2 id="about-title" className="text-[17px] font-extrabold tracking-tight text-foreground">
               About this station
             </h2>

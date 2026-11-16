@@ -61,7 +61,7 @@ export function CategoryChips({
   return (
     <div
       className={cn(
-        "sticky top-[env(safe-area-inset-top)] z-30 -mx-4 border-b border-[#eef3fa] bg-white/95 px-4 backdrop-blur-md sm:mx-0 sm:px-0 lg:top-[calc(4.5rem+env(safe-area-inset-top))]",
+        "sticky top-[env(safe-area-inset-top)] z-30 -mx-4 border-b border-[#eef3fa] bg-white/95 px-4 backdrop-blur-md sm:mx-0 sm:px-0 lg:top-[calc(var(--header-h)+env(safe-area-inset-top))]",
         className
       )}
     >
